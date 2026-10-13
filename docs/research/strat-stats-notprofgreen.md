@@ -35,7 +35,7 @@ This repo's definition, for anyone extending the study: a `2u` is an `F2u` when 
 
 On this trade, almost no setup beats a random break of the prior bar. +1R before the stop lands about 50-53% of the time almost everywhere, close to the baseline. His one setup that passes the statistics is a small negative: 15m `2d-2d` traded long.
 
-I checked it independently. We ran the same method on our own NQ 1-minute data over his dates, and it reproduces his page almost cell for cell (bar counts within 0.1%, setup lifts correlating 0.99). Running it on ES from 2018 gives the same picture.
+I checked it independently, and the full results are on [Strat Stats: ES and NQ](https://345strategies.com/research/strat-stats), with a Reproduce tab for running it on your own data. We ran the same method on our own NQ 1-minute data over his dates, and it reproduces his page almost cell for cell (bar counts within 0.1%, setup lifts correlating 0.99). Running it on ES from 2018 gives the same picture.
 
 ## What it doesn't show
 
