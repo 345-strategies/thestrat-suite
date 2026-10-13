@@ -58,6 +58,13 @@ drift from the indicator.
 `TheStratGrammar.pine` is the same grammar as a TradingView library; the Suite imports it as of
 v3.1.1 (`import SpinTrades/TheStratGrammar/1`). Published versions: `PUBLISHED.md`.
 
+### `ninjatrader/` — TheStrat Suite for NinjaTrader 8 (C#)
+
+A full port of v3.1.1 as a NinjaScript indicator, free under MPL-2.0. Import
+`ninjatrader/dist/TheStratSuite_NT8_v0.1.0.zip` in NinjaTrader. `ninjatrader/README.md` covers
+install, where it differs from the Pine, and the in-app checks still to do.
+`grammar/tests/test_nt_parity.py` checks its engine against the grammar.
+
 ### `pine-draw/` — drawing components (Pine v6)
 
 The rendering layer with everything Strat-specific removed: update-in-place lines and
