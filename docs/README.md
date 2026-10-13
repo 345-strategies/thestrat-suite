@@ -34,6 +34,8 @@ Engineering docs reference the code by function name and `FIX` tag (grep-able), 
 
 Research-track scripts are documented separately in `../pine/research/README.md`.
 
+Outside research we point to: `research/strat-stats-notprofgreen.md`, @notprofgreen's NQ setup statistics and how to read them.
+
 ## Planned
 
 The launch docs backlog is fully written; new docs get a row above when they land.
