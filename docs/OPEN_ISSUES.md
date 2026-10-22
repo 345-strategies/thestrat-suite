@@ -7,13 +7,12 @@ re-derive it. Remove an entry when it ships, with the `FIX` tag that closed it.
 
 **Severity:** real bug, narrow blast radius. Wrong on the bond complex, correct everywhere else.
 
-Six sites format prices with `str.tostring(price, format.mintick)`:
+Five sites format prices with `str.tostring(price, format.mintick)`:
 
 - `pine/TheStratSuite_v3.1.0.pine:2042` — the price appended to a chart label when
   *Show Price in Label* is on
 - `pine/TheStratSuite_v3.1.0.pine:2828, 2832, 2836, 2840` — the trigger, magnitude,
   exhaustion and stop prices in enriched alert messages
-- `cross-levels/CrossLevels_v0.1.0.pine:1012` — level labels
 
 `format.mintick` rounds to the symbol's tick and renders the result as a decimal. On
 instruments TradingView displays fractionally, the two disagree. On ZB (mintick 1/32
@@ -31,7 +30,7 @@ precision or language, so importing it forces two user-facing inputs into the se
 panel to configure something the platform already knows. Only the fractional branch is
 needed. (Prior art reviewed 2026-08-18.)
 
-**Where it belongs:** PineDraw, so Cross Levels and the Suite share one implementation.
+**Where it belongs:** PineDraw, so the Suite and any other script built on PineDraw share one implementation.
 
 ## HTF requests are not guarded by the requested timeframe
 
