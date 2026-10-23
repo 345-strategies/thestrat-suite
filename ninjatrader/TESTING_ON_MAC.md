@@ -21,7 +21,7 @@ The Mac mini also works: install Parallels there and use Screen Sharing.
 
 ## 3. Install the indicator
 
-**Tools > Import > NinjaScript Add-On** and pick `ninjatrader/dist/TheStratSuite_NT8_v0.1.0.zip`. If NinjaTrader rejects the zip, copy the two `.cs` files into `Documents\NinjaTrader 8\bin\Custom\Indicators\TheStratSuite\` inside Windows. Then open **New > NinjaScript Editor** and press F5. Send me any compile errors as text or screenshots, with the line numbers.
+**Tools > Import > NinjaScript Add-On** and pick `ninjatrader/dist/TheStratSuite_NT8_v0.2.0.zip`. If NinjaTrader rejects the zip, copy the two `.cs` files into `Documents\NinjaTrader 8\bin\Custom\Indicators\TheStratSuite\` inside Windows. Then open **New > NinjaScript Editor** and press F5. Send me any compile errors as text or screenshots, with the line numbers.
 
 ## 4. Test sessions
 
@@ -29,7 +29,7 @@ Each session uses the README checklist numbers. Record pass/fail and a screensho
 
 **Session A: loads and draws (about 30 minutes, any time)**
 - Checklist 1, 2, 3, 11, 13: import, table rows fill, D/W/M rows, property grid names, tick and Renko charts.
-- Charts: ES 12-26 5-minute (ETH), SPY 5-minute (RTH), ES daily.
+- Charts: ES 12-26 5-minute (ETH), SPY 5-minute (RTH), ES daily. Set **Days to load** to 90 on the minute charts and 2000 on the daily chart (Data Series window), since minute slots and every slot on a daily chart load the chart's own history (README, How much history to load). A **Short history** table row means a timeframe still has too few candles.
 
 **Session B: parity with TradingView (about 45 minutes, after a close)**
 

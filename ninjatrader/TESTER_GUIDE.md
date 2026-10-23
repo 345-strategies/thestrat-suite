@@ -20,12 +20,14 @@ If the import fails, copy the two `.cs` files from the zip into `Documents\Ninja
 
 ## Test 1: it loads and draws (about 20 minutes)
 
-Use an ES or NQ 5-minute chart, then a SPY 5-minute chart, then any daily chart.
+Use an ES or NQ 5-minute chart, then a SPY 5-minute chart, then any daily chart. In the chart's **Data Series** window set **Days to load** to 90 for the minute charts and 2000 for the daily chart. NinjaTrader loads the minute timeframes (and, on a daily chart, every timeframe) from the chart's own history, and exhaustion levels need 52 candles of each timeframe.
 
 - The data table appears (top right by default) and every row has bar types in C2, C1 and CC.
 - Lines and labels appear near price. Labels are readable.
-- Try each **Timeframe Preset** under 01. Every row of the table fills within a few seconds. Monthly and longer rows need years of daily data. If one stays empty, raise **Max Daily Bars To Load** under 15. Advanced.
-- Open the indicator settings. Option lists read like the TradingView Suite ("Pin Bar (Strict)", "Reclaim + Open"), not code names.
+- Try each **Timeframe Preset** under 01. Every row of the table fills within a few seconds. If the table shows a **Short history** row, it names the timeframes with too little data: raise Days to load, or on a minute chart for D and longer, **Max Daily Bars To Load** under 15. Advanced. The NinjaScript Output window (New > NinjaScript Output) says which. Report it if the row stays after that.
+- Under **Custom**, the slots also offer 2m, 10m, 45m and 3H. Their table and label names read 2, 10, 45 and 180, as in the TradingView Suite.
+- Open the indicator settings. Option lists read like the TradingView Suite ("Pin Bar (Strict)", "Reclaim + Open"), not code names, and picking one sticks. Each setting shows the Suite's tooltip text at the bottom of the grid.
+- Set a color to **Transparent** (for example FTFC Conflict under 11. Bar Coloring with FTFC Candles on). Those candles turn invisible, as on TradingView, rather than white.
 - Save the workspace, close and reopen NinjaTrader. Your color and setting changes are still there.
 - Load it on a tick, Renko or range chart. No errors, even if it shows little.
 
@@ -42,7 +44,8 @@ On the **most recent bar** compare:
 
 ## Test 3: live behavior (about 30 minutes, live or Market Replay)
 
-- Watch a 1- or 5-minute chart while bars form. The table and lines update with each tick and nothing freezes.
+- Watch a 1- or 5-minute chart while bars form. The table and lines update with each tick and nothing freezes. Line ends and their labels sit at the end of each period, not one bar off.
+- Set the indicator's **Calculate** to On bar close. The table and lines still draw, one bar behind.
 - **Bar Numbers** (12. Bar Numbers, off by default): turn it on. Each candle gets its Strat number (1, 2u, 2d, 3, and F2u/F2d with Full notation). The forming candle's number is lighter. Try each Notation, Emphasis, Position and Color option. This follows a Suite feature that is not released on TradingView yet, so judge it on whether it reads well rather than against TradingView.
 - **Alerts** (14. Alerts): turn on **Enable Alerts** and a few conditions. Alerts appear in the Alerts Log once per bar with a sound, and never while the chart is loading history.
 - **Preview** (Auto by default): in Market Replay, play through a Friday close (2:00 PM PT, 5:00 PM ET, for CME futures). The table shows PREVIEW MODE afterwards and goes back to normal at the Sunday open (3:00 PM PT, 6:00 PM ET).
