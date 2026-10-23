@@ -9,7 +9,7 @@ using System.Collections.Generic;
 namespace System.Windows.Media
 {
     public struct Color { public byte A, R, G, B; public static Color FromArgb(byte a, byte r, byte g, byte b) { return new Color { A = a, R = r, G = g, B = b }; } public static Color FromRgb(byte r, byte g, byte b) { return FromArgb(255, r, g, b); } }
-    public abstract class Brush { public void Freeze() { } }
+    public abstract class Brush { double opacity = 1; public double Opacity { get { return opacity; } set { opacity = value; } } public void Freeze() { } }
     public class SolidColorBrush : Brush { public SolidColorBrush(Color c) { Color = c; } public Color Color { get; set; } }
     public static class Brushes { public static readonly Brush Transparent = new SolidColorBrush(new Color()), Black = Transparent, White = Transparent; }
 }
@@ -17,8 +17,16 @@ namespace System.Windows.Media
 namespace System.Windows.Threading
 {
     public class DispatcherOperation { }
-    public class Dispatcher { public DispatcherOperation InvokeAsync(Action a) { a(); return null; } }
-    public class DispatcherTimer { public TimeSpan Interval { get; set; } public event EventHandler Tick; public void Start() { } public void Stop() { if (Tick != null) { } } }
+    public class Dispatcher { public bool CheckAccess() { return true; } public DispatcherOperation InvokeAsync(Action a) { a(); return null; } }
+    public class DispatcherTimer
+    {
+        readonly Dispatcher d = new Dispatcher();
+        public Dispatcher Dispatcher { get { return d; } }
+        public TimeSpan Interval { get; set; }
+        public event EventHandler Tick;
+        public void Start() { }
+        public void Stop() { if (Tick != null) { } }
+    }
 }
 
 namespace SharpDX
@@ -33,7 +41,8 @@ namespace SharpDX.Direct2D1
 {
     public enum AntialiasMode { PerPrimitive, Aliased }
     public enum DashStyle { Solid, Dash, Dot }
-    public struct StrokeStyleProperties { public DashStyle DashStyle; }
+    public enum CapStyle { Flat, Square, Round, Triangle }
+    public struct StrokeStyleProperties { public DashStyle DashStyle; public CapStyle DashCap; public float MiterLimit; }
     public class Factory { }
     public class Brush : SharpDX.DisposeBase { }
     public class SolidColorBrush : Brush { public SolidColorBrush(RenderTarget rt, SharpDX.Color4 c) { } }
@@ -129,11 +138,18 @@ namespace NinjaTrader.Data
 
 namespace NinjaTrader.Gui
 {
+    [AttributeUsage(AttributeTargets.Property)]
+    public class PropertyEditorAttribute : Attribute { public PropertyEditorAttribute(string editorKey) { } }
     public static class Serialize
     {
         public static string BrushToString(System.Windows.Media.Brush b) { return ""; }
         public static System.Windows.Media.Brush StringToBrush(string s) { return null; }
     }
+}
+
+namespace NinjaTrader.Gui.Tools
+{
+    public class StringStandardValuesEditorKey { }
 }
 
 namespace NinjaTrader.Gui.Chart
@@ -201,6 +217,8 @@ namespace NinjaTrader.NinjaScript
             Requests.Add(new SeriesRequest { Instrument = instrumentName, Period = barsPeriod, BarsToLoad = barsToLoad, TradingHours = tradingHoursName });
         }
         public void Alert(string id, Priority priority, string message, string soundLocation, int rearmSeconds, System.Windows.Media.Brush backBrush, System.Windows.Media.Brush foreBrush) { Alerts.Add(id + ": " + message); }
+        public readonly List<string> Output = new List<string>();
+        public void Print(object value) { Output.Add(value == null ? "" : value.ToString()); }
         public void TriggerCustomEvent(Action<object> customEvent, int barsSeriesIndex, object state) { customEvent(state); }
         public bool EqualsInput(object input) { return false; }
         protected T CacheIndicator<T>(T indicator, ISeries<double> input, ref T[] cache) where T : NinjaScriptBase { return indicator; }

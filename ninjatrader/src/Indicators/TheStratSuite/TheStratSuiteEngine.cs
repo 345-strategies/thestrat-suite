@@ -40,12 +40,16 @@ namespace NinjaTrader.NinjaScript.Indicators.StratSuiteCore
     public enum StratTimeframe
     {
         [Description("1m")] Min1,
+        [Description("2m")] Min2,
         [Description("3m")] Min3,
         [Description("5m")] Min5,
+        [Description("10m")] Min10,
         [Description("15m")] Min15,
         [Description("30m")] Min30,
+        [Description("45m")] Min45,
         [Description("1H")] Hour1,
         [Description("2H")] Hour2,
+        [Description("3H")] Hour3,
         [Description("4H")] Hour4,
         [Description("8H")] Hour8,
         [Description("12H")] Hour12,
@@ -267,12 +271,16 @@ namespace NinjaTrader.NinjaScript.Indicators.StratSuiteCore
             switch (tf)
             {
                 case StratTimeframe.Min1: return 60;
+                case StratTimeframe.Min2: return 120;
                 case StratTimeframe.Min3: return 180;
                 case StratTimeframe.Min5: return 300;
+                case StratTimeframe.Min10: return 600;
                 case StratTimeframe.Min15: return 900;
                 case StratTimeframe.Min30: return 1800;
+                case StratTimeframe.Min45: return 2700;
                 case StratTimeframe.Hour1: return 3600;
                 case StratTimeframe.Hour2: return 7200;
+                case StratTimeframe.Hour3: return 10800;
                 case StratTimeframe.Hour4: return 14400;
                 case StratTimeframe.Hour8: return 28800;
                 case StratTimeframe.Hour12: return 43200;
@@ -291,18 +299,23 @@ namespace NinjaTrader.NinjaScript.Indicators.StratSuiteCore
         // Pine isCalendarTF: W, M, 3M, 6M, 12M.
         public static bool IsCalendar(StratTimeframe tf) { return tf >= StratTimeframe.Week; }
 
-        // Pine getTimeframeLabel.
+        // Pine getTimeframeLabel. It has no entry for 2, 10, 45 or 180 minutes and falls
+        // through to the raw interval string, so those read "2", "10", "45" and "180".
         public static string Label(StratTimeframe tf)
         {
             switch (tf)
             {
                 case StratTimeframe.Min1: return "1m";
+                case StratTimeframe.Min2: return "2";
                 case StratTimeframe.Min3: return "3m";
                 case StratTimeframe.Min5: return "5m";
+                case StratTimeframe.Min10: return "10";
                 case StratTimeframe.Min15: return "15m";
                 case StratTimeframe.Min30: return "30m";
+                case StratTimeframe.Min45: return "45";
                 case StratTimeframe.Hour1: return "1H";
                 case StratTimeframe.Hour2: return "2H";
+                case StratTimeframe.Hour3: return "180";
                 case StratTimeframe.Hour4: return "4H";
                 case StratTimeframe.Hour8: return "8H";
                 case StratTimeframe.Hour12: return "12H";
