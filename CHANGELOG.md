@@ -8,6 +8,12 @@ How to read this file:
 - **Every fix cites its `FIX` tag.** Grep the current source for the tag to find the exact code and the full inline rationale. Code references are function names and tags, never line numbers.
 - **Dates** come from dated `FIX` comments and file names. Where a snapshot carries no date of its own (2.2.2), the newest dated comment introduced in it is used.
 
+## [Unreleased]
+
+### Added
+
+- **Bar Numbers.** Each chart candle can now show its Strat number beside it: 1, 2u, 2d, 3u, 3d, F2u, F2d. It is off by default; turn it on in the new *Display - Bar Numbers* group. The numbers come from the same classifier as Strat Candles and the data table's CC cell, so the three can never disagree, and they follow the Failing 2 Detection Method. **Notation** offers Full (the table's notation), Classic (1, 2u, 2d, 3) or Numbers (1, 2, 3, with direction carried by color). **Emphasis** defaults to Tiered: 1s, 3s and Failing 2s show in full color and plain 2s are faded, so setups stand out instead of a wall of numbers. Uniform shows everything at full strength, and Key Bars Only hides plain 2s. **Position** is Below, Above, or Broken Side (the side the candle took out). **Color** uses the Style palette or a single color, and **Bars Shown** limits the numbers to the last N candles. The forming candle's number is drawn lighter until it closes, because it can still change. Numbers are drawn with `plotshape`, so they cover the whole chart without using any of the label budget the levels rely on. The tradeoff is that TradingView fixes the text size. Chart timeframe only; the data table already covers the other timeframes. When both features are on, they share one classification per bar with Strat Candles. (`BARNUM-1`)
+
 ## [3.1.1] — 2026-09-13
 
 Requires TheStratGrammar (TV version 1). Source: `pine/TheStratSuite_v3.1.1.pine`. Seven fixes to the preview path, found after a Friday pre-market report on SPY and a follow-up scan; details in each entry.
