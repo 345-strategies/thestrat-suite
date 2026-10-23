@@ -172,7 +172,7 @@ public static class SmokeTest
             chart.L[total - 1] = Math.Min(chart.L[total - 1], chart.C[total - 1]);
             ind.Bar();
         }
-        ind.ChartBars = new NinjaTrader.Gui.Chart.ChartBars { Count = total };
+        ind.ChartBars = new NinjaTrader.Gui.Chart.ChartBars { Count = total, FromIndex = Math.Max(0, total - 200), ToIndex = total - 1 };
         NinjaTrader.Core.Globals.NowOverride = new DateTime(2026, 9, 25, 16, 0, 0);
         ind.Bar();
         ind.Render();
@@ -225,7 +225,9 @@ public static class SmokeTest
                 if (cells.Length == 1) last += cells.GetValue(0).GetType().GetField("Text").GetValue(cells.GetValue(0)) + ";";
             }
         }
-        return string.Format("lines={0} boxes={1} labels={2} {3}", lines, boxes, labels, last);
+        int texts = ind.RenderTarget.TextDraws;
+        ind.RenderTarget.TextDraws = 0;
+        return string.Format("lines={0} boxes={1} labels={2} text={4} {3}", lines, boxes, labels, last, texts);
     }
 
     public static int Main(string[] args)
@@ -264,6 +266,7 @@ public static class SmokeTest
             i.ShowStopLevels = true; i.StopBEatMag = true; i.OnlyFollowTheLead = true; i.ShowF2OpenLine = true;
             i.ShowFloatingLabels = true; i.ShowPriceInLabel = true; i.ShowHighLowInLabel = true; i.ShowDebugPanel = true;
             i.BarColorMode = BarColorModeOption.StratCandles; i.EnableAlerts = true;
+            i.ShowBarNumbers = true; i.BarNumPosition = BarNumPositionOption.BrokenSide; i.BarNumBarsShown = 50;
             i.AlertTF1InForce = i.AlertBullishInForce = i.AlertBearishInForce = i.AlertNewPotential = i.AlertDominoSetup = true;
             i.AlertFtfcShifted = i.AlertFtfcUp = i.AlertFtfcDown = i.AlertFtfcConflict = true;
             i.AlertShowFTFC = i.AlertShowTrigger = i.AlertShowMagnitude = i.AlertShowExhaustion = i.AlertShowStop = true;
@@ -271,6 +274,7 @@ public static class SmokeTest
         }));
         configs.Add(new KeyValuePair<string, Action<TheStratSuite>>("FTFC candles, compact, universal", i =>
         {
+            i.ShowBarNumbers = true; i.BarNumNotation = BarNumNotationOption.Numbers; i.BarNumEmphasis = BarNumEmphasisOption.KeyBarsOnly; i.BarNumColorMode = BarNumColorModeOption.SingleColor;
             i.BarColorMode = BarColorModeOption.FtfcCandles; i.TableMode = TableModeOption.Compact; i.LabelStyle = StratLabelStyle.Universal;
             i.StopSmallestOnly = true; i.ShowStopLevels = true; i.PreviewMode = PreviewModeOption.On; i.Failed2DetectionMethod = F2Method.Open;
         }));

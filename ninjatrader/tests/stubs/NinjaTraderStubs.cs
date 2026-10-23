@@ -45,7 +45,8 @@ namespace SharpDX.Direct2D1
         public void DrawLine(SharpDX.Vector2 a, SharpDX.Vector2 b, Brush br, float w, StrokeStyle s) { }
         public void FillRectangle(SharpDX.RectangleF r, Brush br) { }
         public void DrawRectangle(SharpDX.RectangleF r, Brush br, float w) { }
-        public void DrawTextLayout(SharpDX.Vector2 o, SharpDX.DirectWrite.TextLayout l, Brush br) { }
+        public int TextDraws;
+        public void DrawTextLayout(SharpDX.Vector2 o, SharpDX.DirectWrite.TextLayout l, Brush br) { TextDraws++; }
     }
 }
 
@@ -138,7 +139,7 @@ namespace NinjaTrader.Gui
 namespace NinjaTrader.Gui.Chart
 {
     public enum ScaleJustification { Left, Right, Overlay }
-    public class ChartBars { public int Count { get; set; } }
+    public class ChartBars { public int Count { get; set; } public int FromIndex { get; set; } public int ToIndex { get; set; } }
     public class ChartControlProperties { public float BarDistance { get; set; } }
     public class ChartControl
     {

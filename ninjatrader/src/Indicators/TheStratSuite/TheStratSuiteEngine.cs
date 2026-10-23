@@ -74,6 +74,10 @@ namespace NinjaTrader.NinjaScript.Indicators.StratSuiteCore
     public enum TextSizeOption { [Description("Tiny")] Tiny, [Description("Small")] Small, [Description("Normal")] Normal, [Description("Large")] Large }
     public enum BarColorModeOption { [Description("Off")] Off, [Description("Strat Candles")] StratCandles, [Description("FTFC Candles")] FtfcCandles }
     public enum DebugSlot { TF1, TF2, TF3, TF4, TF5, TF6 }
+    public enum BarNumNotationOption { [Description("Full")] Full, [Description("Classic")] Classic, [Description("Numbers")] Numbers }
+    public enum BarNumEmphasisOption { [Description("Tiered")] Tiered, [Description("Uniform")] Uniform, [Description("Key Bars Only")] KeyBarsOnly }
+    public enum BarNumPositionOption { [Description("Below")] Below, [Description("Above")] Above, [Description("Broken Side")] BrokenSide }
+    public enum BarNumColorModeOption { [Description("Bar Type Palette")] BarTypePalette, [Description("Single Color")] SingleColor }
     public enum LineStyleCode { Solid, Dashed, Dotted }
 
     public enum Structure { None, One, TwoUp, TwoDown, Three }
@@ -92,9 +96,11 @@ namespace NinjaTrader.NinjaScript.Indicators.StratSuiteCore
         public bool IsNone { get { return A == 0; } }
 
         // Pine color.new(c, transp): transp 0 = solid, 100 = invisible.
-        public SColor WithTransp(int transp)
+        public SColor WithTransp(int transp) { return WithTransp((double)transp); }
+
+        public SColor WithTransp(double transp)
         {
-            int t = Math.Max(0, Math.Min(100, transp));
+            double t = Math.Max(0, Math.Min(100, transp));
             return new SColor(R, G, B, (byte)Math.Round((100 - t) * 255.0 / 100.0));
         }
 
@@ -222,6 +228,15 @@ namespace NinjaTrader.NinjaScript.Indicators.StratSuiteCore
         public bool PaintInsideBars = true, Paint2Bars = true, PaintOutsideBars = true, PaintFailedBars = true;
         public SColor ColorFtfcUpBar = SColor.Hex(0x4CAF50), ColorFtfcDownBar = SColor.Hex(0xF23645), ColorFtfcConflictBar = SColor.Hex(0x808080);
         public bool PaintFtfcConflict = true, PaintFtfcTransitions = true;
+
+        // Bar numbers (BARNUM-1)
+        public bool ShowBarNumbers = false;
+        public BarNumNotationOption BarNumNotation = BarNumNotationOption.Full;
+        public BarNumEmphasisOption BarNumEmphasis = BarNumEmphasisOption.Tiered;
+        public BarNumPositionOption BarNumPosition = BarNumPositionOption.Below;
+        public BarNumColorModeOption BarNumColorMode = BarNumColorModeOption.BarTypePalette;
+        public SColor BarNumColor = SColor.Hex(0x9598A1);
+        public int BarNumBarsShown = 0;
 
         // Derived colors (Pine's COLOR_* vars)
         public SColor ColorFailed2U { get { return ColorBearishP3; } }
@@ -1621,6 +1636,70 @@ namespace NinjaTrader.NinjaScript.Indicators.StratSuiteCore
             }
             if (bestRunBull >= bestRunBear) { bestRun = bestRunBull; bestTFs = bestTFsBull; }
             else { bestRun = bestRunBear; bestTFs = bestTFsBear; }
+        }
+    }
+
+    // ============================================================================
+    // BAR NUMBERS (Pine SECTION 15, BARNUM-1)
+    // ============================================================================
+
+    public struct BarNumberToken
+    {
+        public bool Visible;
+        public string Text;
+        public SColor Color;
+        public bool Above;      // above the candle's high, else below its low
+    }
+
+    public static class StratBarNumbers
+    {
+        // One chart candle's number, from its bar type (DetectBarTypeAndFailed against the prior
+        // candle, the table's CC classifier). `forming` = the live candle that has not closed.
+        public static BarNumberToken Token(StratSettings s, string barType, bool forming)
+        {
+            BarNumberToken t = new BarNumberToken();
+            if (!s.ShowBarNumbers || string.IsNullOrEmpty(barType))
+                return t;
+            bool full = s.BarNumNotation == BarNumNotationOption.Full;
+            bool numbers = s.BarNumNotation == BarNumNotationOption.Numbers;
+            bool keyOnly = s.BarNumEmphasis == BarNumEmphasisOption.KeyBarsOnly;
+            bool is1 = barType == "1u" || barType == "1d";
+            bool is3u = barType == "3u", is3d = barType == "3d";
+            bool isF2u = barType == "F2u", isF2d = barType == "F2d";
+            // A Failing 2 renders as its plain 2 outside Full notation.
+            bool plain2u = barType == "2u" || (isF2u && !full);
+            bool plain2d = barType == "2d" || (isF2d && !full);
+            bool locUpAbove = s.BarNumPosition != BarNumPositionOption.Below;
+            bool locDownAbove = s.BarNumPosition == BarNumPositionOption.Above;
+
+            if (is1) { t.Visible = true; t.Text = "1"; t.Above = locDownAbove; }
+            else if (plain2u) { t.Visible = !keyOnly; t.Text = numbers ? "2" : "2u"; t.Above = locUpAbove; }
+            else if (plain2d) { t.Visible = !keyOnly; t.Text = numbers ? "2" : "2d"; t.Above = locDownAbove; }
+            else if (full && isF2u) { t.Visible = true; t.Text = "F2u"; t.Above = locUpAbove; }
+            else if (full && isF2d) { t.Visible = true; t.Text = "F2d"; t.Above = locDownAbove; }
+            else if (is3u) { t.Visible = true; t.Text = full ? "3u" : "3"; t.Above = locUpAbove; }
+            else if (is3d) { t.Visible = true; t.Text = full ? "3d" : "3"; t.Above = locDownAbove; }
+            if (!t.Visible)
+                return t;
+
+            SColor palette;
+            switch (barType)
+            {
+                case "1u": palette = s.ColorBullishPotential; break;
+                case "1d": palette = s.ColorBearishPotential; break;
+                case "2u": palette = s.ColorBullishActive; break;
+                case "2d": palette = s.ColorBearishActive; break;
+                case "F2u": palette = full ? s.ColorFailed2U : s.ColorBullishActive; break;
+                case "F2d": palette = full ? s.ColorFailed2D : s.ColorBearishActive; break;
+                case "3u": palette = s.Color3High; break;
+                default: palette = s.Color3Low; break;
+            }
+            SColor baseColor = s.BarNumColorMode == BarNumColorModeOption.SingleColor ? s.BarNumColor : palette;
+            double transp = s.BarNumEmphasis == BarNumEmphasisOption.Tiered && (plain2u || plain2d) ? 65 : 0;
+            if (forming)
+                transp = transp + (100 - transp) / 2;
+            t.Color = baseColor.WithTransp(transp);
+            return t;
         }
     }
 }

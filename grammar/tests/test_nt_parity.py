@@ -129,6 +129,69 @@ def test_nt_calendar_period_keys(harness):
         assert (got[2 * i] == got[2 * i + 1]) == same, (tf, a, b)
 
 
+# Pine SECTION 15 (BARNUM-1, Suite PR #8), transcribed call by call from the 11 plotshape
+# calls so the C# token logic is checked against the Pine's own structure.
+STYLE = {"bullishActive": 0x4CAF50, "bearishActive": 0xF23645, "bullishPotential": 0xFFEB3B,
+         "bearishPotential": 0xFF9800, "bullish3": 0x089981, "bearish3": 0xE91E63,
+         "bullishP3": 0x81C784, "bearishP3": 0xF77C80}
+SINGLE = 0x9598A1
+
+
+def pine_bar_number(bt, notation, emphasis, position, color_mode, forming):
+    if bt == "":
+        return "none"
+    full, numbers, key_only = notation == "Full", notation == "Numbers", emphasis == "Key Bars Only"
+    is1 = bt in ("1u", "1d")
+    is3u, is3d, isF2u, isF2d = bt == "3u", bt == "3d", bt == "F2u", bt == "F2d"
+    plain2u = bt == "2u" or (isF2u and not full)
+    plain2d = bt == "2d" or (isF2d and not full)
+    palette = {"1u": STYLE["bullishPotential"], "1d": STYLE["bearishPotential"], "2u": STYLE["bullishActive"],
+               "2d": STYLE["bearishActive"], "F2u": STYLE["bearishP3"] if full else STYLE["bullishActive"],
+               "F2d": STYLE["bullishP3"] if full else STYLE["bearishActive"], "3u": STYLE["bullish3"],
+               "3d": STYLE["bearish3"]}[bt]
+    base = SINGLE if color_mode == "Single Color" else palette
+    transp = 65 if emphasis == "Tiered" and (plain2u or plain2d) else 0
+    if forming:
+        transp = transp + (100 - transp) / 2
+    loc_up = "below" if position == "Below" else "above"
+    loc_down = "above" if position == "Above" else "below"
+    calls = [  # (condition, text, location) in the Pine's order
+        (is1, "1", loc_down),
+        (not numbers and not key_only and plain2u, "2u", loc_up),
+        (not numbers and not key_only and plain2d, "2d", loc_down),
+        (numbers and not key_only and plain2u, "2", loc_up),
+        (numbers and not key_only and plain2d, "2", loc_down),
+        (full and isF2u, "F2u", loc_up),
+        (full and isF2d, "F2d", loc_down),
+        (full and is3u, "3u", loc_up),
+        (full and is3d, "3d", loc_down),
+        (not full and is3u, "3", loc_up),
+        (not full and is3d, "3", loc_down),
+    ]
+    shown = [(t, loc) for cond, t, loc in calls if cond]
+    assert len(shown) <= 1, (bt, notation, emphasis)  # at most one token per candle
+    if not shown:
+        return "none"
+    alpha = round((100 - transp) * 255 / 100)
+    r, g, b = base >> 16, (base >> 8) & 255, base & 255
+    return f"{shown[0][0]} {shown[0][1]} {r},{g},{b},{alpha}"
+
+
+@needs_mono
+def test_nt_bar_numbers_match_pine(harness):
+    types = ["-", "1u", "1d", "2u", "2d", "F2u", "F2d", "3u", "3d"]
+    notations = ["Full", "Classic", "Numbers"]
+    emphases = ["Tiered", "Uniform", "Key Bars Only"]
+    positions = ["Below", "Above", "Broken Side"]
+    colors = ["Bar Type Palette", "Single Color"]
+    cases = [(bt, n, e, p, c, f) for bt in types for n in range(3) for e in range(3) for p in range(3)
+             for c in range(2) for f in (0, 1)]
+    got = harness([f"bn {bt} {n} {e} {p} {c} {f}" for bt, n, e, p, c, f in cases])
+    for (bt, n, e, p, c, f), g in zip(cases, got):
+        want = pine_bar_number("" if bt == "-" else bt, notations[n], emphases[e], positions[p], colors[c], bool(f))
+        assert g == want, (bt, notations[n], emphases[e], positions[p], colors[c], f)
+
+
 @needs_mono
 def test_nt_indicator_typechecks_against_stubs():
     out = os.path.join(tempfile.mkdtemp(), "ind.dll")

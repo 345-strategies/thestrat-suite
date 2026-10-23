@@ -334,6 +334,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         private StratTimeframe chartAsTf;
         private readonly Dictionary<string, int> alertFiredBar = new Dictionary<string, int>();
         private RenderModel model;
+        private volatile int formingBar = -1;
         private DispatcherTimer clockTimer;
         private readonly Dictionary<int, SolidColorBrush> wpfBrushes = new Dictionary<int, SolidColorBrush>();
         private readonly Dictionary<int, SharpDX.Direct2D1.SolidColorBrush> dxBrushes = new Dictionary<int, SharpDX.Direct2D1.SolidColorBrush>();
@@ -742,6 +743,17 @@ namespace NinjaTrader.NinjaScript.Indicators
 
             // ---- 10. Render model ----
             if (isLast)
+            {
+                // The live candle's bar number is drawn lighter until it closes (BARNUM-1).
+                bool forming = false;
+                if (settings.ShowBarNumbers && State == State.Realtime)
+                {
+                    try { DateTime lc; forming = !LastBarClosed(k, now, out lc) || chartSeconds == 0; }
+                    catch { forming = false; }
+                }
+                formingBar = forming ? k : -1;
+            }
+            if (isLast)
                 model = BuildModel(st, k, raws, results, anchorIndex, anchorDirection, ftfcUp, ftfcDown, dominoBestRun, dominoBestTFs, previewNext, dbg, c0, tick);
         }
 
@@ -752,22 +764,26 @@ namespace NinjaTrader.NinjaScript.Indicators
         // not trading according to the instrument's trading hours template (which carries the
         // exchange holidays and early closes), or 4 hours after the last bar's close.
 
+        // Has the chart bar passed its scheduled close? Non-time charts have no schedule.
+        private bool LastBarClosed(int k, DateTime now, out DateTime lastClose)
+        {
+            lastClose = BarsArray[0].GetTime(k);
+            if (chartIntradayTime)
+                return now > lastClose;
+            if (chartDayBased)
+            {
+                lastClose = PeriodEndFromDate(chartAsTf, TradingDateOf(k));
+                return now > lastClose;
+            }
+            return true;
+        }
+
         private bool MarketLikelyClosed(int k, DateTime now)
         {
             try
             {
-                DateTime lastClose = BarsArray[0].GetTime(k);
-                bool lastBarClosed;
-                if (chartIntradayTime)
-                    lastBarClosed = now > lastClose;
-                else if (chartDayBased)
-                {
-                    lastClose = PeriodEndFromDate(chartAsTf, TradingDateOf(k));
-                    lastBarClosed = now > lastClose;
-                }
-                else
-                    lastBarClosed = true;
-                if (!lastBarClosed) return false;
+                DateTime lastClose;
+                if (!LastBarClosed(k, now, out lastClose)) return false;
                 clockIt.GetNextSession(now, true);
                 bool inSession = now >= clockIt.ActualSessionBegin && now <= clockIt.ActualSessionEnd;
                 bool holidayClosed = (now - lastClose).TotalHours > 4;
@@ -1585,8 +1601,11 @@ namespace NinjaTrader.NinjaScript.Indicators
         protected override void OnRender(ChartControl chartControl, ChartScale chartScale)
         {
             base.OnRender(chartControl, chartScale);
+            if (RenderTarget == null || ChartBars == null) return;
+            if (settings != null && settings.ShowBarNumbers)
+                DrawBarNumbers(chartControl, chartScale);
             RenderModel m = model;
-            if (m == null || RenderTarget == null || ChartBars == null) return;
+            if (m == null) return;
             SharpDX.Direct2D1.AntialiasMode oldAa = RenderTarget.AntialiasMode;
             RenderTarget.AntialiasMode = SharpDX.Direct2D1.AntialiasMode.Aliased;
             try
@@ -1632,6 +1651,47 @@ namespace NinjaTrader.NinjaScript.Indicators
                 }
                 if (m.Table != null) DrawTable(m.Table, true);
                 if (m.Debug != null) DrawTable(m.Debug, false);
+            }
+            finally
+            {
+                RenderTarget.AntialiasMode = oldAa;
+            }
+        }
+
+        // Pine SECTION 15 (BARNUM-1). Drawn per visible candle at render time: the number reads
+        // only the candle's own OHLC and the prior candle's high and low, so nothing needs storing.
+        private void DrawBarNumbers(ChartControl chartControl, ChartScale chartScale)
+        {
+            Bars b0 = BarsArray[0];
+            int count = b0.Count;
+            int from = Math.Max(1, ChartBars.FromIndex), to = Math.Min(ChartBars.ToIndex, count - 1);
+            if (settings.BarNumBarsShown > 0)
+                from = Math.Max(from, count - settings.BarNumBarsShown);
+            if (to < from) return;
+            const float gap = 4f;
+            SharpDX.Direct2D1.AntialiasMode oldAa = RenderTarget.AntialiasMode;
+            RenderTarget.AntialiasMode = SharpDX.Direct2D1.AntialiasMode.PerPrimitive;
+            try
+            {
+                using (SharpDX.DirectWrite.TextFormat tf = new SharpDX.DirectWrite.TextFormat(NinjaTrader.Core.Globals.DirectWriteFactory, "Arial", FontSize(BarNumTextSize)))
+                {
+                    tf.TextAlignment = SharpDX.DirectWrite.TextAlignment.Center;
+                    for (int i = from; i <= to; i++)
+                    {
+                        bool failed;
+                        string type = StratGrammar.DetectBarTypeAndFailed(b0.GetHigh(i - 1), b0.GetLow(i - 1), b0.GetHigh(i), b0.GetLow(i),
+                            b0.GetOpen(i), b0.GetClose(i), settings.EnableFailed2Detection, settings.Failed2Method, out failed);
+                        BarNumberToken t = StratBarNumbers.Token(settings, type, i == formingBar);
+                        if (!t.Visible) continue;
+                        using (SharpDX.DirectWrite.TextLayout lay = new SharpDX.DirectWrite.TextLayout(NinjaTrader.Core.Globals.DirectWriteFactory, t.Text, tf, 60, 40))
+                        {
+                            float h = lay.Metrics.Height;
+                            float x = chartControl.GetXByBarIndex(ChartBars, i) - 30;
+                            float y = t.Above ? chartScale.GetYByValue(b0.GetHigh(i)) - gap - h : chartScale.GetYByValue(b0.GetLow(i)) + gap;
+                            RenderTarget.DrawTextLayout(new SharpDX.Vector2(x, y), lay, Dx(t.Color));
+                        }
+                    }
+                }
             }
             finally
             {
@@ -1762,6 +1822,8 @@ namespace NinjaTrader.NinjaScript.Indicators
             s.PaintInsideBars = PaintInsideBars; s.Paint2Bars = Paint2Bars; s.PaintOutsideBars = PaintOutsideBars; s.PaintFailedBars = PaintFailedBars;
             s.ColorFtfcUpBar = ToS(FtfcUpColor, SColor.Hex(0x4CAF50)); s.ColorFtfcDownBar = ToS(FtfcDownColor, SColor.Hex(0xF23645)); s.ColorFtfcConflictBar = ToS(FtfcConflictColor, SColor.Hex(0x808080));
             s.PaintFtfcConflict = PaintFtfcConflict; s.PaintFtfcTransitions = HighlightFailing2Flips;
+            s.ShowBarNumbers = ShowBarNumbers; s.BarNumNotation = BarNumNotation; s.BarNumEmphasis = BarNumEmphasis; s.BarNumPosition = BarNumPosition;
+            s.BarNumColorMode = BarNumColorMode; s.BarNumColor = ToS(BarNumColor, SColor.Hex(0x9598A1)); s.BarNumBarsShown = BarNumBarsShown;
             return s;
         }
 
@@ -1802,6 +1864,8 @@ namespace NinjaTrader.NinjaScript.Indicators
             LabelTextSize = TextSizeOption.Small; LabelBackground = Hex(0x2E2E2E); LabelBackgroundTransparency = 20; ClampTimelineLabels = true;
             BarColorMode = BarColorModeOption.Off; PaintInsideBars = true; Paint2Bars = true; PaintOutsideBars = true; PaintFailedBars = true;
             FtfcUpColor = Hex(0x4CAF50); FtfcDownColor = Hex(0xF23645); FtfcConflictColor = Hex(0x808080); PaintFtfcConflict = true; HighlightFailing2Flips = true;
+            ShowBarNumbers = false; BarNumNotation = BarNumNotationOption.Full; BarNumEmphasis = BarNumEmphasisOption.Tiered; BarNumPosition = BarNumPositionOption.Below;
+            BarNumColorMode = BarNumColorModeOption.BarTypePalette; BarNumColor = Hex(0x9598A1); BarNumBarsShown = 0; BarNumTextSize = TextSizeOption.Small;
             BullSignalColor = Hex(0x4CAF50); BullCrossedColor = Hex(0x9C9C9C); BullInsideColor = Hex(0xFFEB3B); BullOutsideColor = Hex(0x089981); BullReclaimColor = Hex(0x81C784);
             BearSignalColor = Hex(0xF23645); BearCrossedColor = Hex(0x4A4A4A); BearInsideColor = Hex(0xFF9800); BearOutsideColor = Hex(0xE91E63); BearReclaimColor = Hex(0xF77C80);
             AlertIncludeTF1 = AlertIncludeTF2 = AlertIncludeTF3 = AlertIncludeTF4 = AlertIncludeTF5 = AlertIncludeTF6 = true;
@@ -1970,78 +2034,99 @@ namespace NinjaTrader.NinjaScript.Indicators
         [Display(Name = "Color Conflict Bars", Order = 9, GroupName = "11. Bar Coloring")] public bool PaintFtfcConflict { get; set; }
         [Display(Name = "Highlight Failing 2 Flips", Order = 10, GroupName = "11. Bar Coloring")] public bool HighlightFailing2Flips { get; set; }
 
-        // ---- 12. Style ----
-        [XmlIgnore][Display(Name = "Bullish Signal", Order = 1, GroupName = "12. Style")] public Brush BullSignalColor { get; set; }
+        // ---- 12. Bar Numbers (BARNUM-1) ----
+        [Display(Name = "Show Bar Numbers", Order = 1, GroupName = "12. Bar Numbers", Description = "Print each chart candle's Strat number (1, 2u, 2d, 3) next to it, classified against the prior candle. Uses the same classification (and Failing 2 Detection Method) as the data table's CC cell and Strat Candles, so numbers, candle paint and table always agree. Chart timeframe only - the data table covers your other timeframes. Not meaningful on Heikin Ashi or other synthetic candles.")] public bool ShowBarNumbers { get; set; }
+        [Display(Name = "Notation", Order = 2, GroupName = "12. Bar Numbers", Description = "Full: 1, 2u, 2d, 3u, 3d, F2u, F2d - exactly the data table's notation. Classic: 1, 2u, 2d, 3. Outside bars drop their close direction and Failing 2s show as their plain 2u/2d. Numbers: 1, 2, 3. Direction is carried by color alone.")]
+        [TypeConverter(typeof(FriendlyEnumConverter<BarNumNotationOption>))]
+        public BarNumNotationOption BarNumNotation { get; set; }
+        [Display(Name = "Emphasis", Order = 3, GroupName = "12. Bar Numbers", Description = "Tiered: 1s, 3s and Failing 2s in full color, plain 2s faded - setups start at 1s, 3s and failing 2s, so those stand out while trending 2s recede. Uniform: every number at full strength. Key Bars Only: plain 2s are hidden. In Classic and Numbers notation a Failing 2 shows as a plain 2, so it is hidden too.")]
+        [TypeConverter(typeof(FriendlyEnumConverter<BarNumEmphasisOption>))]
+        public BarNumEmphasisOption BarNumEmphasis { get; set; }
+        [Display(Name = "Position", Order = 4, GroupName = "12. Bar Numbers", Description = "Below / Above: every number on the same side, reading as one steady row. Broken Side: the number sits on the side the candle took out - 2u and F2u above, 2d and F2d below. Outside bars follow their close (3u above, 3d below); inside bars sit below.")]
+        [TypeConverter(typeof(FriendlyEnumConverter<BarNumPositionOption>))]
+        public BarNumPositionOption BarNumPosition { get; set; }
+        [Display(Name = "Color", Order = 5, GroupName = "12. Bar Numbers", Description = "Bar Type Palette: each number takes its family color from the Style group (Signal, Inside Bar, Outside Bar, Range Reclaim), the same colors Strat Candles paints. Single Color: one color for every number - useful with Strat Candles on, so color is not shown twice. Emphasis still applies.")]
+        [TypeConverter(typeof(FriendlyEnumConverter<BarNumColorModeOption>))]
+        public BarNumColorModeOption BarNumColorMode { get; set; }
+        [XmlIgnore][Display(Name = "Single Color", Order = 6, GroupName = "12. Bar Numbers")] public Brush BarNumColor { get; set; }
+        [Browsable(false)] public string BarNumColorSerializable { get { return Serialize.BrushToString(BarNumColor); } set { BarNumColor = Serialize.StringToBrush(value); } }
+        [Range(0, 100000)][Display(Name = "Bars Shown", Order = 7, GroupName = "12. Bar Numbers", Description = "Number only the most recent N candles. 0 = every candle on the chart. The forming candle's number is drawn lighter because it can still change (a 2u can become a 3 or fail into an F2u); it takes full strength when the candle closes.")] public int BarNumBarsShown { get; set; }
+        [Display(Name = "Text Size", Order = 8, GroupName = "12. Bar Numbers", Description = "NinjaTrader only. TradingView fixes this size; NinjaTrader can draw any size at no cost.")]
+        [TypeConverter(typeof(FriendlyEnumConverter<TextSizeOption>))]
+        public TextSizeOption BarNumTextSize { get; set; }
+
+        // ---- 13. Style ----
+        [XmlIgnore][Display(Name = "Bullish Signal", Order = 1, GroupName = "13. Style")] public Brush BullSignalColor { get; set; }
         [Browsable(false)] public string BullSignalColorSerializable { get { return Serialize.BrushToString(BullSignalColor); } set { BullSignalColor = Serialize.StringToBrush(value); } }
-        [XmlIgnore][Display(Name = "Bullish Crossed", Order = 2, GroupName = "12. Style")] public Brush BullCrossedColor { get; set; }
+        [XmlIgnore][Display(Name = "Bullish Crossed", Order = 2, GroupName = "13. Style")] public Brush BullCrossedColor { get; set; }
         [Browsable(false)] public string BullCrossedColorSerializable { get { return Serialize.BrushToString(BullCrossedColor); } set { BullCrossedColor = Serialize.StringToBrush(value); } }
-        [XmlIgnore][Display(Name = "Bullish 1 (Inside Bar)", Order = 3, GroupName = "12. Style")] public Brush BullInsideColor { get; set; }
+        [XmlIgnore][Display(Name = "Bullish 1 (Inside Bar)", Order = 3, GroupName = "13. Style")] public Brush BullInsideColor { get; set; }
         [Browsable(false)] public string BullInsideColorSerializable { get { return Serialize.BrushToString(BullInsideColor); } set { BullInsideColor = Serialize.StringToBrush(value); } }
-        [XmlIgnore][Display(Name = "Bullish 3 (Outside Bar)", Order = 4, GroupName = "12. Style")] public Brush BullOutsideColor { get; set; }
+        [XmlIgnore][Display(Name = "Bullish 3 (Outside Bar)", Order = 4, GroupName = "13. Style")] public Brush BullOutsideColor { get; set; }
         [Browsable(false)] public string BullOutsideColorSerializable { get { return Serialize.BrushToString(BullOutsideColor); } set { BullOutsideColor = Serialize.StringToBrush(value); } }
-        [XmlIgnore][Display(Name = "Bullish Range Reclaim (F2d)", Order = 5, GroupName = "12. Style")] public Brush BullReclaimColor { get; set; }
+        [XmlIgnore][Display(Name = "Bullish Range Reclaim (F2d)", Order = 5, GroupName = "13. Style")] public Brush BullReclaimColor { get; set; }
         [Browsable(false)] public string BullReclaimColorSerializable { get { return Serialize.BrushToString(BullReclaimColor); } set { BullReclaimColor = Serialize.StringToBrush(value); } }
-        [XmlIgnore][Display(Name = "Bearish Signal", Order = 6, GroupName = "12. Style")] public Brush BearSignalColor { get; set; }
+        [XmlIgnore][Display(Name = "Bearish Signal", Order = 6, GroupName = "13. Style")] public Brush BearSignalColor { get; set; }
         [Browsable(false)] public string BearSignalColorSerializable { get { return Serialize.BrushToString(BearSignalColor); } set { BearSignalColor = Serialize.StringToBrush(value); } }
-        [XmlIgnore][Display(Name = "Bearish Crossed", Order = 7, GroupName = "12. Style")] public Brush BearCrossedColor { get; set; }
+        [XmlIgnore][Display(Name = "Bearish Crossed", Order = 7, GroupName = "13. Style")] public Brush BearCrossedColor { get; set; }
         [Browsable(false)] public string BearCrossedColorSerializable { get { return Serialize.BrushToString(BearCrossedColor); } set { BearCrossedColor = Serialize.StringToBrush(value); } }
-        [XmlIgnore][Display(Name = "Bearish 1 (Inside Bar)", Order = 8, GroupName = "12. Style")] public Brush BearInsideColor { get; set; }
+        [XmlIgnore][Display(Name = "Bearish 1 (Inside Bar)", Order = 8, GroupName = "13. Style")] public Brush BearInsideColor { get; set; }
         [Browsable(false)] public string BearInsideColorSerializable { get { return Serialize.BrushToString(BearInsideColor); } set { BearInsideColor = Serialize.StringToBrush(value); } }
-        [XmlIgnore][Display(Name = "Bearish 3 (Outside Bar)", Order = 9, GroupName = "12. Style")] public Brush BearOutsideColor { get; set; }
+        [XmlIgnore][Display(Name = "Bearish 3 (Outside Bar)", Order = 9, GroupName = "13. Style")] public Brush BearOutsideColor { get; set; }
         [Browsable(false)] public string BearOutsideColorSerializable { get { return Serialize.BrushToString(BearOutsideColor); } set { BearOutsideColor = Serialize.StringToBrush(value); } }
-        [XmlIgnore][Display(Name = "Bearish Range Reclaim (F2u)", Order = 10, GroupName = "12. Style")] public Brush BearReclaimColor { get; set; }
+        [XmlIgnore][Display(Name = "Bearish Range Reclaim (F2u)", Order = 10, GroupName = "13. Style")] public Brush BearReclaimColor { get; set; }
         [Browsable(false)] public string BearReclaimColorSerializable { get { return Serialize.BrushToString(BearReclaimColor); } set { BearReclaimColor = Serialize.StringToBrush(value); } }
 
-        // ---- 13. Alerts ----
-        [Display(Name = "Enable Alerts", Order = 1, GroupName = "13. Alerts", Description = "Master switch. Alerts appear in NinjaTrader's Alerts Log and play the sound below.")] public bool EnableAlerts { get; set; }
-        [Display(Name = "Sound File", Order = 2, GroupName = "13. Alerts", Description = "A file in NinjaTrader's sounds folder, e.g. Alert1.wav. Leave blank for no sound.")] public string AlertSound { get; set; }
-        [Display(Name = "Signal In-Force (Any) - consolidated message", Order = 3, GroupName = "13. Alerts")] public bool AlertSignalInForceAny { get; set; }
-        [Display(Name = "  Include TF1", Order = 4, GroupName = "13. Alerts")] public bool AlertIncludeTF1 { get; set; }
-        [Display(Name = "  Include TF2", Order = 5, GroupName = "13. Alerts")] public bool AlertIncludeTF2 { get; set; }
-        [Display(Name = "  Include TF3", Order = 6, GroupName = "13. Alerts")] public bool AlertIncludeTF3 { get; set; }
-        [Display(Name = "  Include TF4", Order = 7, GroupName = "13. Alerts")] public bool AlertIncludeTF4 { get; set; }
-        [Display(Name = "  Include TF5", Order = 8, GroupName = "13. Alerts")] public bool AlertIncludeTF5 { get; set; }
-        [Display(Name = "  Include TF6", Order = 9, GroupName = "13. Alerts")] public bool AlertIncludeTF6 { get; set; }
-        [Display(Name = "  Include FTFC", Order = 10, GroupName = "13. Alerts")] public bool AlertShowFTFC { get; set; }
-        [Display(Name = "  Include Trigger", Order = 11, GroupName = "13. Alerts")] public bool AlertShowTrigger { get; set; }
-        [Display(Name = "  Include MAG", Order = 12, GroupName = "13. Alerts")] public bool AlertShowMagnitude { get; set; }
-        [Display(Name = "  Include EXH", Order = 13, GroupName = "13. Alerts")] public bool AlertShowExhaustion { get; set; }
-        [Display(Name = "  Include STOP", Order = 14, GroupName = "13. Alerts")] public bool AlertShowStop { get; set; }
-        [Display(Name = "  Include Domino", Order = 15, GroupName = "13. Alerts")] public bool IncludeDominoInConsolidated { get; set; }
-        [Display(Name = "Signal In-Force (TF1)", Order = 16, GroupName = "13. Alerts")] public bool AlertTF1InForce { get; set; }
-        [Display(Name = "Signal In-Force (TF2)", Order = 17, GroupName = "13. Alerts")] public bool AlertTF2InForce { get; set; }
-        [Display(Name = "Signal In-Force (TF3)", Order = 18, GroupName = "13. Alerts")] public bool AlertTF3InForce { get; set; }
-        [Display(Name = "Signal In-Force (TF4)", Order = 19, GroupName = "13. Alerts")] public bool AlertTF4InForce { get; set; }
-        [Display(Name = "Signal In-Force (TF5)", Order = 20, GroupName = "13. Alerts")] public bool AlertTF5InForce { get; set; }
-        [Display(Name = "Signal In-Force (TF6)", Order = 21, GroupName = "13. Alerts")] public bool AlertTF6InForce { get; set; }
-        [Display(Name = "Signal In-Force (Bullish)", Order = 22, GroupName = "13. Alerts")] public bool AlertBullishInForce { get; set; }
-        [Display(Name = "Signal In-Force (Bearish)", Order = 23, GroupName = "13. Alerts")] public bool AlertBearishInForce { get; set; }
-        [Display(Name = "New Potential (Any)", Order = 24, GroupName = "13. Alerts")] public bool AlertNewPotential { get; set; }
-        [Display(Name = "Domino Setup", Order = 25, GroupName = "13. Alerts")] public bool AlertDominoSetup { get; set; }
-        [Display(Name = "FTFC Shifted", Order = 26, GroupName = "13. Alerts")] public bool AlertFtfcShifted { get; set; }
-        [Display(Name = "FTFC Up", Order = 27, GroupName = "13. Alerts")] public bool AlertFtfcUp { get; set; }
-        [Display(Name = "FTFC Down", Order = 28, GroupName = "13. Alerts")] public bool AlertFtfcDown { get; set; }
-        [Display(Name = "FTFC Conflict", Order = 29, GroupName = "13. Alerts")] public bool AlertFtfcConflict { get; set; }
+        // ---- 14. Alerts ----
+        [Display(Name = "Enable Alerts", Order = 1, GroupName = "14. Alerts", Description = "Master switch. Alerts appear in NinjaTrader's Alerts Log and play the sound below.")] public bool EnableAlerts { get; set; }
+        [Display(Name = "Sound File", Order = 2, GroupName = "14. Alerts", Description = "A file in NinjaTrader's sounds folder, e.g. Alert1.wav. Leave blank for no sound.")] public string AlertSound { get; set; }
+        [Display(Name = "Signal In-Force (Any) - consolidated message", Order = 3, GroupName = "14. Alerts")] public bool AlertSignalInForceAny { get; set; }
+        [Display(Name = "  Include TF1", Order = 4, GroupName = "14. Alerts")] public bool AlertIncludeTF1 { get; set; }
+        [Display(Name = "  Include TF2", Order = 5, GroupName = "14. Alerts")] public bool AlertIncludeTF2 { get; set; }
+        [Display(Name = "  Include TF3", Order = 6, GroupName = "14. Alerts")] public bool AlertIncludeTF3 { get; set; }
+        [Display(Name = "  Include TF4", Order = 7, GroupName = "14. Alerts")] public bool AlertIncludeTF4 { get; set; }
+        [Display(Name = "  Include TF5", Order = 8, GroupName = "14. Alerts")] public bool AlertIncludeTF5 { get; set; }
+        [Display(Name = "  Include TF6", Order = 9, GroupName = "14. Alerts")] public bool AlertIncludeTF6 { get; set; }
+        [Display(Name = "  Include FTFC", Order = 10, GroupName = "14. Alerts")] public bool AlertShowFTFC { get; set; }
+        [Display(Name = "  Include Trigger", Order = 11, GroupName = "14. Alerts")] public bool AlertShowTrigger { get; set; }
+        [Display(Name = "  Include MAG", Order = 12, GroupName = "14. Alerts")] public bool AlertShowMagnitude { get; set; }
+        [Display(Name = "  Include EXH", Order = 13, GroupName = "14. Alerts")] public bool AlertShowExhaustion { get; set; }
+        [Display(Name = "  Include STOP", Order = 14, GroupName = "14. Alerts")] public bool AlertShowStop { get; set; }
+        [Display(Name = "  Include Domino", Order = 15, GroupName = "14. Alerts")] public bool IncludeDominoInConsolidated { get; set; }
+        [Display(Name = "Signal In-Force (TF1)", Order = 16, GroupName = "14. Alerts")] public bool AlertTF1InForce { get; set; }
+        [Display(Name = "Signal In-Force (TF2)", Order = 17, GroupName = "14. Alerts")] public bool AlertTF2InForce { get; set; }
+        [Display(Name = "Signal In-Force (TF3)", Order = 18, GroupName = "14. Alerts")] public bool AlertTF3InForce { get; set; }
+        [Display(Name = "Signal In-Force (TF4)", Order = 19, GroupName = "14. Alerts")] public bool AlertTF4InForce { get; set; }
+        [Display(Name = "Signal In-Force (TF5)", Order = 20, GroupName = "14. Alerts")] public bool AlertTF5InForce { get; set; }
+        [Display(Name = "Signal In-Force (TF6)", Order = 21, GroupName = "14. Alerts")] public bool AlertTF6InForce { get; set; }
+        [Display(Name = "Signal In-Force (Bullish)", Order = 22, GroupName = "14. Alerts")] public bool AlertBullishInForce { get; set; }
+        [Display(Name = "Signal In-Force (Bearish)", Order = 23, GroupName = "14. Alerts")] public bool AlertBearishInForce { get; set; }
+        [Display(Name = "New Potential (Any)", Order = 24, GroupName = "14. Alerts")] public bool AlertNewPotential { get; set; }
+        [Display(Name = "Domino Setup", Order = 25, GroupName = "14. Alerts")] public bool AlertDominoSetup { get; set; }
+        [Display(Name = "FTFC Shifted", Order = 26, GroupName = "14. Alerts")] public bool AlertFtfcShifted { get; set; }
+        [Display(Name = "FTFC Up", Order = 27, GroupName = "14. Alerts")] public bool AlertFtfcUp { get; set; }
+        [Display(Name = "FTFC Down", Order = 28, GroupName = "14. Alerts")] public bool AlertFtfcDown { get; set; }
+        [Display(Name = "FTFC Conflict", Order = 29, GroupName = "14. Alerts")] public bool AlertFtfcConflict { get; set; }
 
-        // ---- 14. Advanced ----
-        [Display(Name = "Exhaustion Disables 'In Force'", Order = 1, GroupName = "14. Advanced")] public bool ExhDisablesInForce { get; set; }
-        [Display(Name = "Exhaustion Excludes from FTFC", Order = 2, GroupName = "14. Advanced", Description = "Affects the data table's FTFC row only, as in the Suite.")] public bool ExhDisablesFTFC { get; set; }
-        [Display(Name = "Show Magnitude for Outside Bars", Order = 3, GroupName = "14. Advanced")] public bool Show3ExpMagnitude { get; set; }
-        [Display(Name = "Show Exhaustion for Outside Bars", Order = 4, GroupName = "14. Advanced")] public bool Show3ExpExhaustion { get; set; }
-        [Display(Name = "Enable Failing 2 Detection", Order = 5, GroupName = "14. Advanced")] public bool EnableFailed2Detection { get; set; }
-        [Display(Name = "Failing 2 Detection Method", Order = 6, GroupName = "14. Advanced", Description = "Reclaim: closes back inside C1 range. Open: closes against breakout direction. Reclaim + Open: both. Reclaim OR Open: either.")]
+        // ---- 15. Advanced ----
+        [Display(Name = "Exhaustion Disables 'In Force'", Order = 1, GroupName = "15. Advanced")] public bool ExhDisablesInForce { get; set; }
+        [Display(Name = "Exhaustion Excludes from FTFC", Order = 2, GroupName = "15. Advanced", Description = "Affects the data table's FTFC row only, as in the Suite.")] public bool ExhDisablesFTFC { get; set; }
+        [Display(Name = "Show Magnitude for Outside Bars", Order = 3, GroupName = "15. Advanced")] public bool Show3ExpMagnitude { get; set; }
+        [Display(Name = "Show Exhaustion for Outside Bars", Order = 4, GroupName = "15. Advanced")] public bool Show3ExpExhaustion { get; set; }
+        [Display(Name = "Enable Failing 2 Detection", Order = 5, GroupName = "15. Advanced")] public bool EnableFailed2Detection { get; set; }
+        [Display(Name = "Failing 2 Detection Method", Order = 6, GroupName = "15. Advanced", Description = "Reclaim: closes back inside C1 range. Open: closes against breakout direction. Reclaim + Open: both. Reclaim OR Open: either.")]
         [TypeConverter(typeof(FriendlyEnumConverter<F2Method>))]
         public F2Method Failed2DetectionMethod { get; set; }
-        [Display(Name = "Show Failing 2 Open Level", Order = 7, GroupName = "14. Advanced")] public bool ShowF2OpenLine { get; set; }
-        [Display(Name = "Color TF When In-Force", Order = 8, GroupName = "14. Advanced")] public bool ColorTFWhenInForce { get; set; }
-        [Display(Name = "TAW: Include Failing 2s", Order = 9, GroupName = "14. Advanced")] public bool TawIncludeFailing2s { get; set; }
-        [Display(Name = "TAW: Include Outside Bars", Order = 10, GroupName = "14. Advanced")] public bool TawIncludeOutsideBars { get; set; }
-        [Display(Name = "HTF Trading Hours", Order = 11, GroupName = "14. Advanced", Description = "Trading hours template for the higher-timeframe data (e.g. 'CME US Index Futures ETH'). Blank uses the instrument's default template. Match your chart's template.")] public string HtfTradingHours { get; set; }
-        [Range(200, 20000)][Display(Name = "Max Daily Bars To Load", Order = 12, GroupName = "14. Advanced", Description = "Daily history behind the D, W, M, 3M, 6M and 12M slots. Monthly exhaustion needs about 1,100 daily bars, quarterly about 3,300.")] public int MaxDailyBars { get; set; }
+        [Display(Name = "Show Failing 2 Open Level", Order = 7, GroupName = "15. Advanced")] public bool ShowF2OpenLine { get; set; }
+        [Display(Name = "Color TF When In-Force", Order = 8, GroupName = "15. Advanced")] public bool ColorTFWhenInForce { get; set; }
+        [Display(Name = "TAW: Include Failing 2s", Order = 9, GroupName = "15. Advanced")] public bool TawIncludeFailing2s { get; set; }
+        [Display(Name = "TAW: Include Outside Bars", Order = 10, GroupName = "15. Advanced")] public bool TawIncludeOutsideBars { get; set; }
+        [Display(Name = "HTF Trading Hours", Order = 11, GroupName = "15. Advanced", Description = "Trading hours template for the higher-timeframe data (e.g. 'CME US Index Futures ETH'). Blank uses the instrument's default template. Match your chart's template.")] public string HtfTradingHours { get; set; }
+        [Range(200, 20000)][Display(Name = "Max Daily Bars To Load", Order = 12, GroupName = "15. Advanced", Description = "Daily history behind the D, W, M, 3M, 6M and 12M slots. Monthly exhaustion needs about 1,100 daily bars, quarterly about 3,300.")] public int MaxDailyBars { get; set; }
 
-        // ---- 15. Debug ----
-        [Display(Name = "Show Debug Panel", Order = 1, GroupName = "15. Debug")] public bool ShowDebugPanel { get; set; }
-        [Display(Name = "Timeframe to Debug", Order = 2, GroupName = "15. Debug")] public DebugSlot DebugTimeframe { get; set; }
+        // ---- 16. Debug ----
+        [Display(Name = "Show Debug Panel", Order = 1, GroupName = "16. Debug")] public bool ShowDebugPanel { get; set; }
+        [Display(Name = "Timeframe to Debug", Order = 2, GroupName = "16. Debug")] public DebugSlot DebugTimeframe { get; set; }
 
         // ---- Outputs (for strategies and Market Analyzer) ----
         [Browsable(false)][XmlIgnore] public Series<double> FtfcState { get { return Values[0]; } }

@@ -31,6 +31,18 @@ public static class ParityHarness
                 bool color = a[6] == "1";
                 Console.WriteLine((StratGrammar.IsHammer(o, h, l, c, m, color) ? "1" : "0") + " " + (StratGrammar.IsShooter(o, h, l, c, m, color) ? "1" : "0"));
             }
+            else if (a[0] == "bn")
+            {
+                // bn barType notation emphasis position colorMode forming  ("-" = no type)
+                StratSettings st = new StratSettings();
+                st.ShowBarNumbers = true;
+                st.BarNumNotation = (BarNumNotationOption)int.Parse(a[2]);
+                st.BarNumEmphasis = (BarNumEmphasisOption)int.Parse(a[3]);
+                st.BarNumPosition = (BarNumPositionOption)int.Parse(a[4]);
+                st.BarNumColorMode = (BarNumColorModeOption)int.Parse(a[5]);
+                BarNumberToken t = StratBarNumbers.Token(st, a[1] == "-" ? "" : a[1], a[6] == "1");
+                Console.WriteLine(t.Visible ? t.Text + " " + (t.Above ? "above" : "below") + " " + t.Color.R + "," + t.Color.G + "," + t.Color.B + "," + t.Color.A : "none");
+            }
             else if (a[0] == "key")
             {
                 StratTimeframe tf = (StratTimeframe)Enum.Parse(typeof(StratTimeframe), a[1]);
