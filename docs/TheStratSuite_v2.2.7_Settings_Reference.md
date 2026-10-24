@@ -309,7 +309,7 @@ Cross-panel note: what counts as a Failing 2 - for Strat Candles paint and the F
 
 Unreleased (`BARNUM-1`). Prints each chart candle's Strat number beside it, classified against the prior candle by the same engine as Strat Candles and the data table's CC cell. Off by default; every control below is greyed out until **Show Bar Numbers** is on. Chart timeframe only: the data table already shows your other timeframes.
 
-- **Show Bar Numbers** (default: off | options: on / off) - Turns the numbers on. They follow **Advanced - Failing 2 Detection** like the rest of the Suite. They are not meaningful on Heikin Ashi or other synthetic candles.
+- **Show Bar Numbers** (default: off | options: on / off) - Turns the numbers on. They follow **Advanced - Failing 2 Detection** like the rest of the Suite.
 - **Notation** (default: Full | options: Full / Classic / Numbers)
   - **Full**: `1`, `2u`, `2d`, `3u`, `3d`, `F2u`, `F2d`, the data table's notation.
   - **Classic**: `1`, `2u`, `2d`, `3`. Outside bars drop their close direction and Failing 2s show as their plain `2u`/`2d`.
@@ -450,6 +450,8 @@ This panel is a troubleshooting aid for inspecting the indicator's signal logic 
 - **Timeframe to Debug** (default: TF1 | options: TF1 / TF2 / TF3 / TF4 / TF5 / TF6) - Selects which timeframe slot the debug panel reports on, where TF1 is the first timeframe in your settings and so on through TF6. Greyed out when Show Debug Panel is off (`FIX MOD-3`).
 
 ## Troubleshooting & FAQ
+
+- **The Suite shows an error saying Heikin Ashi charts are not supported.** That is deliberate (`NO-HA-1`). Heikin Ashi candles are averaged prices, not the traded open, high, low and close TheStrat classifies, so every level would be wrong. Switch the chart type to Candles or Bars.
 
 - **I added the Suite and see almost nothing.** Three checks, in order: (1) Preset - Custom leaves all six timeframe rows disabled until you enable them; start from a built-in preset. (2) Chart timeframe - slots faster than your chart show as dimmed, empty rows and draw nothing; move your chart to Timeframe 1 or lower. (3) Signal toggles - 2-2 Continuations, Failing 2s, and both expansion signals are off by default; out of the box only reversals and inside continuations draw.
 

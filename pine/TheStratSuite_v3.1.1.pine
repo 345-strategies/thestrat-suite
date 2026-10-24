@@ -48,6 +48,13 @@ indicator("TheStrat Suite - v3.1.1", shorttitle = "TheStrat Suite", overlay = tr
 // original signature, so no call site changed and no behavior changed.
 import SpinTrades/TheStratGrammar/1 as sg
 
+// FIX NO-HA-1 (2026-10-24): refuse Heikin Ashi charts. TheStrat reads traded OHLC; Heikin
+// Ashi candles are averages, so every bar type, trigger and target would be wrong - and
+// because the slots request syminfo.tickerid, the HTF slots inherit Heikin Ashi prices too.
+// Halting here means nothing draws and no alert fires on a chart the Suite cannot read.
+if chart.is_heikinashi
+    runtime.error("Heikin Ashi charts are not supported: TheStrat needs real candles. Switch the chart to Candles or Bars.")
+
 // ============================================================================
 // SECTION 1: HELPER FUNCTIONS
 // ============================================================================
@@ -331,7 +338,7 @@ paintFtfcTransitions = input.bool(true, "Highlight Failing 2 Flips", group = grp
 // -------------------- DISPLAY - BAR NUMBERS --------------------
 // FEATURE BARNUM-1 (2026-10-23): per-candle Strat numbers. Engine and rationale in SECTION 15.
 grpBarNum = "Display - Bar Numbers"
-showBarNumbers = input.bool(false, "Show Bar Numbers", group = grpBarNum, tooltip = "Print each chart candle's Strat number (1, 2u, 2d, 3) next to it, classified against the prior candle. Uses the same classification (and Failing 2 Detection Method) as the data table's CC cell and Strat Candles, so numbers, candle paint and table always agree. Chart timeframe only - the data table covers your other timeframes. Not meaningful on Heikin Ashi or other synthetic candles.")
+showBarNumbers = input.bool(false, "Show Bar Numbers", group = grpBarNum, tooltip = "Print each chart candle's Strat number (1, 2u, 2d, 3) next to it, classified against the prior candle. Uses the same classification (and Failing 2 Detection Method) as the data table's CC cell and Strat Candles, so numbers, candle paint and table always agree. Chart timeframe only - the data table covers your other timeframes.")
 barNumNotation = input.string("Full", "Notation", options = ["Full", "Classic", "Numbers"], group = grpBarNum, active = showBarNumbers, tooltip = "Full: 1, 2u, 2d, 3u, 3d, F2u, F2d - exactly the data table's notation.\n\nClassic: 1, 2u, 2d, 3. Outside bars drop their close direction and Failing 2s show as their plain 2u/2d.\n\nNumbers: 1, 2, 3. Direction is carried by color alone.")
 barNumEmphasis = input.string("Tiered", "Emphasis", options = ["Tiered", "Uniform", "Key Bars Only"], group = grpBarNum, active = showBarNumbers, tooltip = "Tiered: 1s, 3s and Failing 2s in full color, plain 2s faded - setups start at 1s, 3s and failing 2s, so those stand out while trending 2s recede.\n\nUniform: every number at full strength.\n\nKey Bars Only: plain 2s are hidden. In Classic and Numbers notation a Failing 2 shows as a plain 2, so it is hidden too.")
 barNumPosition = input.string("Below", "Position", options = ["Below", "Above", "Broken Side"], group = grpBarNum, active = showBarNumbers, tooltip = "Below / Above: every number on the same side, reading as one steady row.\n\nBroken Side: the number sits on the side the candle took out - 2u and F2u above, 2d and F2d below. Outside bars follow their close (3u above, 3d below); inside bars sit below.")

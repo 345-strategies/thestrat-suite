@@ -10,6 +10,10 @@ How to read this file:
 
 ## [Unreleased]
 
+### Fixed
+
+- **Heikin Ashi charts are refused.** TheStrat reads traded OHLC, and Heikin Ashi candles are averages, so every bar type, trigger and target on such a chart was wrong, and the higher-timeframe slots silently received Heikin Ashi prices too because they request the chart's own ticker. The Suite now stops with a clear error on a Heikin Ashi chart ("Heikin Ashi charts are not supported: TheStrat needs real candles. Switch the chart to Candles or Bars.") instead of drawing levels from averaged prices. (`NO-HA-1`)
+
 ### Added
 
 - **Bar Numbers.** Each chart candle can now show its Strat number beside it: 1, 2u, 2d, 3u, 3d, F2u, F2d. It is off by default; turn it on in the new *Display - Bar Numbers* group. The numbers come from the same classifier as Strat Candles and the data table's CC cell, so the three can never disagree, and they follow the Failing 2 Detection Method. **Notation** offers Full (the table's notation), Classic (1, 2u, 2d, 3) or Numbers (1, 2, 3, with direction carried by color). **Emphasis** defaults to Tiered: 1s, 3s and Failing 2s show in full color and plain 2s are faded, so setups stand out instead of a wall of numbers. Uniform shows everything at full strength, and Key Bars Only hides plain 2s. **Position** is Below, Above, or Broken Side (the side the candle took out). **Color** uses the Style palette or a single color, and **Bars Shown** limits the numbers to the last N candles. The forming candle's number is drawn lighter until it closes, because it can still change. Numbers are drawn with `plotshape`, so they cover the whole chart without using any of the label budget the levels rely on. The tradeoff is that TradingView fixes the text size. Chart timeframe only; the data table already covers the other timeframes. When both features are on, they share one classification per bar with Strat Candles. (`BARNUM-1`)
