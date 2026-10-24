@@ -116,21 +116,31 @@ def snapBar = CompoundValue(1, if at930 then open else snapBar[1], Double.NaN);
 def snapFirst = CompoundValue(1, if at930 then firstOpen else snapFirst[1], Double.NaN);
 def snapPrevD = CompoundValue(1, if at930 then snapD[1] else snapPrevD[1], Double.NaN);
 AddLabel(showP6,
-    "P6 morning of " + AsPrice(snapDate) + ": 7:00 D open " + (if snapHad7 then AsPrice(snap7) else "no 7:00 bar")
+    "P6 morning of " + AsPrice(snapDate) + ": 7:00 D open " + (if IsNaN(snapDate) then "N/A" else if snapHad7 then AsPrice(snap7) else "no 7:00 bar")
     + " | 9:30 D open " + AsPrice(snapD)
     + " | 9:30 bar " + AsPrice(snapBar) + " | first bar " + AsPrice(snapFirst)
     + " | prior 9:30 D open " + AsPrice(snapPrevD),
     Color.LIGHT_GRAY);
 
-# P6b: where D ends. Read it on the same chart after 4:05 PM ET (1:05 PM PT) and before
-# midnight ET, so the last bar is an after-hours bar of the same date as the morning above.
+# P6b: where D ends. Read it on the same chart after 4:05 PM ET (1:05 PM PT), while the last
+# bar is an after-hours bar of the same date as the morning above. Not valid on a 13:00 ET
+# early-close day (Nov 27 and Dec 24, 2026): RTH is fixed at 9:30-16:00 ET here.
 #   D now = the D candle the last bar belongs to
 #   RTH = today's 9:30-16:00 ET chart bars; after-hours = today's chart bars from 16:00 ET
-# D now open equal to the 9:30 D open above: the last bar is in today's D. Then D now high,
-# low and close equal to RTH (close can differ by the official closing print) mean D ends at
-# 16:00; D now close equal to last, or high/low reaching the after-hours high/low, mean D takes
-# after-hours bars. D now open equal to the after-hours open: after-hours bars start a new D.
+# D now open equal to the 9:30 D open above: the last bar is in today's D. Then decide by the
+# close, across two screenshots taken at least an hour apart:
+#   D now close the same in both while last moved: D ends at 16:00. It can differ from RTH C
+#   by the official closing print.
+#   D now close equal to last in both, with last different between them: D takes after-hours
+#   bars.
+# High and low only confirm one way: an after-hours high above D now high, or an after-hours
+# low below D now low, means D ends at 16:00. Equal values prove nothing, because the closing
+# print falls in the 16:00 bar, and if P6 says D starts in the pre-market, D's high or low can
+# come from a pre-market bar.
+# D now open equal to the after-hours open: after-hours bars start a new D.
 # N/A for D now: after-hours bars map to no D.
+# A Saturday reading, after restarting thinkorswim, shows Friday's D loaded from history
+# instead of painted live. The two can differ.
 def dOpenNow = open(period = AggregationPeriod.DAY);
 def dHighNow = high(period = AggregationPeriod.DAY);
 def dLowNow = low(period = AggregationPeriod.DAY);
