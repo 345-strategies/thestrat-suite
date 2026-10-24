@@ -247,8 +247,8 @@ Effort (relative): S, M, L, XL.
 
 Each layer lands only after its verification passes. HTF correctness comes before anything that reads HTF data.
 
-**Layer 1 (exists, v0.1.0): classifier, Strat/FTFC candles, label strip, FTFC label, presets.**
-- Remaining work: run the `thinkorswim/README.md` checklist in the app. It has not been done yet.
+**Layer 1 (exists, v0.2.0 beta): classifier, Strat/FTFC candles, label strip, FTFC label, presets.**
+- Remaining work: run the `thinkorswim/README.md` checklist in the app. Beta testers run it through `TESTER_GUIDE.md`, which also collects probes P1, P4, P6, P10 and P22 with `probes/TheStratSuite_TOS_Probes_v0.2.0.txt`.
 - Depends on: nothing.
 - Verify against TradingView:
   - SPY 15m Strat Candles bar for bar;
@@ -261,9 +261,9 @@ Each layer lands only after its verification passes. HTF correctness comes befor
   - probe studies P1-P12 (Open questions);
   - a Python generator under `thinkorswim/` that emits the study from templates, including the context-rule lint;
   - the test_tos_parity.py interpreter extended beyond StratState.
-- Its first output must regenerate Lite v0.1.0 with identical classifier behavior.
+- Its first output must regenerate layer 1 (v0.2.0) with identical classifier and preset behavior.
 - Depends on: layer 1 compiled.
-- Verify: probe results recorded, and generated Lite passes the existing parity test.
+- Verify: probe results recorded, and the generated layer 1 passes the existing parity test.
 
 **Layer 3: HTF data core.**
 - Contents:
@@ -520,7 +520,7 @@ Repository files:
 - pine/TheStratSuite_v3.1.1.pine
 - grammar/TheStratGrammar.pine
 - grammar/tests/test_tos_parity.py
-- thinkorswim/TheStratSuite_Lite_TOS_v0.1.0.txt
+- thinkorswim/TheStratSuite_TOS_v0.2.0.txt (layer 1; v0.1.0 was TheStratSuite_Lite_TOS_v0.1.0.txt)
 - thinkorswim/README.md
 - docs/engineering/ (repaint-prevention.md, htf-correctness.md, drawing-decisions.md, rendering.md, performance.md)
 - docs/DESIGN_CONSTRAINTS.md

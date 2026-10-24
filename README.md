@@ -66,10 +66,11 @@ anyone building their own script.
 
 ### `thinkorswim/` — TheStrat Suite for thinkorswim (thinkScript)
 
-A port of the Suite to thinkorswim, aiming at every v3.1.1 feature. Layer 1 ships today: the
-classifier, Strat/FTFC bar coloring, a per-timeframe label strip and FTFC. `FULL_PORT_PLAN.md`
-maps the rest. Free under MPL-2.0. Its classifier is tested against the grammar by
-`grammar/tests/test_tos_parity.py`. Not yet verified in thinkorswim. See `thinkorswim/README.md`.
+A port of the Suite to thinkorswim, aiming at every v3.1.1 feature. v0.2.0 beta is layer 1:
+the classifier, Strat/FTFC bar coloring, a per-timeframe label strip and FTFC.
+`FULL_PORT_PLAN.md` maps the rest. Free under MPL-2.0. Its classifier and presets are tested
+against the grammar and the Pine by `grammar/tests/test_tos_parity.py`. Not yet verified in
+thinkorswim; beta testers start with `thinkorswim/TESTER_GUIDE.md`. See `thinkorswim/README.md`.
 
 ### `cross-levels/` — ES ↔ SPY/SPX level translation (Pine v6)
 
