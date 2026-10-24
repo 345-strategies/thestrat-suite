@@ -1,6 +1,6 @@
 # Beta testing TheStrat Suite for NinjaTrader 8
 
-Thanks for testing. This is a free, open-source port of TheStrat Suite for TradingView (v3.1.1) to NinjaTrader 8. It was built and tested on Linux against stand-ins for NinjaTrader's types, and **it has not yet been loaded in NinjaTrader itself**. Your job is to find where it fails to compile or load, breaks, or disagrees with the TradingView Suite. Times below are Pacific, with Eastern in parentheses.
+Thanks for testing. This is a free, open-source port of TheStrat Suite for TradingView (v3.1.1) to NinjaTrader 8. It was built and tested on Linux against stand-ins for NinjaTrader's types. It compiles and loads in NinjaTrader 8 (first confirmed by a tester on 2026-10-24), but it has not yet been checked against TradingView in depth. Your job is to find where it fails to compile or load on your setup, breaks, or disagrees with the TradingView Suite. Times below are Pacific, with Eastern in parentheses.
 
 This is an indicator only. It never places orders.
 

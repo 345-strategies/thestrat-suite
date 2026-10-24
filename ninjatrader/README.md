@@ -2,7 +2,7 @@
 
 A full port of TheStrat Suite v3.1.1 (`pine/TheStratSuite_v3.1.1.pine`) to NinjaTrader 8 NinjaScript. It has the same six timeframe slots, presets, signal families, magnitude and exhaustion targets, Take Action Windows, stops, Lead filter, Domino, FTFC, data table, debug panel, bar coloring, bar numbers, preview mode and alerts. It ships free and open source under MPL-2.0, like the Pine.
 
-**Status: v0.2.0 beta, not yet loaded in NinjaTrader.** NinjaTrader runs only on Windows, so this was built and tested on Linux against stand-in NinjaTrader types (see Testing). Work through the in-app checklist below before publishing it. `TESTER_GUIDE.md` is the short version to hand to beta testers.
+**Status: v0.2.0 beta.** It was built and tested on Linux against stand-in NinjaTrader types (see Testing). On 2026-10-24 a beta tester compiled it in NinjaTrader 8 with no errors and loaded it on an MNQ 5-minute chart. It has not yet been compared with TradingView bar for bar; work through the in-app checklist below before a full release. `TESTER_GUIDE.md` is the short version to hand to beta testers.
 
 Bar Numbers follows the Suite's Bar Numbers feature (BARNUM-1, Suite PR #8), which is not released on TradingView yet. If that feature changes before release, this port needs the same change.
 
@@ -91,4 +91,4 @@ NinjaTrader's guidance is that `AddDataSeries` arguments should not depend on se
 - An end-to-end run on synthetic ES-style sessions. It covers every preset, an everything-on configuration, compact table with FTFC candles, and a custom 5m to 12M set, on 5-minute and daily charts. It runs history, realtime ticks, a live and a weekend clock (preview), alerts and a render pass. It passes with no exceptions.
 - **No-lookahead check.** Each of those runs is repeated with the higher-timeframe series holding only candles that had closed at each chart bar. The painted history (FTFC, signal outputs, bar colors) must be identical to the fully loaded run, and it is.
 
-What this does not show: that NinjaTrader accepts the file, or that output matches TradingView bar for bar. That is the checklist above.
+What this does not show: that output matches TradingView bar for bar. That is the checklist above. (NinjaTrader's compiler accepted the file in beta testing on 2026-10-24.)
