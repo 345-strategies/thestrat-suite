@@ -78,18 +78,19 @@ thinkorswim may start 4-hour candles at different times than the Suite, which wo
 A few answers the next layers depend on can only come from inside thinkorswim. `probes/TheStratSuite_TOS_Probes_v0.2.0.txt` (in the same GitHub folder) is a second study that draws labels and one bubble. Install it the same way, named `TheStratSuite_Probes`, and send a screenshot of its labels on each of these charts, noting the date and time you took it:
 
 1. SPY 5-minute, 20 days, extended hours **on**, after 6:30 AM PT (9:30 AM ET).
-2. /ES 5-minute, 5 days.
-3. SPY 1-minute, 1 day.
-4. SPY 15-minute, 20 days.
-5. SPY 1-hour, 360 days (the longest thinkorswim offers for intraday charts).
-6. SPY daily, as many years as thinkorswim offers.
+2. The same SPY 5-minute chart on a weekday between 1:30 and 5:00 PM PT (4:30 and 8:00 PM ET), once after-hours bars have printed. Its P6b label shows where the daily candle ends.
+3. /ES 5-minute, 5 days.
+4. SPY 1-minute, 1 day.
+5. SPY 15-minute, 20 days.
+6. SPY 1-hour, 360 days (the longest thinkorswim offers for intraday charts).
+7. SPY daily, as many years as thinkorswim offers.
 
 Also:
 - One screenshot of its colored labels (the P22 row) in the dark theme and one in the light theme.
-- The P10 label and the P10 bubble on the last bar. Then, during market hours (or on /ES, which trades nearly around the clock), set `fireP10Alert` to yes and screenshot the alert and its entry in the Message Center. Tell us whether thinkorswim's use of your computer's system fonts is on or off (under Setup > Application Settings), and if you can, repeat the P10 screenshots with it switched.
+- The P10 label and the P10 bubble on the last bar. Then, during market hours (or on /ES, which trades nearly around the clock), set `fireP10Alert` to yes and screenshot the alert and its entry in the Message Center. If nothing appears, open the probe study's settings in Edit Studies, scroll to its Alerts section, and tell us whether Enabled and Show in Message center are checked. The alert fires once each time the study is added, so to try again, remove the probe study from the chart and add it back. Tell us whether thinkorswim's use of your computer's system fonts is on or off (under Setup > Application Settings), and if you can, repeat the P10 screenshots with it switched.
 - Load TheStratSuite with Strat Candles on a 1,000-tick /ES chart and tell us whether anything draws: labels, candle colors, or nothing.
 
-A label that reads N/A is an answer too. If the probe study fails to compile, send its red error text.
+A label that reads N/A is an answer too. If the probe study fails to compile, send its red error text. If the error points at a line under the P10 heading (the one with arrows and colored circles), delete the three lines below that heading's comments, click OK again, and carry on with the rest.
 
 If you use thinkorswim mobile, open a chart with TheStratSuite on your phone and tell us which parts show: the labels, the candle colors, or neither.
 
