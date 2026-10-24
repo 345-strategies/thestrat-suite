@@ -55,7 +55,8 @@ When Show Exhaustion Levels is on and a timeframe at or above the chart's loaded
 | Debug panel YES/NO | Green and red fills. | Neutral slate and dark fills. | Green and red are reserved for bull and bear. |
 | History depth | `calc_bars_count` per slot. | Minute slots on a minute chart, and every slot on a daily chart, load the chart's Days to load. A **Short history** table row names a timeframe with too few candles for exhaustion when a setting can fix it (see How much history to load). | NinjaTrader ignores the requested bar count for a series of the chart's own bar type. See How much history to load. |
 | Bar Numbers | Suite PR #8, not yet released. | Same options under 12. Bar Numbers. | |
-| Non-time charts (tick, volume, range, Renko, Kagi, Line Break, Point and Figure) | Timeframe-based charts only. | Allowed. No slot counts as lower than the chart, and lines project 10 bars ahead. Heiken-Ashi charts on a minute, daily or longer base count as time charts, but their prices are averages, not trades: the forming higher-timeframe candles are partly built from them, so the table, levels and signals are approximate and will not match TradingView. Use a regular candle chart for trading decisions. | |
+| Non-time charts (tick, volume, range, Renko, Kagi, Line Break, Point and Figure) | Timeframe-based charts only. | Allowed. No slot counts as lower than the chart, and lines project 10 bars ahead. | |
+| Heiken-Ashi charts | Not detected; the table and levels read Heiken-Ashi prices. | Refused: the table shows only "Heiken-Ashi charts are not supported", with no lines, colors, bar numbers or alerts. | TheStrat reads traded prices and Heiken-Ashi candles are averages (root README, No Heiken-Ashi). |
 | Outputs | None. | Hidden plots for strategies and Market Analyzer: `FtfcState` (+1 up, -1 down, 0 conflict) and `Tf1Signal`..`Tf6Signal` (+1 bull, -1 bear, 0 none). | |
 
 ## Check in NinjaTrader before publishing

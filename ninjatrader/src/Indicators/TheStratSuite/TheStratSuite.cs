@@ -391,9 +391,9 @@ namespace NinjaTrader.NinjaScript.Indicators
         private long chartSeconds;
         private bool chartDayBased, chartIntradayTime;
         private StratTimeframe chartAsTf;
-        private BarsPeriodType chartType;     // Heiken-Ashi resolved to its base period
+        private BarsPeriodType chartType;
         private int chartValue;
-        private bool chartSynthetic;          // chart prices are computed (Heiken-Ashi), not traded
+        private bool chartSynthetic;          // Heiken-Ashi: averaged prices, not supported
         private readonly Dictionary<string, int> alertFiredBar = new Dictionary<string, int>();
         private RenderModel model;
         private volatile int formingBar = -1;
@@ -446,7 +446,10 @@ namespace NinjaTrader.NinjaScript.Indicators
                 endIt = new SessionIterator(BarsArray[0]);
                 clockIt = new SessionIterator(BarsArray[0]);
                 ClassifyChart();
-                CheckHistoryDepth();
+                if (chartSynthetic)
+                    Print("TheStratSuite: Heiken-Ashi charts are not supported. TheStrat reads real candles; switch the chart's Type to Candlestick or OHLC.");
+                else
+                    CheckHistoryDepth();
                 committed = new EvalState();
                 working = committed.Clone();
                 workingBar = -1;
@@ -565,15 +568,9 @@ namespace NinjaTrader.NinjaScript.Indicators
             BarsPeriod bp = BarsArray[0].BarsPeriod;
             chartType = bp.BarsPeriodType;
             chartValue = bp.Value;
+            // Heiken-Ashi candles are averages, not traded prices, so their highs, lows, opens and
+            // closes cannot be classified as Strat bars. The indicator only shows a notice there.
             chartSynthetic = chartType == BarsPeriodType.HeikenAshi;
-            // Heiken-Ashi bars keep their interval in the base period; on a time base they are
-            // ordinary time bars, as an HA chart is on TradingView. (Kagi, Line Break and P&F also
-            // have a base period but are not fixed-interval bars, so they stay non-time.)
-            if (chartType == BarsPeriodType.HeikenAshi)
-            {
-                chartType = bp.BaseBarsPeriodType;
-                chartValue = bp.BaseBarsPeriodValue;
-            }
             chartDayBased = false;
             chartIntradayTime = false;
             chartSeconds = 0;
@@ -646,6 +643,11 @@ namespace NinjaTrader.NinjaScript.Indicators
         {
             if (BarsInProgress != 0 || slots == null)
                 return;
+            if (chartSynthetic)
+            {
+                if (model == null) model = HeikenAshiNotice();
+                return;
+            }
             Evaluate(CurrentBars[0]);
             // With On bar close the next bar processed can be the session's last, inside the same
             // candles, so preview never reaches the evaluated state; it is shown by a display pass.
@@ -837,14 +839,13 @@ namespace NinjaTrader.NinjaScript.Indicators
                         // ahead of "now". Historical bars use the chart-bar rebuild so no candle
                         // shows data from after its own chart bar (the Pine's lookahead leak).
                         raw.CCO = sO; raw.CCH = s.Src.H(p); raw.CCL = s.Src.L(p); raw.CCC = s.Src.C(p);
-                        if (string.IsNullOrWhiteSpace(HtfTradingHours) && k == b0.Count - 1 && !chartSynthetic)
+                        if (string.IsNullOrWhiteSpace(HtfTradingHours) && k == b0.Count - 1)
                         {
                             // Same session template: the chart series can receive a tick before the
                             // higher-timeframe series does. Only that tick can be missing, and it lies
                             // inside this candle. The chart bar's own high and low are not merged: the
                             // bar can begin in an earlier candle (tick and Renko bars, a 45m bar over
-                            // the hour, a weekly bar over a month end). A Heiken-Ashi close is an
-                            // average, not a tick, so it is never merged.
+                            // the hour, a weekly bar over a month end).
                             raw.CCH = Math.Max(raw.CCH, c0);
                             raw.CCL = Math.Min(raw.CCL, c0);
                             raw.CCC = c0;
@@ -1191,7 +1192,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         private void StartClock()
         {
             // Auto preview and the forming bar number both change when a bar closes with no new tick.
-            if (ChartControl == null || (PreviewMode != PreviewModeOption.Auto && !ShowBarNumbers)) return;
+            if (ChartControl == null || chartSynthetic || (PreviewMode != PreviewModeOption.Auto && !ShowBarNumbers)) return;
             ChartControl.Dispatcher.InvokeAsync(() =>
             {
                 if (clockTimer != null || State >= State.Terminated) return;
@@ -1899,6 +1900,14 @@ namespace NinjaTrader.NinjaScript.Indicators
             return t;
         }
 
+        // The only thing drawn on a Heiken-Ashi chart.
+        private RenderModel HeikenAshiNotice()
+        {
+            RTable t = new RTable { Columns = 1, Position = TablePosition, Size = TableTextSize };
+            t.Rows.Add(new[] { Cell("Heiken-Ashi charts are not supported: TheStrat needs real candles", SColor.TvOrange, SColor.TvBlack) });
+            return new RenderModel { LastBar = Math.Max(0, CurrentBars[0]), Table = t };
+        }
+
         // ---- Debug panel (Pine SECTION 12) ----
         // YES/NO use neutral fills: green and red on this indicator always mean bull and bear.
 
@@ -2028,7 +2037,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         {
             base.OnRender(chartControl, chartScale);
             if (RenderTarget == null || ChartBars == null) return;
-            if (settings != null && settings.ShowBarNumbers)
+            if (settings != null && settings.ShowBarNumbers && !chartSynthetic)
                 DrawBarNumbers(chartControl, chartScale);
             RenderModel m = model;
             if (m == null) return;

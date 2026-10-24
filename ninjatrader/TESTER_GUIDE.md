@@ -29,7 +29,7 @@ Use an ES or NQ 5-minute chart, then a SPY 5-minute chart, then any daily chart.
 - Open the indicator settings. Option lists read like the TradingView Suite ("Pin Bar (Strict)", "Reclaim + Open"), not code names, and picking one sticks. Hovering over a setting's name shows the Suite's tooltip text after about a second.
 - Set a color to **Transparent** (for example FTFC Conflict under 11. Bar Coloring with FTFC Candles on). Those candles turn invisible, as on TradingView, rather than white.
 - Save the workspace, close and reopen NinjaTrader. Your color and setting changes are still there.
-- Load it on a tick, Renko or range chart. No errors, even if it shows little. A Heiken-Ashi chart also loads, but its values are approximate (Heiken-Ashi prices are averages), so don't compare it with TradingView.
+- Load it on a tick, Renko or range chart. No errors, even if it shows little. On a Heiken-Ashi chart it should show only a "Heiken-Ashi charts are not supported" notice: TheStrat needs real candles.
 
 ## Test 2: it matches TradingView (about 30 minutes, best after a session close)
 
