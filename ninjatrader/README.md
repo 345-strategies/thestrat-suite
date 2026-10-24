@@ -18,11 +18,12 @@ If the import is refused, install by hand. Copy both `.cs` files from `src/Indic
 
 The indicator loads its own higher-timeframe data, but NinjaTrader decides how much of some of it. Exhaustion levels need 52 candles of a timeframe.
 
-- **Minute slots (1m to 12H)** load the chart's own **Days to load** (Data Series window), whatever the indicator asks for. For 4H, 8H and 12H exhaustion, load about 40 days on a 24-hour futures chart and about 80 on a regular-hours chart.
-- **D and longer on an intraday chart** load **Max Daily Bars To Load** (15. Advanced), 7,000 daily bars by default. That covers monthly, quarterly and 6M exhaustion; 12M needs about 13,400.
-- **On a daily chart** every slot follows the chart's Days to load, so monthly exhaustion needs about five years.
+- **Minute slots (1m to 12H) on a minute chart** load the chart's own **Days to load** (Data Series window), whatever the indicator asks for. For 4H, 8H and 12H exhaustion, load about 40 days on a 24-hour futures chart and about 80 on a regular-hours chart. On tick, Renko and other charts they load what they ask for.
+- **D and longer on any chart but a daily one** load about 100 candles of the longest such slot (160 daily bars for D alone, 505 for W, 2,121 for M, 6,363 for 3M), up to **Max Daily Bars To Load** (15. Advanced, 7,000 by default). That covers monthly, quarterly and 6M exhaustion.
+- **On a daily chart** every slot follows the chart's Days to load, so monthly exhaustion needs about five years and quarterly about 13.
+- **12M** exhaustion needs about 52 years of daily data (13,400 bars), which few symbols have on TradingView either. It is not flagged.
 
-When a timeframe has fewer than 52 candles, the table shows a **Short history** row naming it, and the NinjaScript Output window says which setting to raise. Your data provider also has to serve that much history.
+When Show Exhaustion Levels is on and a timeframe at or above the chart's loaded fewer than 52 candles, the table shows a **Short history** row naming it and the setting to raise, and the NinjaScript Output window explains. If the data provider has no older data, only the Output window says so, since no setting helps. The check runs when the indicator loads, so the row clears after a reload.
 
 ## Files
 
@@ -35,7 +36,7 @@ When a timeframe has fewer than 52 candles, the table shows a **Short history** 
 
 ## Same as the TradingView Suite
 
-- Every input, with the same names, defaults and tooltips (shown under each setting in the property grid), grouped into 16 property-grid groups. Custom slots offer 1m, 2m, 3m, 5m, 10m, 15m, 30m, 45m, 1H, 2H, 3H, 4H, 8H, 12H, D, W, M, 3M, 6M and 12M. As in the Suite, 2m, 10m, 45m and 3H are labeled 2, 10, 45 and 180.
+- Every input, with the Suite's defaults and tooltips (hover over a setting's name to read it), under names adapted to one property grid (the Pine's Stops "Enable" is "Stops: Enable") and grouped into 16 groups. Custom slots offer 1m, 2m, 3m, 5m, 10m, 15m, 30m, 45m, 1H, 2H, 3H, 4H, 8H, 12H, D, W, M, 3M, 6M and 12M. As in the Suite, 2m, 10m, 45m and 3H are labeled 2, 10, 45 and 180.
 - Bar types, Failing 2 methods, hammer and shooter definitions. These are checked bar for bar against the grammar (see Testing).
 - The signal tree, the seven in-force terms, suppressors, FTFC gates, sticky stops and break-even moves. Also magnitude and exhaustion gates, Take Action Windows, line suppression by timeframe, label consolidation, the Lead filter, Smallest Timeframe Only stops, Domino, both table modes, the debug panel, and Strat and FTFC candles with the Failing 2 flip.
 - The color palette. Green and red mean bull and bear everywhere.
@@ -47,14 +48,14 @@ When a timeframe has fewer than 52 candles, the table shows a **Short history** 
 |---|---|---|---|
 | History | On historical bars the forming higher-timeframe candle is read as it finally closed, so past signals can show values the chart had not reached yet. | Each forming candle is rebuilt from the chart bars up to that bar. History shows what you would have seen live. The live bar reads the same served candle as the Suite. | No-repaint rule. Past signals, stops and alerts can therefore differ from TradingView's history; the live bar should match. |
 | Higher-timeframe data | `request.security` per slot | One minute series per intraday timeframe, and one daily series from which D, W, M, 3M, 6M and 12M are built by trade date. Weeks start Monday. | Keeps every calendar slot on the same trade-date calendar and makes 3M, 6M and 12M exact calendar periods. |
-| Preview straddle | Pine shifts a slot whose period closed mid chart bar. | Not needed. Chart bars map to higher-timeframe candles by close time, so no bar straddles two periods. A preview slot shows `?` in the table's CC column. | |
-| Preview Auto | Arms from TradingView's clock and session. | Arms from NinjaTrader's clock and the instrument's trading hours template (holidays included), or 4 hours after the last bar closed. A 15-second timer re-checks it while no ticks arrive. | Works in Market Replay too. |
+| Preview straddle | Pine shifts a slot whose period closed mid chart bar. | Chart bars map to higher-timeframe candles by close time. When a slot's period is not a whole multiple of the chart's (45m on a 30m chart, 3H on 2H), the live bar shows the newest printed candle until the next one prints, as TradingView does. A preview slot shows `?` in the table's CC column. | |
+| Preview Auto | Arms from TradingView's clock and session. | Arms from NinjaTrader's clock and the chart's trading hours template once the trading day is over (holidays and early closes included; a break inside one trading day does not count), or 4 hours after the last bar closed. A 15-second timer re-checks it while no ticks arrive. | Works in Market Replay too. |
 | Timeline labels | Drawn at each line's end, in the future. | Same, but NinjaTrader cannot scroll past its right margin. **Keep Timeline Labels On Screen** (on by default) pulls a far label back to the chart's right edge. | |
 | Alerts | TradingView alert dialog, webhooks. | **Enable Alerts** (off by default) sends to NinjaTrader's Alerts Log with a sound. Each of the Suite's alert conditions is its own toggle under 14. Alerts. Alerts fire only on live data, never while history loads. | No webhooks. |
 | Debug panel YES/NO | Green and red fills. | Neutral slate and dark fills. | Green and red are reserved for bull and bear. |
-| History depth | `calc_bars_count` per slot. | Minute slots, and every slot on a daily chart, load the chart's Days to load. A **Short history** table row names any timeframe with too few candles for exhaustion. | NinjaTrader ignores the requested bar count for those series. See How much history to load. |
+| History depth | `calc_bars_count` per slot. | Minute slots on a minute chart, and every slot on a daily chart, load the chart's Days to load. A **Short history** table row names any timeframe with too few candles for exhaustion. | NinjaTrader ignores the requested bar count for a series of the chart's own bar type. See How much history to load. |
 | Bar Numbers | Suite PR #8, not yet released. | Same options under 12. Bar Numbers. | |
-| Non-time charts (tick, volume, range, Renko) | Timeframe-based charts only. | Allowed. No slot counts as lower than the chart, and lines project 10 bars ahead. | |
+| Non-time charts (tick, volume, range, Renko, Kagi, Line Break, Point and Figure) | Timeframe-based charts only. | Allowed. No slot counts as lower than the chart, and lines project 10 bars ahead. Heiken-Ashi charts on a minute, daily or longer base count as time charts. | |
 | Outputs | None. | Hidden plots for strategies and Market Analyzer: `FtfcState` (+1 up, -1 down, 0 conflict) and `Tf1Signal`..`Tf6Signal` (+1 bull, -1 bear, 0 none). | |
 
 ## Check in NinjaTrader before publishing

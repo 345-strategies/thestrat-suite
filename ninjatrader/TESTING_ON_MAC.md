@@ -29,7 +29,7 @@ Each session uses the README checklist numbers. Record pass/fail and a screensho
 
 **Session A: loads and draws (about 30 minutes, any time)**
 - Checklist 1, 2, 3, 11, 13: import, table rows fill, D/W/M rows, property grid names, tick and Renko charts.
-- Charts: ES 12-26 5-minute (ETH), SPY 5-minute (RTH), ES daily. Set **Days to load** to 90 on the minute charts and 2000 on the daily chart (Data Series window), since minute slots and every slot on a daily chart load the chart's own history (README, How much history to load). A **Short history** table row means a timeframe still has too few candles.
+- Charts: ES 12-26 5-minute (ETH), SPY 5-minute (RTH), ES daily. Set **Days to load** to 90 on the minute charts and 5000 (about 14 years) on the daily chart (Data Series window), since minute slots and every slot on a daily chart load the chart's own history (README, How much history to load). A **Short history** table row means a timeframe still has too few candles.
 
 **Session B: parity with TradingView (about 45 minutes, after a close)**
 

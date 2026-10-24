@@ -20,13 +20,13 @@ If the import fails, copy the two `.cs` files from the zip into `Documents\Ninja
 
 ## Test 1: it loads and draws (about 20 minutes)
 
-Use an ES or NQ 5-minute chart, then a SPY 5-minute chart, then any daily chart. In the chart's **Data Series** window set **Days to load** to 90 for the minute charts and 2000 for the daily chart. NinjaTrader loads the minute timeframes (and, on a daily chart, every timeframe) from the chart's own history, and exhaustion levels need 52 candles of each timeframe.
+Use an ES or NQ 5-minute chart, then a SPY 5-minute chart, then any daily chart. In the chart's **Data Series** window set **Days to load** to 90 for the minute charts and 5000 (about 14 years) for the daily chart. NinjaTrader loads the minute timeframes (and, on a daily chart, every timeframe) from the chart's own history, and exhaustion levels need 52 candles of each timeframe.
 
 - The data table appears (top right by default) and every row has bar types in C2, C1 and CC.
 - Lines and labels appear near price. Labels are readable.
-- Try each **Timeframe Preset** under 01. Every row of the table fills within a few seconds. If the table shows a **Short history** row, it names the timeframes with too little data: raise Days to load, or on a minute chart for D and longer, **Max Daily Bars To Load** under 15. Advanced. The NinjaScript Output window (New > NinjaScript Output) says which. Report it if the row stays after that.
+- Try each **Timeframe Preset** under 01. Every row of the table fills within a few seconds. If the table shows a **Short history** row, it names the timeframes with too little data for exhaustion levels and the setting to raise (Days to load, or **Max Daily Bars To Load** under 15. Advanced). The NinjaScript Output window (New > NinjaScript Output) explains. Report it if the row stays after you raise that setting and reload. 12M is never flagged: its exhaustion needs about 52 years of data, which TradingView rarely has either.
 - Under **Custom**, the slots also offer 2m, 10m, 45m and 3H. Their table and label names read 2, 10, 45 and 180, as in the TradingView Suite.
-- Open the indicator settings. Option lists read like the TradingView Suite ("Pin Bar (Strict)", "Reclaim + Open"), not code names, and picking one sticks. Each setting shows the Suite's tooltip text at the bottom of the grid.
+- Open the indicator settings. Option lists read like the TradingView Suite ("Pin Bar (Strict)", "Reclaim + Open"), not code names, and picking one sticks. Hovering over a setting's name shows the Suite's tooltip text after about a second.
 - Set a color to **Transparent** (for example FTFC Conflict under 11. Bar Coloring with FTFC Candles on). Those candles turn invisible, as on TradingView, rather than white.
 - Save the workspace, close and reopen NinjaTrader. Your color and setting changes are still there.
 - Load it on a tick, Renko or range chart. No errors, even if it shows little.

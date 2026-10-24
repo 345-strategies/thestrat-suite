@@ -391,6 +391,8 @@ namespace NinjaTrader.NinjaScript.Indicators
         private long chartSeconds;
         private bool chartDayBased, chartIntradayTime;
         private StratTimeframe chartAsTf;
+        private BarsPeriodType chartType;     // Heiken-Ashi resolved to its base period
+        private int chartValue;
         private readonly Dictionary<string, int> alertFiredBar = new Dictionary<string, int>();
         private RenderModel model;
         private volatile int formingBar = -1;
@@ -451,6 +453,13 @@ namespace NinjaTrader.NinjaScript.Indicators
             {
                 StartClock();
             }
+            else if (State == State.Realtime)
+            {
+                // The last historical bar was evaluated before realtime began, so it could not mark
+                // the live candle as forming; with On bar close nothing runs until that candle closes.
+                if (settings != null)
+                    SetFormingBar(NinjaTrader.Core.Globals.Now);
+            }
             else if (State == State.Terminated)
             {
                 StopClock();
@@ -462,6 +471,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         // single daily series for every D-and-up slot.
         private readonly Dictionary<int, int> minuteSeries = new Dictionary<int, int>();
         private int daySeries = -1;
+        private int dailyBarsRequested;
 
         private void BuildSlotsAndSeries()
         {
@@ -503,8 +513,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                 }
                 else
                 {
-                    int perBar = s.Tf == StratTimeframe.Day ? 1 : s.Tf == StratTimeframe.Week ? 5 : s.Tf == StratTimeframe.Month ? 21
-                        : s.Tf == StratTimeframe.Quarter ? 63 : s.Tf == StratTimeframe.HalfYear ? 126 : 252;
+                    int perBar = DailyPerBar(s.Tf);
                     dailyBars = Math.Max(dailyBars, StratTimeframes.HtfBarsTier(s.Tf) * perBar + perBar);
                 }
             }
@@ -520,11 +529,20 @@ namespace NinjaTrader.NinjaScript.Indicators
                 AddDataSeries(instrument, new BarsPeriod { BarsPeriodType = BarsPeriodType.Minute, Value = m }, minuteBars[m], th, null);
                 minuteSeries[m] = nextIndex++;
             }
+            dailyBarsRequested = 0;
             if (dailyBars > 0)
             {
-                AddDataSeries(instrument, new BarsPeriod { BarsPeriodType = BarsPeriodType.Day, Value = 1 }, Math.Min(Math.Max(dailyBars, 160), MaxDailyBars), th, null);
+                dailyBarsRequested = Math.Min(Math.Max(dailyBars, 160), MaxDailyBars);
+                AddDataSeries(instrument, new BarsPeriod { BarsPeriodType = BarsPeriodType.Day, Value = 1 }, dailyBarsRequested, th, null);
                 daySeries = nextIndex++;
             }
+        }
+
+        // Trading days in one candle of a D-and-up timeframe, for sizing the daily series.
+        private static int DailyPerBar(StratTimeframe tf)
+        {
+            return tf == StratTimeframe.Day ? 1 : tf == StratTimeframe.Week ? 5 : tf == StratTimeframe.Month ? 21
+                : tf == StratTimeframe.Quarter ? 63 : tf == StratTimeframe.HalfYear ? 126 : 252;
         }
 
         private void BindSources()
@@ -543,19 +561,29 @@ namespace NinjaTrader.NinjaScript.Indicators
         private void ClassifyChart()
         {
             BarsPeriod bp = BarsArray[0].BarsPeriod;
+            chartType = bp.BarsPeriodType;
+            chartValue = bp.Value;
+            // Heiken-Ashi bars keep their interval in the base period; on a time base they are
+            // ordinary time bars, as an HA chart is on TradingView. (Kagi, Line Break and P&F also
+            // have a base period but are not fixed-interval bars, so they stay non-time.)
+            if (chartType == BarsPeriodType.HeikenAshi)
+            {
+                chartType = bp.BaseBarsPeriodType;
+                chartValue = bp.BaseBarsPeriodValue;
+            }
             chartDayBased = false;
             chartIntradayTime = false;
             chartSeconds = 0;
             chartAsTf = StratTimeframe.Day;
-            switch (bp.BarsPeriodType)
+            switch (chartType)
             {
-                case BarsPeriodType.Second: chartSeconds = bp.Value; chartIntradayTime = true; break;
-                case BarsPeriodType.Minute: chartSeconds = bp.Value * 60L; chartIntradayTime = true; break;
-                case BarsPeriodType.Day: chartSeconds = bp.Value * 86400L; chartDayBased = true; chartAsTf = StratTimeframe.Day; break;
-                case BarsPeriodType.Week: chartSeconds = bp.Value * 604800L; chartDayBased = true; chartAsTf = StratTimeframe.Week; break;
-                case BarsPeriodType.Month: chartSeconds = bp.Value * 2629746L; chartDayBased = true; chartAsTf = bp.Value >= 12 ? StratTimeframe.Year : bp.Value >= 6 ? StratTimeframe.HalfYear : bp.Value >= 3 ? StratTimeframe.Quarter : StratTimeframe.Month; break;
-                case BarsPeriodType.Year: chartSeconds = bp.Value * 31556952L; chartDayBased = true; chartAsTf = StratTimeframe.Year; break;
-                default: chartSeconds = 0; break;   // tick, volume, range, Renko...: no timeframe to compare
+                case BarsPeriodType.Second: chartSeconds = chartValue; chartIntradayTime = true; break;
+                case BarsPeriodType.Minute: chartSeconds = chartValue * 60L; chartIntradayTime = true; break;
+                case BarsPeriodType.Day: chartSeconds = chartValue * 86400L; chartDayBased = true; chartAsTf = StratTimeframe.Day; break;
+                case BarsPeriodType.Week: chartSeconds = chartValue * 604800L; chartDayBased = true; chartAsTf = StratTimeframe.Week; break;
+                case BarsPeriodType.Month: chartSeconds = chartValue * 2629746L; chartDayBased = true; chartAsTf = chartValue >= 12 ? StratTimeframe.Year : chartValue >= 6 ? StratTimeframe.HalfYear : chartValue >= 3 ? StratTimeframe.Quarter : StratTimeframe.Month; break;
+                case BarsPeriodType.Year: chartSeconds = chartValue * 31556952L; chartDayBased = true; chartAsTf = StratTimeframe.Year; break;
+                default: chartSeconds = 0; break;   // tick, volume, range, Renko, Kagi...: no timeframe to compare
             }
             // Pine validTimeframe: a slot below the chart's timeframe is not evaluated (its row is
             // greyed) but still votes in FTFC. Non-time charts have no timeframe, so nothing is lower.
@@ -569,28 +597,41 @@ namespace NinjaTrader.NinjaScript.Indicators
         // chart's own history, so a short chart can leave a slot without exhaustion levels.
         private void CheckHistoryDepth()
         {
-            List<string> shortTfs = new List<string>();
-            bool dailyCapped = false;
-            bool dailyChart = BarsArray[0].BarsPeriod.BarsPeriodType == BarsPeriodType.Day;
+            // NinjaTrader ignores barsToLoad for a series of the chart's own bar type, so minute
+            // slots on a minute chart, and D-and-up slots on a daily chart, follow Days to load.
+            BarsPeriodType primary = BarsArray[0].BarsPeriod.BarsPeriodType;
+            bool dayCapped = daySeries >= 0 && primary != BarsPeriodType.Day;
+            // An honored request that came back short means the provider has no older daily data.
+            bool dayProviderOut = dayCapped && BarsArray[daySeries].Count < dailyBarsRequested - 5;
+            List<string> shortTfs = new List<string>(), providerTfs = new List<string>();
+            bool needDays = false, needMaxDaily = false;
             for (int i = 0; i < 6; i++)
             {
                 Slot s = slots[i];
                 s.ShortHistory = false;
                 if (!s.Enabled || s.Lower || s.Src == null || !settings.ShowExhaustion) continue;
+                // 12M exhaustion needs 52+ years of daily data, which TradingView itself has for very
+                // few symbols (the Max Daily Bars tooltip gives the bars it takes): not flagged.
+                if (s.Tf == StratTimeframe.Year) continue;
                 s.Src.Refresh();
-                if (s.Src.Count < 52)
-                {
-                    s.ShortHistory = true;
-                    if (!shortTfs.Contains(s.Label)) shortTfs.Add(s.Label);
-                    if (!s.Intraday && !dailyChart) dailyCapped = true;
-                }
+                if (s.Src.Count >= 52) continue;
+                s.ShortHistory = true;
+                bool followsChart = s.Intraday ? primary == BarsPeriodType.Minute : !dayCapped;
+                if (followsChart) needDays = true;
+                else if (!s.Intraday && !dayProviderOut) needMaxDaily = true;
+                else { if (!providerTfs.Contains(s.Label)) providerTfs.Add(s.Label); continue; }
+                if (!shortTfs.Contains(s.Label)) shortTfs.Add(s.Label);
             }
-            shortHistoryText = shortTfs.Count == 0 ? "" : "Short history: " + string.Join(", ", shortTfs.ToArray()) + " (load more days)";
+            shortHistoryText = shortTfs.Count == 0 ? "" : "Short history: " + string.Join(", ", shortTfs.ToArray())
+                + (needDays && needMaxDaily ? " (load more days, raise Max Daily Bars)" : needMaxDaily ? " (raise Max Daily Bars)" : " (load more days)");
             if (shortTfs.Count > 0)
-                Print(string.Format("TheStratSuite: {0} loaded fewer than 52 candles, so exhaustion levels cannot form there. "
-                    + "Minute timeframes, and on a daily chart every timeframe, follow the chart's Days to load (Data Series window).{1}",
+                Print(string.Format("TheStratSuite: {0} loaded fewer than 52 candles, so exhaustion levels cannot form there.{1}{2}",
                     string.Join(", ", shortTfs.ToArray()),
-                    dailyCapped ? " D and longer on this chart follow Max Daily Bars To Load (15. Advanced), unless the data provider has no older daily history." : ""));
+                    needDays ? " Raise the chart's Days to load (Data Series window): minute timeframes on a minute chart, and every timeframe on a daily chart, follow it." : "",
+                    needMaxDaily ? " Raise Max Daily Bars To Load (15. Advanced): D and longer on this chart follow it." : ""));
+            if (providerTfs.Count > 0)
+                Print(string.Format("TheStratSuite: {0} loaded fewer than 52 candles because the data provider has no older history, so exhaustion levels cannot form there.",
+                    string.Join(", ", providerTfs.ToArray())));
         }
         private string shortHistoryText = "";
 
@@ -625,8 +666,18 @@ namespace NinjaTrader.NinjaScript.Indicators
                 if (k == BarsArray[0].Count - 1 && daySeries >= 0 && BarsArray[daySeries].Count > 0)
                 {
                     DateTime newest = BarsArray[daySeries].GetTime(BarsArray[daySeries].Count - 1).Date;
-                    if (newest < d && StratTimeframes.PeriodKey(chartAsTf, newest) == StratTimeframes.PeriodKey(chartAsTf, d))
+                    long dk = StratTimeframes.PeriodKey(chartAsTf, d);
+                    if (newest < d && StratTimeframes.PeriodKey(chartAsTf, newest) == dk)
                         d = newest;
+                    else if (newest < d)
+                    {
+                        // The daily series (another trading hours template, or a tick behind) has
+                        // not printed this chart period yet: use the chart session's trade date.
+                        sessionIt.GetNextSession(NinjaTrader.Core.Globals.Now, true);
+                        DateTime live = sessionIt.ActualTradingDayExchange.Date;
+                        if (live < d && StratTimeframes.PeriodKey(chartAsTf, live) == dk)
+                            d = live;
+                    }
                 }
                 return d;
             }
@@ -699,6 +750,17 @@ namespace NinjaTrader.NinjaScript.Indicators
                 // A lower slot's candle ending with the live chart bar has not printed yet: use the
                 // newest printed lower-timeframe candle, as request.security serves on the live bar.
                 if (s.Lower && p >= s.Src.Count && s.Src.Count > 0) { p = s.Src.Count - 1; key = s.Src.Key(p); }
+                // A slot whose period is not a whole multiple of the chart's (45m on 30m, 3H on 2H,
+                // 15m on 2m) has chart bars that straddle two of its candles. The live bar's close
+                // stamp points at the next candle before it opens; until the slot's series prints it,
+                // the candle in progress is the newest printed one, as request.security serves.
+                if (chartIntradayTime && s.Intraday && !s.Lower && s.Seconds % chartSeconds != 0
+                    && k == b0.Count - 1 && p >= s.Src.Count && s.Src.Count > 0
+                    && s.Src.Key(s.Src.Count - 1) > barTime.AddSeconds(-chartSeconds).Ticks)
+                {
+                    p = s.Src.Count - 1;
+                    key = s.Src.Key(p);
+                }
                 htfIdx[i] = p;
                 if (p < 0) continue;
                 SlotState ss = st.Slots[i];
@@ -749,10 +811,13 @@ namespace NinjaTrader.NinjaScript.Indicators
                         raw.CCO = sO; raw.CCH = s.Src.H(p); raw.CCL = s.Src.L(p); raw.CCC = s.Src.C(p);
                         if (string.IsNullOrWhiteSpace(HtfTradingHours) && k == b0.Count - 1)
                         {
-                            // Same session template: the chart bar lies inside this candle, and the
-                            // chart series can receive a tick before the higher-timeframe series does.
-                            raw.CCH = Math.Max(raw.CCH, h0);
-                            raw.CCL = Math.Min(raw.CCL, l0);
+                            // Same session template: the chart series can receive a tick before the
+                            // higher-timeframe series does. Only that tick can be missing, and it lies
+                            // inside this candle. The chart bar's own high and low are not merged: the
+                            // bar can begin in an earlier candle (tick and Renko bars, a 45m bar over
+                            // the hour, a weekly bar over a month end).
+                            raw.CCH = Math.Max(raw.CCH, c0);
+                            raw.CCL = Math.Min(raw.CCL, c0);
                             raw.CCC = c0;
                         }
                     }
@@ -887,26 +952,32 @@ namespace NinjaTrader.NinjaScript.Indicators
             // ---- 10. Render model ----
             if (isLast)
             {
-                // The live candle's bar number is drawn lighter until it closes (BARNUM-1). With
-                // Calculate On bar close the evaluated bar k has closed; the live candle is the next.
-                bool forming = false;
-                int live = b0.Count - 1;
-                if (settings.ShowBarNumbers && State == State.Realtime)
-                {
-                    try { DateTime lc; forming = !LastBarClosed(live, now, out lc) || chartSeconds == 0; }
-                    catch { forming = false; }
-                }
-                formingBar = forming ? live : -1;
+                SetFormingBar(now);
                 model = BuildModel(st, k, raws, htfIdx, results, anchorIndex, anchorDirection, ftfcUp, ftfcDown, dominoBestRun, dominoBestTFs, previewNext, dbg, c0, tick);
             }
+        }
+
+        // The live candle's bar number is drawn lighter until it closes (BARNUM-1). With Calculate
+        // On bar close the evaluated bar has closed; the live candle is the next one.
+        private void SetFormingBar(DateTime now)
+        {
+            bool forming = false;
+            int live = BarsArray[0].Count - 1;
+            if (settings.ShowBarNumbers && State == State.Realtime && live >= 0)
+            {
+                try { DateTime lc; forming = !LastBarClosed(live, now, out lc) || chartSeconds == 0; }
+                catch { forming = false; }
+            }
+            formingBar = forming ? live : -1;
         }
 
         // ====================================================================
         // PREVIEW MODE (clock + trading hours)
         // ====================================================================
-        // Auto arms when the chart's last bar has passed its scheduled close and the market is
-        // not trading according to the instrument's trading hours template (which carries the
-        // exchange holidays and early closes), or 4 hours after the last bar's close.
+        // Auto arms when the chart's last bar has passed its scheduled close and, per the chart
+        // series' trading hours template (which carries the exchange holidays and early closes),
+        // the market is out of session and the next session belongs to another trade date, or 4
+        // hours after the last bar's close.
 
         // Has the chart bar passed its scheduled close? Non-time charts have no schedule.
         private bool LastBarClosed(int k, DateTime now, out DateTime lastClose)
@@ -990,9 +1061,47 @@ namespace NinjaTrader.NinjaScript.Indicators
             return end;
         }
 
+        // First session begin of the calendar period holding a trading date (the higher-timeframe
+        // candle's open, Pine's ccTime): the first session whose trading day keys to that period.
+        private DateTime PeriodOpenFromDate(StratTimeframe tf, DateTime tradingDate)
+        {
+            DateTime d = tradingDate.Date;
+            DateTime start;
+            switch (tf)
+            {
+                case StratTimeframe.Week: start = d.AddDays(-(((int)d.DayOfWeek + 6) % 7)); break;
+                case StratTimeframe.Month: start = new DateTime(d.Year, d.Month, 1); break;
+                case StratTimeframe.Quarter: start = new DateTime(d.Year, (d.Month - 1) / 3 * 3 + 1, 1); break;
+                case StratTimeframe.HalfYear: start = new DateTime(d.Year, d.Month <= 6 ? 1 : 7, 1); break;
+                case StratTimeframe.Year: start = new DateTime(d.Year, 1, 1); break;
+                default: start = d; break;
+            }
+            long key = StratTimeframes.PeriodKey(tf, d);
+            endIt.GetNextSession(start.AddDays(-7), true);
+            for (int guard = 0; guard < 400; guard++)
+            {
+                long k2 = StratTimeframes.PeriodKey(tf, endIt.ActualTradingDayExchange);
+                if (k2 == key) return endIt.ActualSessionBegin;
+                if (k2 > key) break;
+                DateTime prevEnd = endIt.ActualSessionEnd;
+                endIt.GetNextSession(prevEnd, false);
+                if (endIt.ActualSessionEnd <= prevEnd) break;
+            }
+            return DateTime.MinValue;
+        }
+
+        // Open of a trading date's first session: Pine's `time` for a daily bar, which NinjaTrader
+        // stamps with the date (an ES daily bar opens at 18:00 ET on the previous calendar day).
+        private DateTime DayOpen(DateTime tradingDate)
+        {
+            DateTime open = PeriodOpenFromDate(StratTimeframe.Day, tradingDate);
+            return open == DateTime.MinValue ? tradingDate.Date : open;
+        }
+
         private void StartClock()
         {
-            if (ChartControl == null || PreviewMode != PreviewModeOption.Auto) return;
+            // Auto preview and the forming bar number both change when a bar closes with no new tick.
+            if (ChartControl == null || (PreviewMode != PreviewModeOption.Auto && !ShowBarNumbers)) return;
             ChartControl.Dispatcher.InvokeAsync(() =>
             {
                 if (clockTimer != null || State >= State.Terminated) return;
@@ -1258,7 +1367,9 @@ namespace NinjaTrader.NinjaScript.Indicators
                 DateTime lastTime = BarsArray[0].GetTime(lastBar);
                 DateTime end;
                 if (raw.IsPreview)   // Pine: the next period runs from this chart bar's open
-                    end = (chartIntradayTime ? lastTime.AddSeconds(-chartSeconds) : lastTime).AddSeconds(s.Seconds);
+                    end = (chartIntradayTime ? lastTime.AddSeconds(-chartSeconds)
+                        : chartDayBased && chartSeconds == 86400 ? DayOpen(TradingDateOf(lastBar))
+                        : lastTime).AddSeconds(s.Seconds);
                 else if (s.Intraday)
                 {
                     MinuteSource ms = s.Src as MinuteSource;
@@ -1269,7 +1380,12 @@ namespace NinjaTrader.NinjaScript.Indicators
                     long key = s.Src.Key(htfIndex);
                     if (s.EndKey != key)
                     {
-                        s.EndTime = PeriodEndFromDate(s.Tf, TradingDateOf(lastBar));
+                        // Pine: max(period open + nominal period, scheduled close).
+                        DateTime td = TradingDateOf(lastBar);
+                        DateTime close = PeriodEndFromDate(s.Tf, td);
+                        DateTime open = PeriodOpenFromDate(s.Tf, td);
+                        DateTime nominal = open == DateTime.MinValue ? close : open.AddSeconds(s.Seconds);
+                        s.EndTime = nominal > close ? nominal : close;
                         s.EndKey = key;
                     }
                     end = s.EndTime;
@@ -1299,27 +1415,47 @@ namespace NinjaTrader.NinjaScript.Indicators
                 }
                 if (chartIntradayTime && b0.GetTime(found).AddSeconds(-chartSeconds) < t)
                     return found + 1;
+                // Day-based bars are stamped with their period's last calendar day, which can fall
+                // after the period's last session (a holiday Friday, a month ending on a weekend).
+                // A time at or after the bar's scheduled close belongs to the next bar.
+                if (chartDayBased && t >= MapTime(found, b0.GetTime(found), TradingDateOf(found)))
+                    return found + 1;
                 return found;
             }
             if (chartSeconds <= 0)
                 return lastBar + 10;       // no clock on tick/range charts: a short projection
             if (chartDayBased)
             {
-                double days = 0;
-                DateTime cur = lastTime;
+                // Daily charts: one future bar per session. Weekly, monthly and yearly charts: one
+                // bar per chart period, the last bar's own period counting as the first (a monthly
+                // bar stamped on a weekend starts the walk in the next month, so seed from the bar).
+                bool byPeriod = chartType != BarsPeriodType.Day;
+                long prevKey = byPeriod ? StratTimeframes.PeriodKey(chartAsTf, TradingDateOf(lastBar)) : 0;
+                double units = byPeriod ? 1 : 0;
                 int guard = 0;
-                endIt.GetNextSession(cur, false);
+                endIt.GetNextSession(lastTime, false);
                 while (guard++ < 400 && endIt.ActualSessionBegin < t)
                 {
-                    days += 1;
+                    if (!byPeriod) units += 1;
+                    else
+                    {
+                        long pk = StratTimeframes.PeriodKey(chartAsTf, endIt.ActualTradingDayExchange);
+                        if (pk != prevKey) { units += 1; prevKey = pk; }
+                    }
                     DateTime prevEnd = endIt.ActualSessionEnd;
                     endIt.GetNextSession(prevEnd, false);
                     if (endIt.ActualSessionEnd <= prevEnd) break;
                 }
-                return lastBar + Math.Max(1, Math.Ceiling(days * 86400.0 / chartSeconds));
+                // A multi-period bar (2 days, 2 weeks, 2 months) holds several counted units.
+                double perBar = !byPeriod ? Math.Max(1, chartValue)
+                    : Math.Max(1, Math.Round(chartSeconds / (double)StratTimeframes.Seconds(chartAsTf)));
+                return lastBar + Math.Max(1, Math.Ceiling(units / perBar));
             }
             // Intraday: count only in-session time, as the chart's own future bars would.
-            double seconds = 0;
+            // NinjaTrader cuts each session's last bar at the session end, and that short bar is a
+            // whole slot on the chart (as in TradingView's future time scale): a session the window
+            // runs through to its end counts in whole bars, and only the final partial one by time.
+            double bars = 0, seconds = 0;
             DateTime c = lastTime;
             int n = 0;
             while (n++ < 400 && c < t)
@@ -1327,11 +1463,15 @@ namespace NinjaTrader.NinjaScript.Indicators
                 endIt.GetNextSession(c, false);
                 DateTime begin = endIt.ActualSessionBegin > c ? endIt.ActualSessionBegin : c;
                 DateTime finish = endIt.ActualSessionEnd < t ? endIt.ActualSessionEnd : t;
-                if (finish > begin) seconds += (finish - begin).TotalSeconds;
+                if (finish > begin)
+                {
+                    if (finish == endIt.ActualSessionEnd) bars += Math.Ceiling((finish - begin).TotalSeconds / chartSeconds);
+                    else seconds += (finish - begin).TotalSeconds;
+                }
                 if (endIt.ActualSessionEnd <= c) break;
                 c = endIt.ActualSessionEnd;
             }
-            return lastBar + Math.Ceiling(seconds / chartSeconds) + 1;
+            return lastBar + bars + Math.Ceiling(seconds / chartSeconds) + 1;
         }
 
         private RenderModel BuildModel(EvalState st, int k, SlotRaw[] raws, int[] htf, SlotResult[] results, int anchorIndex, int anchorDirection,
@@ -2180,7 +2320,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         [Browsable(false)] public string StopCustomColorSerializable { get { return Serialize.BrushToString(StopCustomColor); } set { StopCustomColor = Serialize.StringToBrush(value); } }
 
         // ---- 10. Display ----
-        [Display(Name = "Preview Mode", Order = 1, GroupName = "10. Display", Description = "Off: never preview. On: always preview next period levels. Auto: previews once the chart's last bar has passed its scheduled close and the market is closed per the instrument's trading hours (holidays included), or 4 hours after the last bar's close.")]
+        [Display(Name = "Preview Mode", Order = 1, GroupName = "10. Display", Description = "Off: never preview. On: always preview next period levels. Auto: previews once the chart's last bar has passed its scheduled close and the chart's trading hours template shows the trading day is over (weekends, the daily maintenance break, the equity overnight, holidays and early closes), or 4 hours after the last bar's close. A break inside one trading day (grains, lunch breaks) does not count.")]
         [TypeConverter(typeof(PreviewModeConverter))][PropertyEditor("NinjaTrader.Gui.Tools.StringStandardValuesEditorKey")]
         public PreviewModeOption PreviewMode { get; set; }
         [Display(Name = "Show Data Table", Order = 2, GroupName = "10. Display", Description = "Show the multi-timeframe data table")] public bool ShowDataTable { get; set; }
@@ -2286,7 +2426,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         [Display(Name = "  Include MAG", Order = 12, GroupName = "14. Alerts", Description = "Enrich the consolidated alert message with additional context. Each toggle appends data to the alert when available. Example output: 1H 2d-1-2u HAM @ 542.10 MAG 545.30 EXH 548.20 STOP 538.10 | FTFC Up. Fields that don't exist for a signal (e.g. no magnitude) are omitted automatically.")] public bool AlertShowMagnitude { get; set; }
         [Display(Name = "  Include EXH", Order = 13, GroupName = "14. Alerts", Description = "Enrich the consolidated alert message with additional context. Each toggle appends data to the alert when available. Example output: 1H 2d-1-2u HAM @ 542.10 MAG 545.30 EXH 548.20 STOP 538.10 | FTFC Up. Fields that don't exist for a signal (e.g. no magnitude) are omitted automatically.")] public bool AlertShowExhaustion { get; set; }
         [Display(Name = "  Include STOP", Order = 14, GroupName = "14. Alerts", Description = "Enrich the consolidated alert message with additional context. Each toggle appends data to the alert when available. Example output: 1H 2d-1-2u HAM @ 542.10 MAG 545.30 EXH 548.20 STOP 538.10 | FTFC Up. Fields that don't exist for a signal (e.g. no magnitude) are omitted automatically.")] public bool AlertShowStop { get; set; }
-        [Display(Name = "  Include Domino", Order = 15, GroupName = "14. Alerts", Description = "Include Domino alerts in the consolidated alert message. The separate 'Domino Setup' alert below is a dedicated Domino alert.")] public bool IncludeDominoInConsolidated { get; set; }
+        [Display(Name = "  Include Domino", Order = 15, GroupName = "14. Alerts", Description = "Fire a 'Domino: <timeframes>' alert each time a new Domino forms (the Pine's Domino alert() call, which shares the consolidated alert's subscription on TradingView). In NinjaTrader it is its own Alerts Log entry and fires even when 'Signal In-Force (Any)' is off. The 'Domino Setup' alert below fires on the same Domino, so turning on both gives two entries.")] public bool IncludeDominoInConsolidated { get; set; }
         [Display(Name = "Signal In-Force (TF1)", Order = 16, GroupName = "14. Alerts")] public bool AlertTF1InForce { get; set; }
         [Display(Name = "Signal In-Force (TF2)", Order = 17, GroupName = "14. Alerts")] public bool AlertTF2InForce { get; set; }
         [Display(Name = "Signal In-Force (TF3)", Order = 18, GroupName = "14. Alerts")] public bool AlertTF3InForce { get; set; }
@@ -2315,8 +2455,8 @@ namespace NinjaTrader.NinjaScript.Indicators
         [Display(Name = "Color TF When In-Force", Order = 8, GroupName = "15. Advanced", Description = "Highlight the TF column with the CC color when a signal you have enabled is in-force (Full mode only)")] public bool ColorTFWhenInForce { get; set; }
         [Display(Name = "TAW: Include Failing 2s", Order = 9, GroupName = "15. Advanced", Description = "Highlight the C1 range as a take action zone for Failing 2 (Range Reclaim) setups")] public bool TawIncludeFailing2s { get; set; }
         [Display(Name = "TAW: Include Outside Bars", Order = 10, GroupName = "15. Advanced", Description = "Highlight the zone between trigger and magnitude for outside bar (3-bar) expansions")] public bool TawIncludeOutsideBars { get; set; }
-        [Display(Name = "HTF Trading Hours", Order = 11, GroupName = "15. Advanced", Description = "Trading hours template for the higher-timeframe data (e.g. 'CME US Index Futures ETH'). Blank uses the instrument's default template. Match your chart's template.")] public string HtfTradingHours { get; set; }
-        [Range(200, 20000)][Display(Name = "Max Daily Bars To Load", Order = 12, GroupName = "15. Advanced", Description = "Daily history behind the D, W, M, 3M, 6M and 12M slots. Exhaustion needs about 1,100 daily bars for monthly, 3,300 for quarterly, 6,700 for 6M and 13,400 for 12M. On a daily chart, the chart's own Days to load governs instead, and minute slots always follow the chart's Days to load.")] public int MaxDailyBars { get; set; }
+        [Display(Name = "HTF Trading Hours", Order = 11, GroupName = "15. Advanced", Description = "Trading hours template for the higher-timeframe data (e.g. 'CME US Index Futures ETH'). Blank (recommended) uses the chart's own template. Set a name only to build the higher timeframes from different hours than the chart.")] public string HtfTradingHours { get; set; }
+        [Range(200, 20000)][Display(Name = "Max Daily Bars To Load", Order = 12, GroupName = "15. Advanced", Description = "Upper limit on the daily history behind the D, W, M, 3M, 6M and 12M slots; each loads about 100 of its candles up to this limit. Exhaustion needs about 1,100 daily bars for monthly, 3,300 for quarterly, 6,700 for 6M and 13,400 for 12M. On a daily chart the chart's own Days to load governs instead.")] public int MaxDailyBars { get; set; }
 
         // ---- 16. Debug ----
         [Display(Name = "Show Debug Panel", Order = 1, GroupName = "16. Debug", Description = "Show detailed debug information for a selected timeframe to troubleshoot signal logic")] public bool ShowDebugPanel { get; set; }

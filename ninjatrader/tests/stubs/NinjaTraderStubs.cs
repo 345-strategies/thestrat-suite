@@ -88,8 +88,8 @@ namespace NinjaTrader.Cbi
 
 namespace NinjaTrader.Data
 {
-    public enum BarsPeriodType { Tick, Volume, Range, Second, Minute, Day, Week, Month, Year }
-    public class BarsPeriod { public BarsPeriodType BarsPeriodType { get; set; } public int Value { get; set; } }
+    public enum BarsPeriodType { Tick, Volume, Range, Second, Minute, Day, Week, Month, Year, HeikenAshi, Kagi, LineBreak, PointAndFigure, Renko }
+    public class BarsPeriod { public BarsPeriodType BarsPeriodType { get; set; } public int Value { get; set; } public BarsPeriodType BaseBarsPeriodType { get; set; } public int BaseBarsPeriodValue { get; set; } }
 
     // In-memory bars for the smoke test (tests/SmokeTest.cs fills them).
     public class Bars
