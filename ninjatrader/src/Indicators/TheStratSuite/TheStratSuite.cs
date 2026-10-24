@@ -363,7 +363,7 @@ namespace NinjaTrader.NinjaScript.Indicators
 
         private sealed class RLine { public double X1, X2, Price; public SColor Color; public int Width; public LineStyleCode Style; }
         private sealed class RBox { public double X1, X2, Top, Bottom; public SColor Fill, Border; }
-        private sealed class RLabel { public double X; public double Price; public string Text; public SColor Bg, Fg; }
+        private sealed class RLabel { public double X; public double Price; public string Text; public SColor Bg, Fg; public bool Timeline; }
         private sealed class RCell { public string Text = ""; public SColor Fg, Bg; }
         private sealed class RTable
         {
@@ -1653,7 +1653,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                         string text = s.ShowPriceInLabel ? e.Text + " " + StratLabels.FormatPrice(e.Price, tick) : e.Text;
                         SColor fg = ColorMath.ReadableOn(e.Color, s.LabelBackgroundColor);
                         if (s.ShowTimelineLabels)
-                            m.Labels.Add(new RLabel { X = e.EndX + s.LabelOffset, Price = e.Price, Text = text, Bg = bg, Fg = fg });
+                            m.Labels.Add(new RLabel { X = e.EndX + s.LabelOffset, Price = e.Price, Text = text, Bg = bg, Fg = fg, Timeline = true });
                         if (s.ShowFloatingLabels)
                             m.Labels.Add(new RLabel { X = k + s.FloatingLabelOffset, Price = e.Price, Text = text, Bg = bg, Fg = fg });
                     }
@@ -2076,7 +2076,13 @@ namespace NinjaTrader.NinjaScript.Indicators
                         {
                             float w = layout.Metrics.Width + 8, h = layout.Metrics.Height + 4;
                             float x = X(lb.X);
-                            if (ClampTimelineLabels && x + w > panelRight) x = panelRight - w - 2;
+                            if (lb.Timeline && x + w > panelRight)
+                            {
+                                // With floating labels on, the level already has a label beside price, so a
+                                // timeline label past the edge is left off rather than pulled back over it.
+                                if (settings != null && settings.ShowFloatingLabels) continue;
+                                if (ClampTimelineLabels) x = panelRight - w - 2;
+                            }
                             float y = chartScale.GetYByValue(lb.Price) - h / 2;
                             SharpDX.RectangleF rect = new SharpDX.RectangleF(x, y, w, h);
                             RenderTarget.FillRectangle(rect, Dx(lb.Bg));
@@ -2449,7 +2455,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         [Display(Name = "Use Dash Separator", Order = 7, GroupName = "10. Display", Description = "Separate candle values with a dash (e.g., 2u-2d instead of 2u2d)")] public bool UseDashSeparator { get; set; }
         [Display(Name = "Show Timeline Labels", Order = 8, GroupName = "10. Display", Description = "Show labels at the end of each level line, anchored to the line's end time")] public bool ShowTimelineLabels { get; set; }
         [Range(0, 20)][Display(Name = "  Timeline Offset (bars)", Order = 9, GroupName = "10. Display", Description = "Number of bars to offset timeline labels from the line end")] public int LabelOffset { get; set; }
-        [Display(Name = "  Keep Timeline Labels On Screen", Order = 10, GroupName = "10. Display", Description = "NinjaTrader cannot scroll past its right margin, so a label anchored at a far period end is pulled back to the chart's right edge.")] public bool ClampTimelineLabels { get; set; }
+        [Display(Name = "  Keep Timeline Labels On Screen", Order = 10, GroupName = "10. Display", Description = "NinjaTrader cannot scroll past its right margin, so a label anchored at a far period end is pulled back to the chart's right edge. With floating labels on, such a label is left off instead, since the floating label already shows the level.")] public bool ClampTimelineLabels { get; set; }
         [Display(Name = "Show Floating Labels", Order = 11, GroupName = "10. Display", Description = "Show labels at a fixed offset from the current bar, keeping them visible on screen as price moves")] public bool ShowFloatingLabels { get; set; }
         [Range(-20, 50)][Display(Name = "  Floating Offset (bars)", Order = 12, GroupName = "10. Display", Description = "Number of bars to offset floating labels from the current bar (negative = left, positive = right)")] public int FloatingLabelOffset { get; set; }
         [Display(Name = "Show Price in Label", Order = 13, GroupName = "10. Display", Description = "Include the price level in each label")] public bool ShowPriceInLabel { get; set; }
