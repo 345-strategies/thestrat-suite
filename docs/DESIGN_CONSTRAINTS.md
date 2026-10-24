@@ -50,6 +50,10 @@ the stated intent.
     advertised product feature. Note any platform-compat risk but do not demand
     removal.
 15. Stop lines are intentionally excluded from line suppression (risk mgmt).
+16. No Heiken-Ashi. TheStrat classifies traded opens, highs, lows and closes, and
+    Heiken-Ashi candles are averages, so Strat output on a Heiken-Ashi chart is wrong
+    by construction. Heiken-Ashi is unsupported in every tool here (root README,
+    "No Heiken-Ashi"); do not propose support for it. (Added 2026-10-24.)
 
 ## What the owner wants from this review
 - Latest Pine v6 / TradingView capabilities the script is NOT using but should

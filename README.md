@@ -18,6 +18,19 @@ Setup guides and background: [thestratsuite.com](https://thestratsuite.com)
 2. Pick a Timeframe Preset (TheStrat Classic, Scalp, Day Trade, Futures/Crypto, Swing Trade, Investing) — or set Custom and configure the six slots yourself.
 3. Read `docs/concepts/bar-types.md` and `docs/concepts/signals.md` to learn what you're looking at.
 
+## No Heiken-Ashi
+
+TheStrat reads real candles. Every bar type compares a candle's traded high and low with the
+prior candle's, and in-force, Failing 2s and continuity compare traded opens and closes.
+Heiken-Ashi candles are averages: each open is the midpoint of the previous Heiken-Ashi candle
+and each close the mean of four prices, so their opens, highs, lows and closes are not prices
+that traded, and Strat bar types read from them are wrong. Do not use TheStrat Suite, or any
+tool in this repo, on a Heiken-Ashi chart. Use candles, bars (OHLC) or hollow candles.
+
+- **TradingView:** the Suite does not detect a Heiken-Ashi chart, and its higher timeframes are
+  then built from Heiken-Ashi prices too, so every row of the table is affected.
+- **NinjaTrader:** the port refuses Heiken-Ashi charts and shows a notice instead.
+
 ## Repository contents
 
 ### `pine/` — indicator source (newest first)
@@ -57,6 +70,14 @@ compares the two across 40,000 random bars in both detection methods, so the spe
 drift from the indicator.
 `TheStratGrammar.pine` is the same grammar as a TradingView library; the Suite imports it as of
 v3.1.1 (`import SpinTrades/TheStratGrammar/1`). Published versions: `PUBLISHED.md`.
+
+### `ninjatrader/` — TheStrat Suite for NinjaTrader 8 (C#)
+
+A full port of v3.1.1 as a NinjaScript indicator, free under MPL-2.0, in beta. Import
+`ninjatrader/dist/TheStratSuite_NT8_v0.2.0.zip` in NinjaTrader; `ninjatrader/TESTER_GUIDE.md` is
+the guide for beta testers. `ninjatrader/README.md` covers
+install, where it differs from the Pine, and the in-app checks still to do.
+`grammar/tests/test_nt_parity.py` checks its engine against the grammar.
 
 ### `pine-draw/` — drawing components (Pine v6)
 
