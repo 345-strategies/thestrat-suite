@@ -23,7 +23,7 @@ The indicator loads its own higher-timeframe data, but NinjaTrader decides how m
 - **On a daily chart** every slot follows the chart's Days to load, so monthly exhaustion needs about five years and quarterly about 13.
 - **12M** exhaustion needs about 52 years of daily data (13,400 bars), which few symbols have on TradingView either. It is not flagged.
 
-When Show Exhaustion Levels is on and a timeframe at or above the chart's loaded fewer than 52 candles, the table shows a **Short history** row naming it and the setting to raise, and the NinjaScript Output window explains. If the data provider has no older data, only the Output window says so, since no setting helps. The check runs when the indicator loads, so the row clears after a reload.
+When Show Exhaustion Levels is on and a timeframe at or above the chart's loaded fewer than 52 candles, the table shows a **Short history** row naming it and the setting to raise, and the NinjaScript Output window explains. Where NinjaTrader honors the indicator's request (D and longer on a chart that is not daily, and minute slots on tick, Renko and other non-minute charts) and the data provider has less, only the Output window says so, since no setting helps. Where the chart's Days to load governs (minute slots on a minute chart, every slot on a daily chart), the indicator cannot tell a short Days to load from data that starts later, so the row stays until the chart's data reaches back far enough. The check runs when the indicator loads, so the row clears after a reload.
 
 ## Files
 
@@ -53,9 +53,9 @@ When Show Exhaustion Levels is on and a timeframe at or above the chart's loaded
 | Timeline labels | Drawn at each line's end, in the future. | Same, but NinjaTrader cannot scroll past its right margin. **Keep Timeline Labels On Screen** (on by default) pulls a far label back to the chart's right edge. | |
 | Alerts | TradingView alert dialog, webhooks. | **Enable Alerts** (off by default) sends to NinjaTrader's Alerts Log with a sound. Each of the Suite's alert conditions is its own toggle under 14. Alerts. Alerts fire only on live data, never while history loads. | No webhooks. |
 | Debug panel YES/NO | Green and red fills. | Neutral slate and dark fills. | Green and red are reserved for bull and bear. |
-| History depth | `calc_bars_count` per slot. | Minute slots on a minute chart, and every slot on a daily chart, load the chart's Days to load. A **Short history** table row names any timeframe with too few candles for exhaustion. | NinjaTrader ignores the requested bar count for a series of the chart's own bar type. See How much history to load. |
+| History depth | `calc_bars_count` per slot. | Minute slots on a minute chart, and every slot on a daily chart, load the chart's Days to load. A **Short history** table row names a timeframe with too few candles for exhaustion when a setting can fix it (see How much history to load). | NinjaTrader ignores the requested bar count for a series of the chart's own bar type. See How much history to load. |
 | Bar Numbers | Suite PR #8, not yet released. | Same options under 12. Bar Numbers. | |
-| Non-time charts (tick, volume, range, Renko, Kagi, Line Break, Point and Figure) | Timeframe-based charts only. | Allowed. No slot counts as lower than the chart, and lines project 10 bars ahead. Heiken-Ashi charts on a minute, daily or longer base count as time charts. | |
+| Non-time charts (tick, volume, range, Renko, Kagi, Line Break, Point and Figure) | Timeframe-based charts only. | Allowed. No slot counts as lower than the chart, and lines project 10 bars ahead. Heiken-Ashi charts on a minute, daily or longer base count as time charts, but their prices are averages, not trades: the forming higher-timeframe candles are partly built from them, so the table, levels and signals are approximate and will not match TradingView. Use a regular candle chart for trading decisions. | |
 | Outputs | None. | Hidden plots for strategies and Market Analyzer: `FtfcState` (+1 up, -1 down, 0 conflict) and `Tf1Signal`..`Tf6Signal` (+1 bull, -1 bear, 0 none). | |
 
 ## Check in NinjaTrader before publishing

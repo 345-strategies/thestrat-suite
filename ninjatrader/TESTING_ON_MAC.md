@@ -29,7 +29,7 @@ Each session uses the README checklist numbers. Record pass/fail and a screensho
 
 **Session A: loads and draws (about 30 minutes, any time)**
 - Checklist 1, 2, 3, 11, 13: import, table rows fill, D/W/M rows, property grid names, tick and Renko charts.
-- Charts: ES 12-26 5-minute (ETH), SPY 5-minute (RTH), ES daily. Set **Days to load** to 90 on the minute charts and 5000 (about 14 years) on the daily chart (Data Series window), since minute slots and every slot on a daily chart load the chart's own history (README, How much history to load). A **Short history** table row means a timeframe still has too few candles.
+- Charts: ES 12-26 5-minute (ETH), SPY 5-minute (RTH), ES daily. Set **Days to load** to 90 on the minute charts and 5000 (about 14 years) on the daily chart (Data Series window), since minute slots and every slot on a daily chart load the chart's own history (README, How much history to load). A **Short history** table row means a timeframe still has too few candles. With only a few sessions of Market Replay data it cannot clear on the minute charts; that is expected.
 
 **Session B: parity with TradingView (about 45 minutes, after a close)**
 
@@ -45,7 +45,7 @@ Compare the **last bar**, where the two should agree. On older bars the port sho
 Replay a session that includes a Friday close.
 - Checklist 9: Preview Auto arms after the Friday close (2:00 PM PT, 5:00 PM ET) and not before. The table shows `PREVIEW MODE` and `?` in CC for previewed rows.
 - Checklist 10: Enable Alerts plus a few conditions. Alerts appear in the Alerts Log once per bar with sound.
-- Checklist 12: 1-minute chart, six slots (Custom preset), several months of data. Load time and tick responsiveness should be acceptable.
+- Checklist 12: 1-minute chart, Custom preset with all six timeframes turned on under 02. Timeframes (Custom preset) (they start off), several months of data. Load time and tick responsiveness should be acceptable.
 
 **Session D: live (optional, market hours)**
 
