@@ -6,9 +6,10 @@
 #
 # Optional, and separate from the study itself. The full port depends on a few answers that
 # the thinkScript manual does not settle (thinkorswim/FULL_PORT_PLAN.md, "Open questions to
-# settle in the app"). This study draws gray and colored labels only, never signals or orders.
-# Add it next to TheStratSuite as a second study, follow TESTER_GUIDE.md Test 4, and send a
-# screenshot of its labels. P-numbers match the plan.
+# settle in the app"). This study draws labels and one chart bubble, and fires one alert with
+# no sound only if the tester turns fireP10Alert on. It never draws signals or places orders.
+# Add it next to TheStratSuite as a second study, follow TESTER_GUIDE.md Test 4, and send
+# screenshots. P-numbers match the plan.
 #
 # Run it on intraday or daily charts only: it reads D, W, M, 3M and 12M data, and
 # thinkorswim refuses a timeframe below the chart's.
@@ -19,26 +20,53 @@ input showP1 = yes;
 input showP4 = yes;
 input showP6 = yes;
 input showP10 = yes;
+input fireP10Alert = no;
 input showP22 = yes;
 
 # ============================================================================
 # P1: what [1] means on a def that holds higher-timeframe data
 # ============================================================================
-# direct[1] is the usual "prior day close" idiom. If def[1] matches it, offsets on stored
-# higher-timeframe values step whole days. If def[1] matches "last" instead, they step chart bars.
+# Each offset is taken in its own def, so no label mixes an offset with chart data.
+#   direct  = close(period = DAY)[1], the usual "prior day close" idiom
+#   def     = a pure higher-timeframe def, then [1]
+#   mixed   = a def mixed with chart data (+ 0 * close), then [1]
+#   mirror  = a def gated by a date function (GetYYYYMMDD), then [1]
+#   gatedDef = a def gated by IsNaN(close), then [1]
+#   inline  = the offset taken inside the IsNaN(close) gate
+#   defInMixed = the pure def's [1] used inside a mixed expression
+# If a field equals direct, offsets in that form step whole days. If it equals D[0] (today's
+# D close), they step chart bars. "same D" says whether the prior chart bar is in today's D;
+# if it reads no, the chart is on a session's first bar and the answer is not readable yet.
 def dClose = close(period = AggregationPeriod.DAY);
 def dMixed = dClose + 0 * close;
+def dMirror = if GetYYYYMMDD() > 0 then close(period = AggregationPeriod.DAY) else 0;
 def dGated = if IsNaN(close) then 0 else close(period = AggregationPeriod.DAY);
+def tDirect = close(period = AggregationPeriod.DAY)[1];
+def tDef = dClose[1];
+def tMixed = dMixed[1];
+def tMirror = dMirror[1];
+def tGated = dGated[1];
+def tInline = if IsNaN(close) then 0 else close(period = AggregationPeriod.DAY)[1];
+def tDefInMixed = dClose[1] + 0 * close;
+def sameD = GetYYYYMMDD() == GetYYYYMMDD()[1];
 AddLabel(showP1,
-    "P1 " + GetSymbol() + " D close: direct[1] " + AsPrice(close(period = AggregationPeriod.DAY)[1])
-    + " | def[1] " + AsPrice(dClose[1]) + " | mixed[1] " + AsPrice(dMixed[1])
-    + " | gated[1] " + AsPrice(dGated[1]) + " | last " + AsPrice(close),
+    "P1a " + GetSymbol() + " direct " + AsPrice(tDirect) + " | def " + AsPrice(tDef)
+    + " | mixed " + AsPrice(tMixed) + " | mirror " + AsPrice(tMirror),
+    Color.LIGHT_GRAY);
+AddLabel(showP1,
+    "P1b gatedDef " + AsPrice(tGated) + " | inline " + AsPrice(tInline)
+    + " | defInMixed " + AsPrice(tDefInMixed),
+    Color.LIGHT_GRAY);
+AddLabel(showP1,
+    "P1c D[0] " + AsPrice(dClose) + " | last " + AsPrice(close) + " | same D " + (if sameD then "yes" else "no"),
     Color.LIGHT_GRAY);
 
 # ============================================================================
 # P4: how far back higher-timeframe data reaches on this chart
 # ============================================================================
 # Exhaustion levels need 52 candles of a timeframe. "52+" means the 52nd candle back exists.
+def d52 = !IsNaN(high(period = AggregationPeriod.DAY)[51]);
+def d5 = !IsNaN(high(period = AggregationPeriod.DAY)[4]);
 def w52 = !IsNaN(high(period = AggregationPeriod.WEEK)[51]);
 def w5 = !IsNaN(high(period = AggregationPeriod.WEEK)[4]);
 def m52 = !IsNaN(high(period = AggregationPeriod.MONTH)[51]);
@@ -49,6 +77,7 @@ def y52 = !IsNaN(high(period = AggregationPeriod.YEAR)[51]);
 def y5 = !IsNaN(high(period = AggregationPeriod.YEAR)[4]);
 AddLabel(showP4,
     "P4 history: chart bars " + BarNumber()
+    + " | D " + (if d52 then "52+" else if d5 then "5-51" else "under 5")
     + " | W " + (if w52 then "52+" else if w5 then "5-51" else "under 5")
     + " | M " + (if m52 then "52+" else if m5 then "5-51" else "under 5")
     + " | 3M " + (if q52 then "52+" else if q5 then "5-51" else "under 5")
@@ -58,28 +87,48 @@ AddLabel(showP4,
 # ============================================================================
 # P6: which daily candle a pre-market bar belongs to (stocks, extended hours on)
 # ============================================================================
-# Records the D open as seen from the 7:00 ET bar (4 AM PT), next to the 9:30 ET open of the
-# same day and of the day before. Shows N/A on a chart without extended hours.
-def sft7 = SecondsFromTime(0700);
-def at7 = sft7 >= 0 and sft7[1] < 0;
-def dOpenAt7 = CompoundValue(1, if at7 then open(period = AggregationPeriod.DAY) else dOpenAt7[1], Double.NaN);
-def sft930 = SecondsFromTime(0930);
-def at930 = sft930 >= 0 and sft930[1] < 0;
-def rthOpen = CompoundValue(1, if at930 then open else rthOpen[1], Double.NaN);
-def prevRthOpen = CompoundValue(1, if at930 then rthOpen[1] else prevRthOpen[1], Double.NaN);
+# Read on an intraday stock chart with extended hours on. Everything is recorded at the most
+# recent bar that starts at 9:30 ET (6:30 AM PT), so all values describe one morning whenever
+# the screenshot is taken.
+#   7:00 D open = the D open as seen from the bar starting at 7:00 ET (4 AM PT)
+#   9:30 D open = the D open as seen from the 9:30 ET bar
+#   9:30 bar / first bar = the opens of those chart bars
+#   prior 9:30 D open = the previous day's 9:30 D open
+# 7:00 D open equal to 9:30 D open: pre-market bars belong to today's D.
+# 7:00 D open equal to prior 9:30 D open: they belong to yesterday's D.
+# 9:30 D open equal to the 9:30 bar's open: D is regular hours only. Equal to the first bar's
+# open: D includes the pre-market. N/A means no bar starts at that time on this chart.
+def intradayP6 = GetAggregationPeriod() < AggregationPeriod.DAY;
+def at7 = intradayP6 and SecondsFromTime(0700) == 0;
+def at930 = intradayP6 and SecondsFromTime(0930) == 0;
+def newDate = GetYYYYMMDD() != GetYYYYMMDD()[1];
+def firstOpen = CompoundValue(1, if newDate then open else firstOpen[1], Double.NaN);
+def dAt7 = CompoundValue(1, if at7 then open(period = AggregationPeriod.DAY) else if newDate then Double.NaN else dAt7[1], Double.NaN);
+def snapDate = CompoundValue(1, if at930 then GetYYYYMMDD() else snapDate[1], Double.NaN);
+def snap7 = CompoundValue(1, if at930 then dAt7 else snap7[1], Double.NaN);
+def snapD = CompoundValue(1, if at930 then open(period = AggregationPeriod.DAY) else snapD[1], Double.NaN);
+def snapBar = CompoundValue(1, if at930 then open else snapBar[1], Double.NaN);
+def snapFirst = CompoundValue(1, if at930 then firstOpen else snapFirst[1], Double.NaN);
+def snapPrevD = CompoundValue(1, if at930 then snapD[1] else snapPrevD[1], Double.NaN);
 AddLabel(showP6,
-    "P6 D open seen at 7:00 ET " + AsPrice(dOpenAt7) + " | 9:30 ET open " + AsPrice(rthOpen)
-    + " | prior 9:30 ET open " + AsPrice(prevRthOpen),
+    "P6 morning of " + AsPrice(snapDate) + ": 7:00 D open " + AsPrice(snap7) + " | 9:30 D open " + AsPrice(snapD)
+    + " | 9:30 bar " + AsPrice(snapBar) + " | first bar " + AsPrice(snapFirst)
+    + " | prior 9:30 D open " + AsPrice(snapPrevD),
     Color.LIGHT_GRAY);
 
 # ============================================================================
-# P10: which symbols render (the Suite's labels and alerts use these)
+# P10: which symbols render where the Suite uses them
 # ============================================================================
-AddLabel(showP10, "P10 glyphs: ↑ ↓ ◆ ♦ ✓ 🟢 🔴", Color.LIGHT_GRAY);
+# The Suite's chart labels use arrows and the diamond (bubbles in the full port). Its alert
+# text adds the two colored circles. Each surface is tested once.
+AddLabel(showP10, "P10 label: ↑ ↓ ◆ 🟢 🔴", Color.LIGHT_GRAY);
+AddChartBubble(showP10 and !IsNaN(close) and IsNaN(close[-1]), high, "P10 bubble: ↑ ↓ ◆ 🟢 🔴", Color.LIGHT_GRAY, yes);
+Alert(fireP10Alert, "P10 alert: ↑ ↓ ◆ 🟢 🔴", Alert.ONCE, Sound.NoSound);
 
 # ============================================================================
-# P22: is the platform's label text readable on each Suite color?
+# P22: is the platform's label text readable on each fill?
 # ============================================================================
+# The Suite's state colors, then the darkest and lightest fills the port uses or plans.
 AddLabel(showP22, "P22 1u", CreateColor(255, 235, 59));
 AddLabel(showP22, "1d", CreateColor(255, 152, 0));
 AddLabel(showP22, "2u", CreateColor(76, 175, 80));
@@ -89,3 +138,7 @@ AddLabel(showP22, "F2d", CreateColor(129, 199, 132));
 AddLabel(showP22, "3u", CreateColor(8, 153, 129));
 AddLabel(showP22, "3d", CreateColor(233, 30, 99));
 AddLabel(showP22, "Conflict", CreateColor(128, 128, 128));
+AddLabel(showP22, "Below chart", Color.DARK_GRAY);
+AddLabel(showP22, "Crossed bear", CreateColor(74, 74, 74));
+AddLabel(showP22, "Crossed bull", CreateColor(156, 156, 156));
+AddLabel(showP22, "Domino", Color.WHITE);

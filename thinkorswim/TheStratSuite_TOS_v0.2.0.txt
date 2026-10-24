@@ -14,6 +14,10 @@
 # placeholder code with this file, then OK and Apply. Report problems with
 # thinkorswim/TESTER_GUIDE.md.
 #
+# Time-based charts only (minutes, hours, days and longer). Tick, range and Renko charts are
+# not supported in v0.2.0: thinkorswim reports their period in ticks or price units, so the
+# strip and FTFC cannot work there. Use regular candles, not Heikin-Ashi.
+#
 # Classification follows grammar/SPEC.md exactly:
 #   - equal is not a break (high == prior high is not a 2u)
 #   - above open is close > open; a close at the open buckets down
@@ -22,7 +26,9 @@
 # Repaint: every painted historical bar uses only values that were fixed at that bar.
 # Strat Candles grade the chart bar against the prior chart bar. FTFC Candles grade the chart
 # bar's close against each higher timeframe's OPEN (fixed when that period starts), the same
-# rule as the Suite's BARCOLOR-1. The strip and labels read the forming candles on the last bar.
+# rule as the Suite's BARCOLOR-1. On stock charts with extended hours on, which daily candle a
+# pre-market bar belongs to is still unconfirmed (probe P6). The strip and labels read the
+# forming candles on the last bar.
 
 declare upper;
 
@@ -193,11 +199,23 @@ def use6 = en6 and !lower6 and !IsNaN(o6);
 # ============================================================================
 # FULL TIMEFRAME CONTINUITY (grammar/SPEC.md section 7)
 # ============================================================================
-# Chart close against each monitored timeframe's open. On the last bar the chart close is the
-# forming close of every higher timeframe, so this is the grammar's close > open exactly.
+# FTFC Candles grade each chart bar's close against each monitored timeframe's open (the
+# history rule, as in the Suite's bar paint). The FTFC label grades each timeframe's own served
+# close, as the Suite's FTFC row does, so it agrees with the strip. The two can differ on the
+# last bar when a served close is not the chart close: a futures settlement close, or an
+# RTH-only daily close on a stock chart with extended hours on. A close at the open is down.
 def ftfcAny = use1 or use2 or use3 or use4 or use5 or use6;
 def ftfcUp = ftfcAny and (!use1 or close > o1) and (!use2 or close > o2) and (!use3 or close > o3) and (!use4 or close > o4) and (!use5 or close > o5) and (!use6 or close > o6);
 def ftfcDown = ftfcAny and (!use1 or close <= o1) and (!use2 or close <= o2) and (!use3 or close <= o3) and (!use4 or close <= o4) and (!use5 or close <= o5) and (!use6 or close <= o6);
+def lblUse1 = use1 and !IsNaN(c1);
+def lblUse2 = use2 and !IsNaN(c2);
+def lblUse3 = use3 and !IsNaN(c3);
+def lblUse4 = use4 and !IsNaN(c4);
+def lblUse5 = use5 and !IsNaN(c5);
+def lblUse6 = use6 and !IsNaN(c6);
+def lblAny = lblUse1 or lblUse2 or lblUse3 or lblUse4 or lblUse5 or lblUse6;
+def lblUp = lblAny and (!lblUse1 or c1 > o1) and (!lblUse2 or c2 > o2) and (!lblUse3 or c3 > o3) and (!lblUse4 or c4 > o4) and (!lblUse5 or c5 > o5) and (!lblUse6 or c6 > o6);
+def lblDown = lblAny and (!lblUse1 or c1 <= o1) and (!lblUse2 or c2 <= o2) and (!lblUse3 or c3 <= o3) and (!lblUse4 or c4 <= o4) and (!lblUse5 or c5 <= o5) and (!lblUse6 or c6 <= o6);
 
 # ============================================================================
 # BAR COLORING (Suite BARCOLOR-1: Strat Candles / FTFC Candles)
@@ -257,9 +275,9 @@ AddLabel(showTimeframeStrip and en1,
     + (if lower1 then "" else " " + (if s1 == 1 then "1u" else if s1 == 2 then "1d" else if s1 == 3 then "2u" else if s1 == 4 then "2d" else if s1 == 5 then "F2u" else if s1 == 6 then "F2d" else if s1 == 7 then "3u" else if s1 == 8 then "3d" else "-")),
     if lower1 then Color.DARK_GRAY else (if s1 == 1 then GlobalColor("1u") else if s1 == 2 then GlobalColor("1d") else if s1 == 3 then GlobalColor("2u") else if s1 == 4 then GlobalColor("2d") else if s1 == 5 then GlobalColor("F2u") else if s1 == 6 then GlobalColor("F2d") else if s1 == 7 then GlobalColor("3u") else if s1 == 8 then GlobalColor("3d") else Color.DARK_GRAY));
 
-AddLabel(showFtfcLabel and ftfcAny,
-    if ftfcUp then "FTFC Up" else if ftfcDown then "FTFC Down" else "Conflict",
-    if ftfcUp then GlobalColor("FTFC Up") else if ftfcDown then GlobalColor("FTFC Down") else GlobalColor("FTFC Conflict"));
+AddLabel(showFtfcLabel and lblAny,
+    if lblUp then "FTFC Up" else if lblDown then "FTFC Down" else "Conflict",
+    if lblUp then GlobalColor("FTFC Up") else if lblDown then GlobalColor("FTFC Down") else GlobalColor("FTFC Conflict"));
 
 # ============================================================================
 # DIAGNOSTICS (for beta reports; off by default)

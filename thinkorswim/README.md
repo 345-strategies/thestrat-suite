@@ -22,7 +22,7 @@ this file. `TESTER_GUIDE.md` is the short version to hand to beta testers.
 | Path | What it is |
 |---|---|
 | `TheStratSuite_TOS_v0.2.0.txt` | The study. Paste it into a new study named `TheStratSuite`. |
-| `probes/TheStratSuite_TOS_Probes_v0.2.0.txt` | Optional second study for testers. It prints labels that answer the plan's in-app questions P1, P4, P6, P10 and P22. |
+| `probes/TheStratSuite_TOS_Probes_v0.2.0.txt` | Optional second study for testers. Its labels, one bubble and an opt-in alert collect answers to the plan's in-app questions P1, P4, P6, P10 and P22. |
 | `TESTER_GUIDE.md` | What beta testers install, check and report. |
 | `FULL_PORT_PLAN.md` | Every v3.1.1 feature mapped to thinkScript, the hard limits, the 12-layer build order and the in-app probes. |
 
@@ -41,8 +41,9 @@ alerts, packaging) are laid out in `FULL_PORT_PLAN.md`.
   `TheStratSuiteLite`). New `showDiagnostics` label with the version and each timeframe's CC and
   C1 values. Custom slots name 2m, 4m, 10m and 20m as 2, 4, 10 and 20, as the TradingView Suite
   does. On a custom chart timeframe (45m, 3H) a slot below the chart reads the next standard
-  timeframe instead of the chart's own, so thinkorswim never gets a custom period. The
-  classifier is unchanged.
+  timeframe instead of the chart's own, so thinkorswim never gets a custom period. The FTFC
+  label grades each timeframe's served close, like the Suite's FTFC row, so it agrees with the
+  strip. The classifier is unchanged.
 - **v0.1.0 (2026-09-28).** Layer 1 as "Lite".
 
 ## How it differs from the Suite on TradingView
@@ -53,11 +54,27 @@ alerts, packaging) are laid out in `FULL_PORT_PLAN.md`.
   reload), so FTFC can differ on a chart above an enabled timeframe.
 - **No 12H.** thinkorswim has no 12-hour aggregation. The Futures/Crypto preset runs 1H, 4H, D, W.
   The full port synthesizes 12H from chart bars (see `FULL_PORT_PLAN.md`).
-- **Futures 4H is likely misaligned in v0.2.0.** thinkorswim appears to anchor time bars at
-  midnight CT, so its native 4H on futures would run 10P/2A/6A/10A/2P/6P PT (01/05/09/13/17/21 ET)
-  instead of the Suite's 3P/7P/11P/3A/7A/11A PT (18/22/02/06/10/14 ET). This affects the Day Trade
-  and Futures/Crypto presets on futures. Tester guide Test 3 confirms it; the full port builds
-  futures 4H from chart bars.
+- **4H is likely misaligned in v0.2.0 on futures, and on stocks with extended hours on.**
+  thinkorswim aggregates Last-price time bars from midnight CT (Time Charts manual), so its
+  native 4H runs 10P/2A/6A/10A/2P/6P PT (01/05/09/13/17/21 ET).
+  - /ES: the Suite runs 3P/7P/11P/3A/7A/11A PT (18/22/02/06/10/14 ET).
+  - SPY with extended hours on: TradingView runs 1A/5A/9A/1P PT (04/08/12/16 ET), and
+    thinkorswim's "Start aggregations at market open" is unavailable with extended hours on.
+  - SPY with extended hours off: 1H and 4H match TradingView's 6:30 AM PT (9:30 ET) bars only if
+    "Start aggregations at market open" is checked and also reaches a study's secondary
+    aggregations, which is not yet known. 1H with extended hours on starts on the hour on both.
+
+  This affects 4H on the Day Trade, Futures/Crypto and Swing Trade presets, and possibly 1H on
+  stocks. Tester guide Test 3 records the real start times; the full port builds futures 4H from
+  chart bars.
+- **No preview mode yet.** With Preview Mode on Auto (its default), after the close and before
+  the open the Suite moves each just-closed candle into C1 and shows `?` for CC, plus a PREVIEW
+  MODE row. The strip keeps showing the candle that just closed. Set the Suite's Display -
+  Preview Mode to Off to compare.
+- **FTFC Candles in older history.** The Suite reads only each timeframe's most recent candles
+  (250 intraday, 200 for 4H, 150 for D, 100 for W and M) and grades older bars without that
+  timeframe's vote. thinkorswim grades every loaded bar with every timeframe it can read, so
+  older FTFC Candles can differ. With Scalp's 5m slot that cutoff is about 20 hours back.
 - **Label strip instead of a table.** One colored label per enabled timeframe, highest first,
   reading `<TF> <current candle>`, then the FTFC label. It follows the Compact table's Bar State
   coloring.
@@ -68,7 +85,14 @@ alerts, packaging) are laid out in `FULL_PORT_PLAN.md`.
 - **No Failing 2 flip highlight** on FTFC Candles yet.
 - **Higher-timeframe bars are built by thinkorswim**, not by the Suite's straddle/glue/+12h
   logic. They must be checked against TradingView (checklist below) before anything is trusted.
+- **Time-based charts only.** On tick, range and Renko charts GetAggregationPeriod returns ticks
+  or a price range, so no higher timeframe can be read; the strip and FTFC will not work, and the
+  study may draw nothing (tester guide Test 4 checks). The full port adds a "time-based charts
+  only" label (`FULL_PORT_PLAN.md`, hard limit 4).
 - **No Heikin-Ashi.** TheStrat reads traded highs and lows. Use regular candles or bars.
+- **Stock pre-market bars.** Which daily candle a pre-market bar belongs to on a stock chart with
+  extended hours on is still unconfirmed (probe P6), so FTFC Candles there are not yet known to
+  hold on reload.
 
 ## Classifier and preset parity
 
@@ -95,15 +119,20 @@ Run these before calling layer 1 done. Record symbol, chart timeframe, preset an
       "secondary period" error, on a 5m, 15m, 1H and D chart.
 - [ ] Strat Candles on SPY 15m match the Suite's Strat Candles on TradingView bar for bar for
       one full session, including at least one F2u/F2d and one 3.
-- [ ] Label strip on SPY 15m (TheStrat Classic) matches the Suite's Compact table (Bar State)
-      live during RTH, including an inside bar on one timeframe.
+- [ ] Label strip on SPY 15m (TheStrat Classic) matches the Suite's Compact table (Bar State,
+      Preview Mode Off) live during RTH, including an inside bar on one timeframe. Record whether
+      "Start aggregations at market open" is checked.
 - [ ] FTFC label matches the Suite's FTFC row at the same moment.
-- [ ] ES 1H chart, Futures/Crypto preset: 4H boundaries land at 3PM/7PM/11PM/3AM/7AM/11AM PST
-      (18/22/02/06/10/14 ET), and the D bar opens at 3PM PST (18:00 ET).
+- [ ] ES 1H chart, Futures/Crypto preset: record where each 4H candle starts (tester guide
+      Test 3). Expected in v0.2.0: 10 PM/2 AM/6 AM/10 AM/2 PM/6 PM PT (01/05/09/13/17/21 ET).
+      The Suite's are 3 PM/7 PM/11 PM/3 AM/7 AM/11 AM PT (18/22/02/06/10/14 ET); layer 3 builds
+      futures 4H to match, so a mismatch here is a known limit, not a layer-1 failure. Pass/fail:
+      the D candle opens at 3 PM PT (18:00 ET).
 - [ ] A CME holiday week on ES (for example July 3 to 6, 2026): D and W candles match TradingView.
 - [ ] SPY with extended hours on and off: D candles match TradingView's RTH daily bars.
 - [ ] Reload test: note the Strat Candles and FTFC Candles on the last 20 bars, reload the
       chart, confirm nothing changed.
 - [ ] Label text is readable on each state color (thinkorswim picks label text color itself).
 - [ ] Mobile: note which parts render in the thinkorswim mobile app.
-- [ ] The probe study's labels are recorded for P1, P4, P6, P10 and P22 (tester guide Test 4).
+- [ ] The probe study's answers are recorded for P1, P4, P6, P10 and P22, and P11 (a tick chart)
+      for the study itself (tester guide Test 4).

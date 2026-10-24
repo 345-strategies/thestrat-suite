@@ -253,7 +253,7 @@ Each layer lands only after its verification passes. HTF correctness comes befor
 - Verify against TradingView:
   - SPY 15m Strat Candles bar for bar;
   - strip vs Compact table;
-  - ES 1H 4H/D boundaries;
+  - ES 1H D boundary (pass/fail) and native 4H boundaries recorded (expected at 01/05/09/13/17/21 ET until layer 3 synthesizes 18:00-ET buckets; see hard limit 3);
   - a reload test.
 
 **Layer 2: probes and the generator.**
@@ -377,10 +377,10 @@ Where the mappers and verifiers disagreed without decisive evidence, the questio
    - `def m = d + 0 * close;`
    - `def p = if GetYYYYMMDD() > 0 then close(period = AggregationPeriod.DAY) else 0;`
 
-   Label `d[1]`, `close(period = AggregationPeriod.DAY)[1]`, `m[1]`, `p[1]`, and `if IsNaN(close) then 0 else close(period = AggregationPeriod.DAY)[1]`. Yesterday's close means HTF stepping; today's running close means chart-bar stepping. Every generator rule depends on this result.
+   Label `d[1]`, `close(period = AggregationPeriod.DAY)[1]`, `m[1]`, `p[1]`, and `if IsNaN(close) then 0 else close(period = AggregationPeriod.DAY)[1]`. Yesterday's close means HTF stepping; today's running close means chart-bar stepping. Every generator rule depends on this result. Take each offset in its own def, so no label mixes an offset with chart data (the v0.2.0 probe study does this, plus a pure def's offset used inside a mixed expression).
 2. **P2: computed period.** On 5m, 1H and D charts, plot `close(period = Max(AggregationPeriod.THIRTY_MIN, GetAggregationPeriod()))`, an if-chain def, and the `script plotClose { input pag = 15; ... }` form. Repeat on a 45m custom chart to confirm that custom values are rejected.
 3. **P3: fold and GetValue on secondary data.** In a pure def, compare `fold i = 1 to 4 with s do s + GetValue(high(period = AggregationPeriod.DAY), i)` with the sum of `high(period = AggregationPeriod.DAY)[1]` through `[3]`. This decides fold versus unrolled scans.
-4. **P4: history depth.** Label `!IsNaN(high(period = X)[4])` and `[51]` for WEEK, MONTH, QUARTER and YEAR on 1D:1m, 5D:5m, 20D:15m and 360D:1H charts.
+4. **P4: history depth.** Label `!IsNaN(high(period = X)[4])` and `[51]` for DAY, WEEK, MONTH, QUARTER and YEAR on 1D:1m, 5D:5m, 20D:15m and 360D:1H charts.
 5. **P5: 4H and 2H alignment.** Mark every change of `open(period = AggregationPeriod.FOUR_HOURS)` on /ES 1H and on SPY RTH (start at market open on and off) and SPY ETH. If /ES 4H starts at 18:00 ET, 12H can instead be composed from native 4H offsets on charts up to 4H.
 6. **P6: pre-market D mapping.** On a SPY ETH 5m chart, check whether `open(period = DAY)` at 07:00 ET (4 AM PT) is today's or yesterday's daily open. Also check whether D stays RTH-only.
 7. **P7: month roll on a W chart, Sep 30 / Oct 1 2026.** Check `open/close(period = MONTH)` and `close(period = MONTH)[-1]` on the straddling weekly bar against TradingView. This decides whether reconstruction or the `?` fallback is needed.
