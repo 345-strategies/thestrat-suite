@@ -2,13 +2,13 @@
 
 A companion to TheStrat Suite for TradingView's **Pine Screener** (Products > Screeners > Pine). The Suite draws levels, labels and a data table; the screener can read none of that. It reads only `plot()` values and `alertcondition()` states. This script runs the Suite's signal engine and puts every screenable state into a numeric plot, so a watchlist of up to 1,000 symbols can be filtered by FTFC, Strat combos, failing 2s, targets and Domino setups.
 
-Source: `TheStratSuiteScreener_v0.2.0.pine`. Requires TheStratGrammar (`SpinTrades/TheStratGrammar/1`), the same library the Suite imports. Pine Screener requires a TradingView Premium plan or higher.
+Source: `TheStratSuiteScreener_v0.3.0.pine`. Requires TheStratGrammar (`SpinTrades/TheStratGrammar/1`), the same library the Suite imports. Pine Screener requires a TradingView Premium plan or higher.
 
 ## How to use it
 
 1. Add the script to a chart once, then mark it as a favorite (the star in the indicator list). Pine Screener only lists favorites.
 2. Open Products > Screeners > Pine, choose a watchlist, then pick **TheStrat Suite Screener** as the indicator.
-3. Pick the screen's timeframe (this is the chart timeframe each symbol is evaluated on). Slots smaller than it are ignored.
+3. Pick the screen's timeframe. It is the **focus**: the State, Pattern, C2, C1, CC and other focus columns describe that timeframe's candles, like a timeframe tab in a setups table (1D = the daily row, 1W = the weekly row). Slots smaller than it are ignored.
 4. Set slots and signal toggles in the indicator's settings, add filters on the columns below, and press **Scan**. Changing anything requires a rescan.
 
 ## Columns
@@ -17,28 +17,43 @@ Every column follows one sign rule: **positive = bullish, negative = bearish, 0 
 
 The first ten appear automatically. The rest can be added from the column menu.
 
+### Focus columns: the screen's own timeframe
+
 | # | Column | Values | Meaning |
 |---|---|---|---|
-| 1 | FTFC Score | -6 to +6 | Counted slots above their open minus slots below. Equals the slot count at full bullish continuity. |
-| 2 | FTFC | 1 / -1 / 0 | Up, Down, Conflict. Same rule as the Suite: close strictly above open; a doji counts as down. |
-| 3 | Lead Direction | 1 / -1 / 0 | Direction of the largest slot with a signal in force (the Suite's Lead anchor). |
-| 4 | Lead Pattern | signed code | The Lead's combo. See pattern codes below. 0 when there is no Lead. |
-| 5 | Lead TF (min) | minutes | 60 = 1H, 240 = 4H, 1440 = D, 10080 = W, 43200 = M, 129600 = Q, 518400 = Y. |
-| 6 | Lead Trigger Dist % | percent | Distance from the trigger in the signal's direction. Positive = price is beyond the trigger. A Failing 2 can be in force with a negative value. |
-| 7 | Lead Magnitude R | R multiple | (magnitude - trigger) / (trigger - stop). Stop is the CC's opposite extreme, the Suite's default stop reference. Blank when there is no magnitude ahead. |
-| 8 | Lead Exhaustion R | R multiple | Same, to the exhaustion level. Blank when there is none ahead. |
-| 9 | Nearest Setup % | signed percent | Closest untriggered trigger among slots whose current candle is an inside bar with a signal drawn (the Suite's "potential"). +0.4 = a bullish trigger 0.4% above price; -0.4 = a bearish trigger 0.4% below. |
-| 10 | Nearest Setup TF (min) | minutes | The slot that trigger belongs to. |
-| 11 | Domino | signed count | Consecutive inside-bar slots with a setup, largest first (the Suite's Domino). 0 below Minimum Timeframes. |
-| 12 | Net In Force | -6 to +6 | Slots with a bullish signal in force minus slots with a bearish one. |
-| 13 | Lead C1 HAM/SHO | 1 / -1 / 0 | The Lead slot's C1 is a hammer (1) or shooter (-1). |
-| 14-19 | S1 to S6 State | 2 / -2 / 1 / 0 | 2 = bullish signal in force, -2 = bearish in force, 1 = potential (the current candle is inside, a setup is drawn, and the trigger is untouched), 0 = none. Covers every slot, not only the Lead. |
-| 20-25 | S1 to S6 Pattern | signed code | In force: the signal's combo, signed (same codes as Lead Pattern). Potential: the unsigned shape it would complete, 212 for 2-1, 312 for 3-1, 112 for 1-1. 0 = none. |
-| 26-31 | S1 to S6 Type | 1, ±2, ±3 | Current candle: 1 inside, 2 = 2u, -2 = 2d, 3 = 3u, -3 = 3d. A failing 2 keeps its structure (F2u is 2). |
-| 32-37 | S1 to S6 Failing | 1 / -1 / 0 | 1 = F2d (bullish reclaim), -1 = F2u (bearish reclaim). |
-| 38-43 | S1 to S6 Above Open | 1 / -1 | Current candle above or below its open. Build custom continuity filters from these. |
+| 1 | State | 2 / -2 / 1 / 0 | 2 = bullish signal in force, -2 = bearish in force, 1 = potential (CC is inside, a setup is drawn, the trigger is untouched; it can still break either way), 0 = none. |
+| 2 | Pattern | signed code | In force: the signal's combo, signed (codes below). Potential: the unsigned shape it would complete, 212 for 2-1, 312 for 3-1, 112 for 1-1. 0 = none. |
+| 3 | C2 | 1, ±2, ±3 | Target candle: 1 inside, 2 = 2u, -2 = 2d, 3 = 3u, -3 = 3d. A failing 2 keeps its structure (F2u is 2). |
+| 4 | C1 | 1, ±2, ±3 | Trigger candle, same codes. |
+| 5 | CC | 1, ±2, ±3 | Current candle, same codes. |
+| 6 | CT | 1 / -1 / 0 | Continuation: C1 and CC are the same directional 2 (2u-2u = 1, 2d-2d = -1). |
+| 7 | C1 Shape | 1 / -1 / 0 | C1 is a hammer (1) or shooter (-1), by the Hammer/Shooter settings. |
+| 21-23 | C2 Color, C1 Color, CC Color | 1 / -1 | Green (close above open) or red. A doji counts red, as in FTFC. CC = -2 with CC Color 1 is a 2d closing green. |
 
-S1 to S6 are the slots in settings order. Column titles cannot carry the slot's timeframe, so keep a note of your slot setup (default: 30m, 1H, D, W, M, Q).
+On a 1D screen the focus row is the daily: State, Pattern and CC match S3 State and S3 Type with the default slots.
+
+### Continuity, Lead and slots
+
+| # | Column | Values | Meaning |
+|---|---|---|---|
+| 8 | FTFC | 1 / -1 / 0 | Up, Down, Conflict across counted slots. Same rule as the Suite: close strictly above open; a doji counts as down. |
+| 9 | FTFC Score | -6 to +6 | Counted slots above their open minus slots below. Equals the slot count at full bullish continuity. |
+| 10 | Lead Direction | 1 / -1 / 0 | Direction of the largest slot with a signal in force (the Suite's Lead anchor). |
+| 11 | Lead Pattern | signed code | The Lead's combo. 0 when there is no Lead. |
+| 12 | Lead TF (min) | minutes | 60 = 1H, 240 = 4H, 1440 = D, 10080 = W, 43200 = M, 129600 = Q, 518400 = Y. |
+| 13 | Lead Trigger Dist % | percent | Distance from the trigger in the signal's direction. Positive = price is beyond the trigger. A Failing 2 can be in force with a negative value. |
+| 14 | Lead Magnitude R | R multiple | (magnitude - trigger) / (trigger - stop). Stop is the CC's opposite extreme, the Suite's default stop reference. Blank when there is no magnitude ahead. |
+| 15 | Lead Exhaustion R | R multiple | Same, to the exhaustion level. Blank when there is none ahead. |
+| 16 | Nearest Setup % | signed percent | Closest untriggered trigger among slots whose current candle is an inside bar with a signal drawn. +0.4 = a bullish trigger 0.4% above price; -0.4 = a bearish trigger 0.4% below. |
+| 17 | Nearest Setup TF (min) | minutes | The slot that trigger belongs to. |
+| 18 | Domino | signed count | Consecutive inside-bar slots with a setup, largest first (the Suite's Domino). 0 below Minimum Timeframes. |
+| 19 | Net In Force | -6 to +6 | Slots with a bullish signal in force minus slots with a bearish one. |
+| 20 | Lead C1 HAM/SHO | 1 / -1 / 0 | The Lead slot's C1 is a hammer (1) or shooter (-1). |
+| 24-29 | S1 to S6 State | 2 / -2 / 1 / 0 | Same codes as State, per slot. |
+| 30-35 | S1 to S6 Type | 1, ±2, ±3 | Current candle per slot, same codes as CC. |
+| 36-41 | S1 to S6 Above Open | 1 / -1 | Current candle above or below its open. Pick the slots that must line up (S4 = 1 and S5 = 1 for W and M up). |
+
+S1 to S6 are the slots in settings order. Column titles cannot carry the slot's timeframe, so keep a note of your slot setup (default: 30m, 1H, D, W, M, Q). Focus columns plus per-slot columns make multi-timeframe screens: a weekly signal in force with a daily inside bar is S4 State = 2 and CC = 1 on a 1D screen.
 
 ### Pattern codes
 
@@ -67,11 +82,15 @@ So -212 is a bearish 2-1-2 and 1022 is a bullish 2-F2d.
 | Bullish setup with continuity | Nearest Setup % > 0, FTFC = 1 |
 | Room to run | Lead Magnitude R >= 2 |
 | Domino | Domino >= 2 or Domino <= -2 |
-| Daily 2-1-2 potential | S3 State = 1, S3 Pattern = 212 (default slots) |
-| Daily 2-1-2 in force, bullish | S3 State = 2, S3 Pattern = 212 (default slots) |
-| Daily signal in force, either way, with continuity | S3 State = 2 and FTFC = 1, or S3 State = -2 and FTFC = -1 |
-| Weekly inside bar | S4 Type = 1 (with the default slots) |
-| Bearish reclaim on the daily | S3 Failing = -1 (with the default slots, Failing 2s on) |
+| Setup 2-1 waiting for the 2 (potential) | State = 1, Pattern = 212 |
+| Bullish 2-1-2 in force | State = 2, Pattern = 212 |
+| 1-2U: inside then up | C1 = 1, CC = 2 |
+| Signal in force with continuity | State = 2 and FTFC = 1, or State = -2 and FTFC = -1 |
+| Fresh triggers only | CT = 0 |
+| Hammer trigger candle | C1 Shape = 1 |
+| 2d closing green (failing bearish) | CC = -2, CC Color = 1 |
+| Weekly bullish in force, daily inside (1D screen) | S4 State = 2, CC = 1 |
+| Weekly inside bar | S4 Type = 1 (default slots), or CC = 1 on a 1W screen |
 
 Room-to-run columns are information, not a tested edge. The project's own research (STR-551) found that filtering on Room adds nothing over TFC alone once a lookahead leak was removed.
 
@@ -89,6 +108,8 @@ Room-to-run columns are information, not a tested edge. The project's own resear
 The script draws a small check table (TF, C2, C1, CC, FTFC, Lead) in its pane. Put the Suite and this script on the same chart with matching slots and signal settings, and the two tables should agree cell for cell on every slot at or above the chart timeframe. Any difference is a bug in this script.
 
 ## Version history
+
+**v0.3.0 (2026-10-25).** Focus columns, after the StratAlerts Setups table: State, Pattern, C2, C1, CC, CT, C1 Shape and the three candle colors describe the screen's own timeframe, read from the chart series with the same engine as a slot. They are now the first seven columns. Per-slot Pattern and Failing are removed. Budget: 41 plots + 5 alert conditions = 46 of 64.
 
 **v0.2.0 (2026-10-25).** Fixes the chart runtime error RE10140, "The script creates too many plots (67). The limit is 64." A plot with a series color counts as two plots and each alert condition as one, so v0.1.0 used 31 x 2 + 5 = 67. Plot colors are now constant. Adds S1 to S6 State and Pattern, so a slot's potential or in-force signal can be screened even when a larger slot holds the Lead. Budget: 43 plots + 5 alert conditions = 48 of 64.
 

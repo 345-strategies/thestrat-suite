@@ -1,5 +1,5 @@
 //@version=6
-// TheStrat Suite Screener - v0.2.0
+// TheStrat Suite Screener - v0.3.0
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -38,14 +38,23 @@
 // alertcondition() counts once: 31 x 2 + 5 = 67. Plot colors are now constant (the screener
 // never reads them), and the freed budget carries per-slot Pattern and State columns, so a
 // daily 2-1-2 can be screened as potential or in force even when a larger slot holds the Lead.
-// Budget now: 43 plots + 5 alertconditions = 48 of 64.
+// Budget then: 43 plots + 5 alertconditions = 48 of 64.
+//
+// SCREENER-3 (2026-10-25): focus columns, modeled on the StratAlerts Setups table, where each row
+// is one setup on one timeframe picked by a tab. Pine Screener's own timeframe is that tab: the
+// focus columns (State, Pattern, C2, C1, CC, CT, C1 Shape, colors) describe the screen's
+// timeframe, read from the chart series with the same slotData() and evalSlot() as a slot, so a
+// 1D screen shows the daily row and a 1W screen the weekly. Per-slot State, Type and Above Open
+// stay (multi-timeframe filters and continuity); per-slot Pattern and Failing are dropped, since
+// focus Pattern and CC carry them for the screen's timeframe.
+// Budget now: 41 plots + 5 alertconditions = 46 of 64.
 //
 // Sign convention for every plot: positive = bullish, negative = bearish, 0 = none or conflict.
 // One exception: a potential (State 1) has no direction yet, so its State and Pattern are
 // unsigned.
 // Column guide and screen recipes: screener/README.md and thestratsuite.com.
 
-indicator("TheStrat Suite Screener - v0.2.0", shorttitle = "Strat Screener", overlay = false, precision = 2, max_bars_back = 200)
+indicator("TheStrat Suite Screener - v0.3.0", shorttitle = "Strat Screener", overlay = false, precision = 2, max_bars_back = 200)
 
 import SpinTrades/TheStratGrammar/1 as sg
 
@@ -314,6 +323,10 @@ slotData(int n) =>
 [t0_5, o0_5, h0_5, l0_5, c0_5, t1_5, h1_5, l1_5, o1_5, c1_5, t2_5, h2_5, l2_5, o2_5, c2_5, h3_5, l3_5, eh_5, eht_5, el_5, elt_5] = request.security(syminfo.tickerid, rTF5, slotData(agg5), lookahead = barmerge.lookahead_on, calc_bars_count = cb5)
 [t0_6, o0_6, h0_6, l0_6, c0_6, t1_6, h1_6, l1_6, o1_6, c1_6, t2_6, h2_6, l2_6, o2_6, c2_6, h3_6, l3_6, eh_6, eht_6, el_6, elt_6] = request.security(syminfo.tickerid, rTF6, slotData(agg6), lookahead = barmerge.lookahead_on, calc_bars_count = cb6)
 
+// SCREENER-3: the focus timeframe is the screen's own. Same tuple as a slot, from the chart series
+// directly, so no request is needed and a slot on the same timeframe reads identical values.
+[tF0, oF0, hF0, lF0, cF0, tF1, hF1, lF1, oF1, cF1, tF2, hF2, lF2, oF2, cF2, hF3, lF3, ehF, ehtF, elF, eltF] = slotData(0)
+
 // ============================================================================
 // SECTION 4: SIGNAL ENGINE (copied from the Suite)
 // ============================================================================
@@ -581,6 +594,8 @@ patternCode(bool bull, string ccType, string c1Num, string c2Num, bool isF2u, bo
 typeCode(string ccType) =>
     switch ccType
         "1"   => 1
+        "1u"  => 1
+        "1d"  => 1
         "2u"  => 2
         "F2u" => 2
         "2d"  => -2
@@ -622,9 +637,17 @@ float pDomino = na
 float pNetInForce = na
 float pLeadHamSho = na
 float pType1 = na, float pType2 = na, float pType3 = na, float pType4 = na, float pType5 = na, float pType6 = na
-float pFail1 = na, float pFail2 = na, float pFail3 = na, float pFail4 = na, float pFail5 = na, float pFail6 = na
 float pAO1 = na, float pAO2 = na, float pAO3 = na, float pAO4 = na, float pAO5 = na, float pAO6 = na
-float pPat1 = na, float pPat2 = na, float pPat3 = na, float pPat4 = na, float pPat5 = na, float pPat6 = na
+float pFState = na
+float pFPattern = na
+float pFC2 = na
+float pFC1 = na
+float pFCC = na
+float pFCT = na
+float pFShape = na
+float pFC2Color = na
+float pFC1Color = na
+float pFCCColor = na
 float pState1 = na, float pState2 = na, float pState3 = na, float pState4 = na, float pState5 = na, float pState6 = na
 
 bool aFtfcUp = false
@@ -702,31 +725,37 @@ if barstate.islast
 
     // Per-slot columns.
     array<float> typeOut = array.new<float>(6, na)
-    array<float> failOut = array.new<float>(6, na)
     array<float> aoOut = array.new<float>(6, na)
-    array<float> patOut = array.new<float>(6, na)
     array<float> stateOut = array.new<float>(6, na)
     int netIn = 0
     for i = 0 to 5
         if array.get(ok, i)
             string t = array.get(rType, i)
             array.set(typeOut, i, typeCode(t))
-            array.set(failOut, i, t == "F2d" ? 1 : t == "F2u" ? -1 : 0)
             array.set(aoOut, i, array.get(CCC, i) > array.get(CCO, i) ? 1 : -1)
             netIn += (array.get(rInH, i) ? 1 : 0) - (array.get(rInL, i) ? 1 : 0)
-            // State and Pattern per slot. In force: the same direction and code the Lead uses.
-            // Potential: an inside CC with a setup drawn (the Nearest Setup test). It can still
-            // break either way, so its code is the unsigned shape it would complete: 2-1 -> 212.
+            // State per slot. In force: the same direction the Lead uses. Potential: an inside CC
+            // with a setup drawn (the Nearest Setup test), which can still break either way.
             int d = getSignalDirection(array.get(rInH, i), array.get(rInL, i), array.get(rF2u, i), array.get(rF2d, i), t)
-            if d != 0
-                array.set(stateOut, i, 2 * d)
-                array.set(patOut, i, patternCode(d == 1, t, array.get(rC1N, i), array.get(rC2N, i), array.get(rF2u, i), array.get(rF2d, i)))
-            else if t == "1" and (array.get(rDrH, i) or array.get(rDrL, i))
-                array.set(stateOut, i, 1)
-                array.set(patOut, i, str.tonumber(array.get(rC1N, i)) * 100 + 12)
-            else
-                array.set(stateOut, i, 0)
-                array.set(patOut, i, 0)
+            array.set(stateOut, i, d != 0 ? 2 * d : t == "1" and (array.get(rDrH, i) or array.get(rDrL, i)) ? 1 : 0)
+
+    // Focus: the screen's own timeframe, as one Setups-table row. Same engine and codes as a slot;
+    // FTFC still comes from the slots. Pattern: in force -> the signed combo; potential -> the
+    // unsigned shape it would complete (2-1 -> 212). CT: C1 and CC the same directional 2, by
+    // structure (a failing 2 keeps its structure). Colors use FTFC's rule: a doji counts red.
+    if not na(hF3) and not na(lF3) and not na(oF2) and not na(cF2) and not na(oF1) and not na(cF1) and not na(oF0) and not na(cF0)
+        [fType, fC1N, fC2N, fInH, fInL, fDrH, fDrL, fF2u, fF2d, fHam, fSho] = evalSlot(hF1, lF1, oF1, cF1, oF0, hF0, lF0, cF0, hF2, lF2, oF2, cF2, hF3, lF3, ehF, elF, ftfc_up, ftfc_down)
+        int fd = getSignalDirection(fInH, fInL, fF2u, fF2d, fType)
+        pFState := fd != 0 ? 2 * fd : fType == "1" and (fDrH or fDrL) ? 1 : 0
+        pFPattern := fd != 0 ? patternCode(fd == 1, fType, fC1N, fC2N, fF2u, fF2d) : pFState == 1 ? str.tonumber(fC1N) * 100 + 12 : 0
+        pFC2 := typeCode(detectBarTypeAndFailed(hF3, lF3, hF2, lF2, oF2, cF2))
+        pFC1 := typeCode(detectBarTypeAndFailed(hF2, lF2, hF1, lF1, oF1, cF1))
+        pFCC := typeCode(fType)
+        pFCT := pFC1 == 2 and pFCC == 2 ? 1 : pFC1 == -2 and pFCC == -2 ? -1 : 0
+        pFShape := fHam ? 1 : fSho ? -1 : 0
+        pFC2Color := cF2 > oF2 ? 1 : -1
+        pFC1Color := cF1 > oF1 ? 1 : -1
+        pFCCColor := cF0 > oF0 ? 1 : -1
     pNetInForce := netIn
     aBullInForce := array.includes(rInH, true)
     aBearInForce := array.includes(rInL, true)
@@ -829,24 +858,12 @@ if barstate.islast
     pType4 := array.get(typeOut, 3)
     pType5 := array.get(typeOut, 4)
     pType6 := array.get(typeOut, 5)
-    pFail1 := array.get(failOut, 0)
-    pFail2 := array.get(failOut, 1)
-    pFail3 := array.get(failOut, 2)
-    pFail4 := array.get(failOut, 3)
-    pFail5 := array.get(failOut, 4)
-    pFail6 := array.get(failOut, 5)
     pAO1 := array.get(aoOut, 0)
     pAO2 := array.get(aoOut, 1)
     pAO3 := array.get(aoOut, 2)
     pAO4 := array.get(aoOut, 3)
     pAO5 := array.get(aoOut, 4)
     pAO6 := array.get(aoOut, 5)
-    pPat1 := array.get(patOut, 0)
-    pPat2 := array.get(patOut, 1)
-    pPat3 := array.get(patOut, 2)
-    pPat4 := array.get(patOut, 3)
-    pPat5 := array.get(patOut, 4)
-    pPat6 := array.get(patOut, 5)
     pState1 := array.get(stateOut, 0)
     pState2 := array.get(stateOut, 1)
     pState3 := array.get(stateOut, 2)
@@ -894,43 +911,41 @@ if barstate.islast
 // One constant color: a series color would count as a second plot (SCREENER-2), and the
 // screener reads values only.
 
-plot(pFtfcScore,   "FTFC Score",        color = COLOR_NEUTRAL)
-plot(pFtfc,        "FTFC",              color = COLOR_NEUTRAL)
-plot(pLeadDir,     "Lead Direction",    color = COLOR_NEUTRAL)
-plot(pLeadPattern, "Lead Pattern",      color = COLOR_NEUTRAL)
-plot(pLeadTF,      "Lead TF (min)",     color = COLOR_NEUTRAL)
-plot(pLeadDist,    "Lead Trigger Dist %", color = COLOR_NEUTRAL)
-plot(pLeadMagR,    "Lead Magnitude R",  color = COLOR_NEUTRAL)
-plot(pLeadExhR,    "Lead Exhaustion R", color = COLOR_NEUTRAL)
-plot(pSetupDist,   "Nearest Setup %",   color = COLOR_NEUTRAL)
-plot(pSetupTF,     "Nearest Setup TF (min)", color = COLOR_NEUTRAL)
-plot(pDomino,      "Domino",            color = COLOR_NEUTRAL)
-plot(pNetInForce,  "Net In Force",      color = COLOR_NEUTRAL)
-plot(pLeadHamSho,  "Lead C1 HAM/SHO",   color = COLOR_NEUTRAL)
+plot(pFState, "State", color = COLOR_NEUTRAL)
+plot(pFPattern, "Pattern", color = COLOR_NEUTRAL)
+plot(pFC2, "C2", color = COLOR_NEUTRAL)
+plot(pFC1, "C1", color = COLOR_NEUTRAL)
+plot(pFCC, "CC", color = COLOR_NEUTRAL)
+plot(pFCT, "CT", color = COLOR_NEUTRAL)
+plot(pFShape, "C1 Shape", color = COLOR_NEUTRAL)
+plot(pFtfc, "FTFC", color = COLOR_NEUTRAL)
+plot(pFtfcScore, "FTFC Score", color = COLOR_NEUTRAL)
+plot(pLeadDir, "Lead Direction", color = COLOR_NEUTRAL)
+plot(pLeadPattern, "Lead Pattern", color = COLOR_NEUTRAL)
+plot(pLeadTF, "Lead TF (min)", color = COLOR_NEUTRAL)
+plot(pLeadDist, "Lead Trigger Dist %", color = COLOR_NEUTRAL)
+plot(pLeadMagR, "Lead Magnitude R", color = COLOR_NEUTRAL)
+plot(pLeadExhR, "Lead Exhaustion R", color = COLOR_NEUTRAL)
+plot(pSetupDist, "Nearest Setup %", color = COLOR_NEUTRAL)
+plot(pSetupTF, "Nearest Setup TF (min)", color = COLOR_NEUTRAL)
+plot(pDomino, "Domino", color = COLOR_NEUTRAL)
+plot(pNetInForce, "Net In Force", color = COLOR_NEUTRAL)
+plot(pLeadHamSho, "Lead C1 HAM/SHO", color = COLOR_NEUTRAL)
+plot(pFC2Color, "C2 Color", color = COLOR_NEUTRAL)
+plot(pFC1Color, "C1 Color", color = COLOR_NEUTRAL)
+plot(pFCCColor, "CC Color", color = COLOR_NEUTRAL)
 plot(pState1, "S1 State", color = COLOR_NEUTRAL)
 plot(pState2, "S2 State", color = COLOR_NEUTRAL)
 plot(pState3, "S3 State", color = COLOR_NEUTRAL)
 plot(pState4, "S4 State", color = COLOR_NEUTRAL)
 plot(pState5, "S5 State", color = COLOR_NEUTRAL)
 plot(pState6, "S6 State", color = COLOR_NEUTRAL)
-plot(pPat1, "S1 Pattern", color = COLOR_NEUTRAL)
-plot(pPat2, "S2 Pattern", color = COLOR_NEUTRAL)
-plot(pPat3, "S3 Pattern", color = COLOR_NEUTRAL)
-plot(pPat4, "S4 Pattern", color = COLOR_NEUTRAL)
-plot(pPat5, "S5 Pattern", color = COLOR_NEUTRAL)
-plot(pPat6, "S6 Pattern", color = COLOR_NEUTRAL)
 plot(pType1, "S1 Type", color = COLOR_NEUTRAL)
 plot(pType2, "S2 Type", color = COLOR_NEUTRAL)
 plot(pType3, "S3 Type", color = COLOR_NEUTRAL)
 plot(pType4, "S4 Type", color = COLOR_NEUTRAL)
 plot(pType5, "S5 Type", color = COLOR_NEUTRAL)
 plot(pType6, "S6 Type", color = COLOR_NEUTRAL)
-plot(pFail1, "S1 Failing", color = COLOR_NEUTRAL)
-plot(pFail2, "S2 Failing", color = COLOR_NEUTRAL)
-plot(pFail3, "S3 Failing", color = COLOR_NEUTRAL)
-plot(pFail4, "S4 Failing", color = COLOR_NEUTRAL)
-plot(pFail5, "S5 Failing", color = COLOR_NEUTRAL)
-plot(pFail6, "S6 Failing", color = COLOR_NEUTRAL)
 plot(pAO1, "S1 Above Open", color = COLOR_NEUTRAL)
 plot(pAO2, "S2 Above Open", color = COLOR_NEUTRAL)
 plot(pAO3, "S3 Above Open", color = COLOR_NEUTRAL)
