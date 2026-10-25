@@ -1,5 +1,5 @@
 //@version=6
-// TheStrat Suite Screener - v0.1.0
+// TheStrat Suite Screener - v0.2.0
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -33,10 +33,19 @@
 //     to direct tests on the last bar, because the forming candle's high/low ARE the period's
 //     running extremes there. Stops always use the Suite's default CC reference.
 //
+// SCREENER-2 (2026-10-25): v0.1.0 compiled but failed on the chart with RE10140, "The script
+// creates too many plots (67). The limit is 64." A plot with a series color counts twice, and
+// alertcondition() counts once: 31 x 2 + 5 = 67. Plot colors are now constant (the screener
+// never reads them), and the freed budget carries per-slot Pattern and State columns, so a
+// daily 2-1-2 can be screened as potential or in force even when a larger slot holds the Lead.
+// Budget now: 43 plots + 5 alertconditions = 48 of 64.
+//
 // Sign convention for every plot: positive = bullish, negative = bearish, 0 = none or conflict.
+// One exception: a potential (State 1) has no direction yet, so its State and Pattern are
+// unsigned.
 // Column guide and screen recipes: screener/README.md and thestratsuite.com.
 
-indicator("TheStrat Suite Screener - v0.1.0", shorttitle = "Strat Screener", overlay = false, precision = 2, max_bars_back = 200)
+indicator("TheStrat Suite Screener - v0.2.0", shorttitle = "Strat Screener", overlay = false, precision = 2, max_bars_back = 200)
 
 import SpinTrades/TheStratGrammar/1 as sg
 
@@ -615,6 +624,8 @@ float pLeadHamSho = na
 float pType1 = na, float pType2 = na, float pType3 = na, float pType4 = na, float pType5 = na, float pType6 = na
 float pFail1 = na, float pFail2 = na, float pFail3 = na, float pFail4 = na, float pFail5 = na, float pFail6 = na
 float pAO1 = na, float pAO2 = na, float pAO3 = na, float pAO4 = na, float pAO5 = na, float pAO6 = na
+float pPat1 = na, float pPat2 = na, float pPat3 = na, float pPat4 = na, float pPat5 = na, float pPat6 = na
+float pState1 = na, float pState2 = na, float pState3 = na, float pState4 = na, float pState5 = na, float pState6 = na
 
 bool aFtfcUp = false
 bool aFtfcDown = false
@@ -693,6 +704,8 @@ if barstate.islast
     array<float> typeOut = array.new<float>(6, na)
     array<float> failOut = array.new<float>(6, na)
     array<float> aoOut = array.new<float>(6, na)
+    array<float> patOut = array.new<float>(6, na)
+    array<float> stateOut = array.new<float>(6, na)
     int netIn = 0
     for i = 0 to 5
         if array.get(ok, i)
@@ -701,6 +714,19 @@ if barstate.islast
             array.set(failOut, i, t == "F2d" ? 1 : t == "F2u" ? -1 : 0)
             array.set(aoOut, i, array.get(CCC, i) > array.get(CCO, i) ? 1 : -1)
             netIn += (array.get(rInH, i) ? 1 : 0) - (array.get(rInL, i) ? 1 : 0)
+            // State and Pattern per slot. In force: the same direction and code the Lead uses.
+            // Potential: an inside CC with a setup drawn (the Nearest Setup test). It can still
+            // break either way, so its code is the unsigned shape it would complete: 2-1 -> 212.
+            int d = getSignalDirection(array.get(rInH, i), array.get(rInL, i), array.get(rF2u, i), array.get(rF2d, i), t)
+            if d != 0
+                array.set(stateOut, i, 2 * d)
+                array.set(patOut, i, patternCode(d == 1, t, array.get(rC1N, i), array.get(rC2N, i), array.get(rF2u, i), array.get(rF2d, i)))
+            else if t == "1" and (array.get(rDrH, i) or array.get(rDrL, i))
+                array.set(stateOut, i, 1)
+                array.set(patOut, i, str.tonumber(array.get(rC1N, i)) * 100 + 12)
+            else
+                array.set(stateOut, i, 0)
+                array.set(patOut, i, 0)
     pNetInForce := netIn
     aBullInForce := array.includes(rInH, true)
     aBearInForce := array.includes(rInL, true)
@@ -815,6 +841,18 @@ if barstate.islast
     pAO4 := array.get(aoOut, 3)
     pAO5 := array.get(aoOut, 4)
     pAO6 := array.get(aoOut, 5)
+    pPat1 := array.get(patOut, 0)
+    pPat2 := array.get(patOut, 1)
+    pPat3 := array.get(patOut, 2)
+    pPat4 := array.get(patOut, 3)
+    pPat5 := array.get(patOut, 4)
+    pPat6 := array.get(patOut, 5)
+    pState1 := array.get(stateOut, 0)
+    pState2 := array.get(stateOut, 1)
+    pState3 := array.get(stateOut, 2)
+    pState4 := array.get(stateOut, 3)
+    pState5 := array.get(stateOut, 4)
+    pState6 := array.get(stateOut, 5)
 
     // Check table: the Suite's C2 / C1 / CC tokens per slot, largest first, for side-by-side
     // comparison with the Suite's data table on the same chart and settings.
@@ -853,41 +891,52 @@ if barstate.islast
 // SECTION 6: OUTPUTS
 // ============================================================================
 // Plot order is column order: Pine Screener adds the first ten plots automatically.
+// One constant color: a series color would count as a second plot (SCREENER-2), and the
+// screener reads values only.
 
-signColor(float v) =>
-    na(v) or v == 0 ? COLOR_NEUTRAL : v > 0 ? COLOR_BULL : COLOR_BEAR
-
-plot(pFtfcScore,   "FTFC Score",        color = signColor(pFtfcScore))
-plot(pFtfc,        "FTFC",              color = signColor(pFtfc))
-plot(pLeadDir,     "Lead Direction",    color = signColor(pLeadDir))
-plot(pLeadPattern, "Lead Pattern",      color = signColor(pLeadPattern))
-plot(pLeadTF,      "Lead TF (min)",     color = signColor(pLeadDir))
-plot(pLeadDist,    "Lead Trigger Dist %", color = signColor(pLeadDir))
-plot(pLeadMagR,    "Lead Magnitude R",  color = signColor(pLeadDir))
-plot(pLeadExhR,    "Lead Exhaustion R", color = signColor(pLeadDir))
-plot(pSetupDist,   "Nearest Setup %",   color = signColor(pSetupDist))
-plot(pSetupTF,     "Nearest Setup TF (min)", color = signColor(pSetupDist))
-plot(pDomino,      "Domino",            color = signColor(pDomino))
-plot(pNetInForce,  "Net In Force",      color = signColor(pNetInForce))
-plot(pLeadHamSho,  "Lead C1 HAM/SHO",   color = signColor(pLeadHamSho))
-plot(pType1, "S1 Type", color = signColor(pType1))
-plot(pType2, "S2 Type", color = signColor(pType2))
-plot(pType3, "S3 Type", color = signColor(pType3))
-plot(pType4, "S4 Type", color = signColor(pType4))
-plot(pType5, "S5 Type", color = signColor(pType5))
-plot(pType6, "S6 Type", color = signColor(pType6))
-plot(pFail1, "S1 Failing", color = signColor(pFail1))
-plot(pFail2, "S2 Failing", color = signColor(pFail2))
-plot(pFail3, "S3 Failing", color = signColor(pFail3))
-plot(pFail4, "S4 Failing", color = signColor(pFail4))
-plot(pFail5, "S5 Failing", color = signColor(pFail5))
-plot(pFail6, "S6 Failing", color = signColor(pFail6))
-plot(pAO1, "S1 Above Open", color = signColor(pAO1))
-plot(pAO2, "S2 Above Open", color = signColor(pAO2))
-plot(pAO3, "S3 Above Open", color = signColor(pAO3))
-plot(pAO4, "S4 Above Open", color = signColor(pAO4))
-plot(pAO5, "S5 Above Open", color = signColor(pAO5))
-plot(pAO6, "S6 Above Open", color = signColor(pAO6))
+plot(pFtfcScore,   "FTFC Score",        color = COLOR_NEUTRAL)
+plot(pFtfc,        "FTFC",              color = COLOR_NEUTRAL)
+plot(pLeadDir,     "Lead Direction",    color = COLOR_NEUTRAL)
+plot(pLeadPattern, "Lead Pattern",      color = COLOR_NEUTRAL)
+plot(pLeadTF,      "Lead TF (min)",     color = COLOR_NEUTRAL)
+plot(pLeadDist,    "Lead Trigger Dist %", color = COLOR_NEUTRAL)
+plot(pLeadMagR,    "Lead Magnitude R",  color = COLOR_NEUTRAL)
+plot(pLeadExhR,    "Lead Exhaustion R", color = COLOR_NEUTRAL)
+plot(pSetupDist,   "Nearest Setup %",   color = COLOR_NEUTRAL)
+plot(pSetupTF,     "Nearest Setup TF (min)", color = COLOR_NEUTRAL)
+plot(pDomino,      "Domino",            color = COLOR_NEUTRAL)
+plot(pNetInForce,  "Net In Force",      color = COLOR_NEUTRAL)
+plot(pLeadHamSho,  "Lead C1 HAM/SHO",   color = COLOR_NEUTRAL)
+plot(pState1, "S1 State", color = COLOR_NEUTRAL)
+plot(pState2, "S2 State", color = COLOR_NEUTRAL)
+plot(pState3, "S3 State", color = COLOR_NEUTRAL)
+plot(pState4, "S4 State", color = COLOR_NEUTRAL)
+plot(pState5, "S5 State", color = COLOR_NEUTRAL)
+plot(pState6, "S6 State", color = COLOR_NEUTRAL)
+plot(pPat1, "S1 Pattern", color = COLOR_NEUTRAL)
+plot(pPat2, "S2 Pattern", color = COLOR_NEUTRAL)
+plot(pPat3, "S3 Pattern", color = COLOR_NEUTRAL)
+plot(pPat4, "S4 Pattern", color = COLOR_NEUTRAL)
+plot(pPat5, "S5 Pattern", color = COLOR_NEUTRAL)
+plot(pPat6, "S6 Pattern", color = COLOR_NEUTRAL)
+plot(pType1, "S1 Type", color = COLOR_NEUTRAL)
+plot(pType2, "S2 Type", color = COLOR_NEUTRAL)
+plot(pType3, "S3 Type", color = COLOR_NEUTRAL)
+plot(pType4, "S4 Type", color = COLOR_NEUTRAL)
+plot(pType5, "S5 Type", color = COLOR_NEUTRAL)
+plot(pType6, "S6 Type", color = COLOR_NEUTRAL)
+plot(pFail1, "S1 Failing", color = COLOR_NEUTRAL)
+plot(pFail2, "S2 Failing", color = COLOR_NEUTRAL)
+plot(pFail3, "S3 Failing", color = COLOR_NEUTRAL)
+plot(pFail4, "S4 Failing", color = COLOR_NEUTRAL)
+plot(pFail5, "S5 Failing", color = COLOR_NEUTRAL)
+plot(pFail6, "S6 Failing", color = COLOR_NEUTRAL)
+plot(pAO1, "S1 Above Open", color = COLOR_NEUTRAL)
+plot(pAO2, "S2 Above Open", color = COLOR_NEUTRAL)
+plot(pAO3, "S3 Above Open", color = COLOR_NEUTRAL)
+plot(pAO4, "S4 Above Open", color = COLOR_NEUTRAL)
+plot(pAO5, "S5 Above Open", color = COLOR_NEUTRAL)
+plot(pAO6, "S6 Above Open", color = COLOR_NEUTRAL)
 
 // States, not edges: a screen asks "is it true now", where the Suite's alerts ask "did it just
 // become true". Usable as screener filters and as ordinary chart alerts.

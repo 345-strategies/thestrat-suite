@@ -2,7 +2,7 @@
 
 A companion to TheStrat Suite for TradingView's **Pine Screener** (Products > Screeners > Pine). The Suite draws levels, labels and a data table; the screener can read none of that. It reads only `plot()` values and `alertcondition()` states. This script runs the Suite's signal engine and puts every screenable state into a numeric plot, so a watchlist of up to 1,000 symbols can be filtered by FTFC, Strat combos, failing 2s, targets and Domino setups.
 
-Source: `TheStratSuiteScreener_v0.1.0.pine`. Requires TheStratGrammar (`SpinTrades/TheStratGrammar/1`), the same library the Suite imports. Pine Screener requires a TradingView Premium plan or higher.
+Source: `TheStratSuiteScreener_v0.2.0.pine`. Requires TheStratGrammar (`SpinTrades/TheStratGrammar/1`), the same library the Suite imports. Pine Screener requires a TradingView Premium plan or higher.
 
 ## How to use it
 
@@ -13,7 +13,7 @@ Source: `TheStratSuiteScreener_v0.1.0.pine`. Requires TheStratGrammar (`SpinTrad
 
 ## Columns
 
-Every column follows one sign rule: **positive = bullish, negative = bearish, 0 = none or conflict.** On a chart the plot colors follow it too: green is bull, red is bear.
+Every column follows one sign rule: **positive = bullish, negative = bearish, 0 = none or conflict.** The one exception is a potential (State 1), which has no direction until it triggers. Plots draw in one grey on a chart: a colored plot would count twice against TradingView's 64-plot limit.
 
 The first ten appear automatically. The rest can be added from the column menu.
 
@@ -32,9 +32,11 @@ The first ten appear automatically. The rest can be added from the column menu.
 | 11 | Domino | signed count | Consecutive inside-bar slots with a setup, largest first (the Suite's Domino). 0 below Minimum Timeframes. |
 | 12 | Net In Force | -6 to +6 | Slots with a bullish signal in force minus slots with a bearish one. |
 | 13 | Lead C1 HAM/SHO | 1 / -1 / 0 | The Lead slot's C1 is a hammer (1) or shooter (-1). |
-| 14-19 | S1 to S6 Type | 1, ±2, ±3 | Current candle: 1 inside, 2 = 2u, -2 = 2d, 3 = 3u, -3 = 3d. A failing 2 keeps its structure (F2u is 2). |
-| 20-25 | S1 to S6 Failing | 1 / -1 / 0 | 1 = F2d (bullish reclaim), -1 = F2u (bearish reclaim). |
-| 26-31 | S1 to S6 Above Open | 1 / -1 | Current candle above or below its open. Build custom continuity filters from these. |
+| 14-19 | S1 to S6 State | 2 / -2 / 1 / 0 | 2 = bullish signal in force, -2 = bearish in force, 1 = potential (the current candle is inside, a setup is drawn, and the trigger is untouched), 0 = none. Covers every slot, not only the Lead. |
+| 20-25 | S1 to S6 Pattern | signed code | In force: the signal's combo, signed (same codes as Lead Pattern). Potential: the unsigned shape it would complete, 212 for 2-1, 312 for 3-1, 112 for 1-1. 0 = none. |
+| 26-31 | S1 to S6 Type | 1, ±2, ±3 | Current candle: 1 inside, 2 = 2u, -2 = 2d, 3 = 3u, -3 = 3d. A failing 2 keeps its structure (F2u is 2). |
+| 32-37 | S1 to S6 Failing | 1 / -1 / 0 | 1 = F2d (bullish reclaim), -1 = F2u (bearish reclaim). |
+| 38-43 | S1 to S6 Above Open | 1 / -1 | Current candle above or below its open. Build custom continuity filters from these. |
 
 S1 to S6 are the slots in settings order. Column titles cannot carry the slot's timeframe, so keep a note of your slot setup (default: 30m, 1H, D, W, M, Q).
 
@@ -65,6 +67,9 @@ So -212 is a bearish 2-1-2 and 1022 is a bullish 2-F2d.
 | Bullish setup with continuity | Nearest Setup % > 0, FTFC = 1 |
 | Room to run | Lead Magnitude R >= 2 |
 | Domino | Domino >= 2 or Domino <= -2 |
+| Daily 2-1-2 potential | S3 State = 1, S3 Pattern = 212 (default slots) |
+| Daily 2-1-2 in force, bullish | S3 State = 2, S3 Pattern = 212 (default slots) |
+| Daily signal in force, either way, with continuity | S3 State = 2 and FTFC = 1, or S3 State = -2 and FTFC = -1 |
 | Weekly inside bar | S4 Type = 1 (with the default slots) |
 | Bearish reclaim on the daily | S3 Failing = -1 (with the default slots, Failing 2s on) |
 
@@ -85,4 +90,6 @@ The script draws a small check table (TF, C2, C1, CC, FTFC, Lead) in its pane. P
 
 ## Version history
 
-**v0.1.0 (2026-10-24).** First build. Not yet compiled or run in TradingView; the first test is a compile, then a 100-symbol Pine Screener scan.
+**v0.2.0 (2026-10-25).** Fixes the chart runtime error RE10140, "The script creates too many plots (67). The limit is 64." A plot with a series color counts as two plots and each alert condition as one, so v0.1.0 used 31 x 2 + 5 = 67. Plot colors are now constant. Adds S1 to S6 State and Pattern, so a slot's potential or in-force signal can be screened even when a larger slot holds the Lead. Budget: 43 plots + 5 alert conditions = 48 of 64.
+
+**v0.1.0 (2026-10-24).** First build. Compiled, but failed on the chart with RE10140 (tested 2026-10-25).
