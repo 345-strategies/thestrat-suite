@@ -1,15 +1,16 @@
 # TheStrat Suite Screener
 
-A companion to TheStrat Suite for TradingView's **Pine Screener** (Products > Screeners > Pine). The Suite draws levels, labels and a data table; the screener can read none of that. It reads only `plot()` values and `alertcondition()` states. This script runs the Suite's signal engine and puts every screenable state into a numeric plot, so a watchlist of up to 1,000 symbols can be filtered by FTFC, Strat combos, failing 2s, targets and Domino setups.
+A companion to TheStrat Suite for TradingView's **Pine Screener** (Products > Screeners > Pine). The Suite draws levels, labels and a data table; the screener can read none of that. It reads only `plot()` values and `alertcondition()` states. This script runs the Suite's signal engine and puts every screenable state into a numeric plot, so a watchlist or an index's constituents can be filtered by FTFC, Strat combos, failing 2s, targets and Domino setups.
 
 Source: `TheStratSuiteScreener_v0.3.0.pine`. Requires TheStratGrammar (`SpinTrades/TheStratGrammar/1`), the same library the Suite imports. Pine Screener requires a TradingView Premium plan or higher.
 
 ## How to use it
 
-1. Add the script to a chart once, then mark it as a favorite (the star in the indicator list). Pine Screener only lists favorites.
-2. Open Products > Screeners > Pine, choose a watchlist, then pick **TheStrat Suite Screener** as the indicator.
-3. Pick the screen's timeframe. It is the **focus**: the State, Pattern, C2, C1, CC and other focus columns describe that timeframe's candles, like a timeframe tab in a setups table (1D = the daily row, 1W = the weekly row). Slots smaller than it are ignored.
-4. Set slots and signal toggles in the indicator's settings, add filters on the columns below, and press **Scan**. Changing anything requires a rescan.
+1. Open Products > Screeners > Pine.
+2. Choose the symbol source: the **Index** tab (S&P 500, NASDAQ 100, Dow 30, Russell 2000, sector indices and more) or the **Watchlist** tab. One source is active at a time.
+3. Click the indicator chip and pick **TheStrat Suite Screener** from the Indicators dialog. Favoriting is not required (since TradingView's 2026-09-01 update), but a favorite shows at the top of the list.
+4. Pick the screen's timeframe. It is the **focus**: the State, Pattern, C2, C1, CC and other focus columns describe that timeframe's candles, like a timeframe tab in a setups table (1D = the daily row, 1W = the weekly row). Slots smaller than it are ignored.
+5. Set slots and signal toggles in the indicator's settings, add filters on the columns below, and press **Scan**. Changing anything requires a rescan.
 
 ## Columns
 
