@@ -2,3 +2,5 @@
 *.swp
 .codex-last-message.md
 .codex-review-*.md
+__pycache__/
+*.pyc
