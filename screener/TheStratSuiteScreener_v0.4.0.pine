@@ -1,5 +1,5 @@
 //@version=6
-// TheStrat Suite Screener - v0.3.0
+// TheStrat Suite Screener - v0.4.0
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -47,14 +47,22 @@
 // 1D screen shows the daily row and a 1W screen the weekly. Per-slot State, Type and Above Open
 // stay (multi-timeframe filters and continuity); per-slot Pattern and Failing are dropped, since
 // focus Pattern and CC carry them for the screen's timeframe.
-// Budget now: 41 plots + 5 alertconditions = 46 of 64.
+// Budget then: 41 plots + 5 alertconditions = 46 of 64.
+//
+// SCREENER-4 (2026-10-25): named candle filters. Screener columns can only hold numbers, so "2D"
+// read as -2.00 and "2D closing green" took two filters. Each focus candle state is now also an
+// alertcondition, which the screener lists as a named True filter, mirroring the StratAlerts
+// dropdowns: C2 and C1 as 1 / 2U / 2D / 3, CC as 1 / 2U / 2D / 3 / 2U red / 2D green, C1 green
+// or red, C1 hammer or shooter, and In force. Code columns show whole numbers. Lead Trigger
+// Dist %, C2 Color and CC Color are dropped to keep the screener Strat-focused.
+// Budget now: 38 plots + 24 alertconditions = 62 of 64.
 //
 // Sign convention for every plot: positive = bullish, negative = bearish, 0 = none or conflict.
 // One exception: a potential (State 1) has no direction yet, so its State and Pattern are
 // unsigned.
 // Column guide and screen recipes: screener/README.md and thestratsuite.com.
 
-indicator("TheStrat Suite Screener - v0.3.0", shorttitle = "Strat Screener", overlay = false, precision = 2, max_bars_back = 200)
+indicator("TheStrat Suite Screener - v0.4.0", shorttitle = "Strat Screener", overlay = false, precision = 2, max_bars_back = 200)
 
 import SpinTrades/TheStratGrammar/1 as sg
 
@@ -628,7 +636,6 @@ float pFtfc = na
 float pLeadDir = na
 float pLeadPattern = na
 float pLeadTF = na
-float pLeadDist = na
 float pLeadMagR = na
 float pLeadExhR = na
 float pSetupDist = na
@@ -645,7 +652,6 @@ float pFC1 = na
 float pFCC = na
 float pFCT = na
 float pFShape = na
-float pFC2Color = na
 float pFC1Color = na
 float pFCCColor = na
 float pState1 = na, float pState2 = na, float pState3 = na, float pState4 = na, float pState5 = na, float pState6 = na
@@ -753,7 +759,6 @@ if barstate.islast
         pFCC := typeCode(fType)
         pFCT := pFC1 == 2 and pFCC == 2 ? 1 : pFC1 == -2 and pFCC == -2 ? -1 : 0
         pFShape := fHam ? 1 : fSho ? -1 : 0
-        pFC2Color := cF2 > oF2 ? 1 : -1
         pFC1Color := cF1 > oF1 ? 1 : -1
         pFCCColor := cF0 > oF0 ? 1 : -1
     pNetInForce := netIn
@@ -782,7 +787,6 @@ if barstate.islast
         float mag = bull ? array.get(C2H, leadIdx) : array.get(C2L, leadIdx)
         float exh = bull ? array.get(EXH, leadIdx) : array.get(EXL, leadIdx)
         float risk = bull ? trig - stop : stop - trig
-        pLeadDist := bull ? (close - trig) / trig * 100 : (trig - close) / trig * 100
         bool magAhead = bull ? mag > trig : mag < trig
         bool exhAhead = bull ? exh > trig : exh < trig
         if risk > 0 and not na(mag) and magAhead
@@ -909,52 +913,72 @@ if barstate.islast
 // ============================================================================
 // Plot order is column order: Pine Screener adds the first ten plots automatically.
 // One constant color: a series color would count as a second plot (SCREENER-2), and the
-// screener reads values only.
+// screener reads values only. Codes show as whole numbers; R and percent columns keep decimals.
 
-plot(pFState, "State", color = COLOR_NEUTRAL)
-plot(pFPattern, "Pattern", color = COLOR_NEUTRAL)
-plot(pFC2, "C2", color = COLOR_NEUTRAL)
-plot(pFC1, "C1", color = COLOR_NEUTRAL)
-plot(pFCC, "CC", color = COLOR_NEUTRAL)
-plot(pFCT, "CT", color = COLOR_NEUTRAL)
-plot(pFShape, "C1 Shape", color = COLOR_NEUTRAL)
-plot(pFtfc, "FTFC", color = COLOR_NEUTRAL)
-plot(pFtfcScore, "FTFC Score", color = COLOR_NEUTRAL)
-plot(pLeadDir, "Lead Direction", color = COLOR_NEUTRAL)
-plot(pLeadPattern, "Lead Pattern", color = COLOR_NEUTRAL)
-plot(pLeadTF, "Lead TF (min)", color = COLOR_NEUTRAL)
-plot(pLeadDist, "Lead Trigger Dist %", color = COLOR_NEUTRAL)
+plot(pFState, "State", color = COLOR_NEUTRAL, precision = 0)
+plot(pFPattern, "Pattern", color = COLOR_NEUTRAL, precision = 0)
+plot(pFC2, "C2", color = COLOR_NEUTRAL, precision = 0)
+plot(pFC1, "C1", color = COLOR_NEUTRAL, precision = 0)
+plot(pFCC, "CC", color = COLOR_NEUTRAL, precision = 0)
+plot(pFCT, "CT", color = COLOR_NEUTRAL, precision = 0)
+plot(pFShape, "C1 Shape", color = COLOR_NEUTRAL, precision = 0)
+plot(pFtfc, "FTFC", color = COLOR_NEUTRAL, precision = 0)
+plot(pFtfcScore, "FTFC Score", color = COLOR_NEUTRAL, precision = 0)
+plot(pLeadDir, "Lead Direction", color = COLOR_NEUTRAL, precision = 0)
+plot(pLeadPattern, "Lead Pattern", color = COLOR_NEUTRAL, precision = 0)
+plot(pLeadTF, "Lead TF (min)", color = COLOR_NEUTRAL, precision = 0)
 plot(pLeadMagR, "Lead Magnitude R", color = COLOR_NEUTRAL)
 plot(pLeadExhR, "Lead Exhaustion R", color = COLOR_NEUTRAL)
 plot(pSetupDist, "Nearest Setup %", color = COLOR_NEUTRAL)
-plot(pSetupTF, "Nearest Setup TF (min)", color = COLOR_NEUTRAL)
-plot(pDomino, "Domino", color = COLOR_NEUTRAL)
-plot(pNetInForce, "Net In Force", color = COLOR_NEUTRAL)
-plot(pLeadHamSho, "Lead C1 HAM/SHO", color = COLOR_NEUTRAL)
-plot(pFC2Color, "C2 Color", color = COLOR_NEUTRAL)
-plot(pFC1Color, "C1 Color", color = COLOR_NEUTRAL)
-plot(pFCCColor, "CC Color", color = COLOR_NEUTRAL)
-plot(pState1, "S1 State", color = COLOR_NEUTRAL)
-plot(pState2, "S2 State", color = COLOR_NEUTRAL)
-plot(pState3, "S3 State", color = COLOR_NEUTRAL)
-plot(pState4, "S4 State", color = COLOR_NEUTRAL)
-plot(pState5, "S5 State", color = COLOR_NEUTRAL)
-plot(pState6, "S6 State", color = COLOR_NEUTRAL)
-plot(pType1, "S1 Type", color = COLOR_NEUTRAL)
-plot(pType2, "S2 Type", color = COLOR_NEUTRAL)
-plot(pType3, "S3 Type", color = COLOR_NEUTRAL)
-plot(pType4, "S4 Type", color = COLOR_NEUTRAL)
-plot(pType5, "S5 Type", color = COLOR_NEUTRAL)
-plot(pType6, "S6 Type", color = COLOR_NEUTRAL)
-plot(pAO1, "S1 Above Open", color = COLOR_NEUTRAL)
-plot(pAO2, "S2 Above Open", color = COLOR_NEUTRAL)
-plot(pAO3, "S3 Above Open", color = COLOR_NEUTRAL)
-plot(pAO4, "S4 Above Open", color = COLOR_NEUTRAL)
-plot(pAO5, "S5 Above Open", color = COLOR_NEUTRAL)
-plot(pAO6, "S6 Above Open", color = COLOR_NEUTRAL)
+plot(pSetupTF, "Nearest Setup TF (min)", color = COLOR_NEUTRAL, precision = 0)
+plot(pDomino, "Domino", color = COLOR_NEUTRAL, precision = 0)
+plot(pNetInForce, "Net In Force", color = COLOR_NEUTRAL, precision = 0)
+plot(pLeadHamSho, "Lead C1 HAM/SHO", color = COLOR_NEUTRAL, precision = 0)
+plot(pFC1Color, "C1 Color", color = COLOR_NEUTRAL, precision = 0)
+plot(pState1, "S1 State", color = COLOR_NEUTRAL, precision = 0)
+plot(pState2, "S2 State", color = COLOR_NEUTRAL, precision = 0)
+plot(pState3, "S3 State", color = COLOR_NEUTRAL, precision = 0)
+plot(pState4, "S4 State", color = COLOR_NEUTRAL, precision = 0)
+plot(pState5, "S5 State", color = COLOR_NEUTRAL, precision = 0)
+plot(pState6, "S6 State", color = COLOR_NEUTRAL, precision = 0)
+plot(pType1, "S1 Type", color = COLOR_NEUTRAL, precision = 0)
+plot(pType2, "S2 Type", color = COLOR_NEUTRAL, precision = 0)
+plot(pType3, "S3 Type", color = COLOR_NEUTRAL, precision = 0)
+plot(pType4, "S4 Type", color = COLOR_NEUTRAL, precision = 0)
+plot(pType5, "S5 Type", color = COLOR_NEUTRAL, precision = 0)
+plot(pType6, "S6 Type", color = COLOR_NEUTRAL, precision = 0)
+plot(pAO1, "S1 Above Open", color = COLOR_NEUTRAL, precision = 0)
+plot(pAO2, "S2 Above Open", color = COLOR_NEUTRAL, precision = 0)
+plot(pAO3, "S3 Above Open", color = COLOR_NEUTRAL, precision = 0)
+plot(pAO4, "S4 Above Open", color = COLOR_NEUTRAL, precision = 0)
+plot(pAO5, "S5 Above Open", color = COLOR_NEUTRAL, precision = 0)
+plot(pAO6, "S6 Above Open", color = COLOR_NEUTRAL, precision = 0)
 
 // States, not edges: a screen asks "is it true now", where the Suite's alerts ask "did it just
 // become true". Usable as screener filters and as ordinary chart alerts.
+
+// SCREENER-4: named candle filters for the screen's own timeframe (the focus columns as words).
+// Colors use FTFC's rule: a doji counts red.
+alertcondition(math.abs(pFState) == 2, "In force", "Signal in force on the screen's timeframe")
+alertcondition(pFC2 == 1, "C2: 1", "C2 is inside")
+alertcondition(pFC2 == 2, "C2: 2U", "C2 is 2U")
+alertcondition(pFC2 == -2, "C2: 2D", "C2 is 2D")
+alertcondition(math.abs(pFC2) == 3, "C2: 3", "C2 is outside")
+alertcondition(pFC1 == 1, "C1: 1", "C1 is inside")
+alertcondition(pFC1 == 2, "C1: 2U", "C1 is 2U")
+alertcondition(pFC1 == -2, "C1: 2D", "C1 is 2D")
+alertcondition(math.abs(pFC1) == 3, "C1: 3", "C1 is outside")
+alertcondition(pFCC == 1, "CC: 1", "CC is inside")
+alertcondition(pFCC == 2, "CC: 2U", "CC is 2U")
+alertcondition(pFCC == -2, "CC: 2D", "CC is 2D")
+alertcondition(math.abs(pFCC) == 3, "CC: 3", "CC is outside")
+alertcondition(pFCC == 2 and pFCCColor == -1, "CC: 2U red", "CC is 2U closing red")
+alertcondition(pFCC == -2 and pFCCColor == 1, "CC: 2D green", "CC is 2D closing green")
+alertcondition(pFC1Color == 1, "C1: green", "C1 closed green")
+alertcondition(pFC1Color == -1, "C1: red", "C1 closed red")
+alertcondition(pFShape == 1, "C1: hammer", "C1 is a hammer")
+alertcondition(pFShape == -1, "C1: shooter", "C1 is a shooter")
+
 alertcondition(aFtfcUp, "FTFC Up (state)", "FTFC Up")
 alertcondition(aFtfcDown, "FTFC Down (state)", "FTFC Down")
 alertcondition(aBullInForce, "Bullish Signal In Force (any slot)", "Bullish signal in force")
