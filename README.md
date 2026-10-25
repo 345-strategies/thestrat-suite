@@ -30,6 +30,7 @@ tool in this repo, on a Heiken-Ashi chart. Use candles, bars (OHLC) or hollow ca
 - **TradingView:** the Suite does not detect a Heiken-Ashi chart, and its higher timeframes are
   then built from Heiken-Ashi prices too, so every row of the table is affected.
 - **NinjaTrader:** the port refuses Heiken-Ashi charts and shows a notice instead.
+- **thinkorswim:** the beta does not detect a Heiken-Ashi chart. Use candles or bars.
 
 ## Repository contents
 
@@ -84,6 +85,15 @@ install, where it differs from the Pine, and the in-app checks still to do.
 The rendering layer with everything Strat-specific removed: update-in-place lines and
 boxes, a label pool, and price-based label consolidation. Published as a Pine library for
 anyone building their own script.
+
+### `thinkorswim/` — TheStrat Suite for thinkorswim (thinkScript)
+
+**Beta, for testing** ([v0.2.0 beta pre-release](https://github.com/345-strategies/thestrat-suite/releases/tag/tos-TheStratSuite-v0.2.0-beta)). A port of the Suite to
+thinkorswim, aiming at every v3.1.1 feature. v0.2.0 beta is layer 1:
+the classifier, Strat/FTFC bar coloring, a per-timeframe label strip and FTFC.
+`FULL_PORT_PLAN.md` maps the rest. Free under MPL-2.0. Its classifier and presets are tested
+against the grammar and the Pine by `grammar/tests/test_tos_parity.py`. Not yet verified in
+thinkorswim; beta testers start with `thinkorswim/TESTER_GUIDE.md`. See `thinkorswim/README.md`.
 
 ### `cross-levels/` — ES ↔ SPY/SPX level translation (Pine v6)
 
