@@ -2,7 +2,7 @@
 
 A companion to TheStrat Suite for TradingView's **Pine Screener** (Products > Screeners > Pine). The Suite draws levels, labels and a data table; the screener can read none of that. It reads only `plot()` values and `alertcondition()` states. This script runs the Suite's signal engine and puts every screenable state into a numeric plot, so a watchlist or an index's constituents can be filtered by FTFC, Strat combos, failing 2s, targets and Domino setups.
 
-Source: `TheStratSuiteScreener_v0.4.0.pine`. Requires TheStratGrammar (`SpinTrades/TheStratGrammar/1`), the same library the Suite imports. Pine Screener requires a TradingView Premium plan or higher.
+Source: `TheStratSuiteScreener_v0.4.1.pine`. Requires TheStratGrammar (`SpinTrades/TheStratGrammar/1`), the same library the Suite imports. Pine Screener requires a TradingView Premium plan or higher.
 
 ## How to use it
 
@@ -76,9 +76,9 @@ Columns hold numbers only, so each focus candle state is also a named filter: pi
 | Signal | `In force` (either direction; State shows which) |
 | C2 (target) | `C2: 1`, `C2: 2U`, `C2: 2D`, `C2: 3` |
 | C1 (trigger) | `C1: 1`, `C1: 2U`, `C1: 2D`, `C1: 3`, `C1: green`, `C1: red`, `C1: hammer`, `C1: shooter` |
-| CC (current) | `CC: 1`, `CC: 2U`, `CC: 2D`, `CC: 3`, `CC: 2U red`, `CC: 2D green` |
+| CC (current) | `CC: 1`, `CC: 2U`, `CC: 2D`, `CC: 3`, `CC: 2U red`, `CC: 2D green`, `CC: hammer`, `CC: shooter` |
 
-A 2U or 2D is by structure, so `CC: 2D` includes a 2D closing green. Colors use FTFC's rule: a doji counts red. Combine filters for a sequence: `C1: 1` plus `CC: 2U` is a 1-2U.
+A 2U or 2D is by structure, so `CC: 2D` includes a 2D closing green. Colors use FTFC's rule: a doji counts red. Hammer and shooter follow the Hammer/Shooter settings; the default, Broad, calls a candle a hammer when its open and close are both in the upper half of its range. Combine filters for a sequence: `C1: 1` plus `CC: 2U` is a 1-2U.
 
 ### Other alert conditions (usable as filters)
 
@@ -103,6 +103,7 @@ A 2U or 2D is by structure, so `CC: 2D` includes a 2D closing green. Colors use 
 | Hammer trigger candle | `C1: hammer` |
 | 2-1 setup with a green trigger candle | `C2: 2U` or `C2: 2D`, `C1: 1`, `C1: green` |
 | 2D closing green (failing bearish) | `CC: 2D green` |
+| Weekly 2D green hammer (1W screen) | `CC: 2D green`, `CC: hammer` |
 | Weekly bullish in force, daily inside (1D screen) | S4 State = 2, CC = 1 |
 | Weekly inside bar | S4 Type = 1 (default slots), or CC = 1 on a 1W screen |
 
@@ -122,6 +123,8 @@ Room-to-run columns are information, not a tested edge. The project's own resear
 The script draws a small check table (TF, C2, C1, CC, FTFC, Lead) in its pane. Put the Suite and this script on the same chart with matching slots and signal settings, and the two tables should agree cell for cell on every slot at or above the chart timeframe. Any difference is a bug in this script.
 
 ## Version history
+
+**v0.4.1 (2026-10-25).** `CC: hammer` and `CC: shooter` filters. `C1: hammer` tests the candle before CC, so a 2D closing green as a hammer took a second pass. CC's shape uses the same Hammer/Shooter settings as C1. Filters only, no column. Budget: 38 plots + 26 alert conditions = 64 of 64, the limit, so a new plot or filter needs one removed first.
 
 **v0.4.0 (2026-10-25).** Named candle filters: each focus candle state is also a True filter (`C2: 2U`, `CC: 2D green`, `C1: hammer`, `In force` and so on), mirroring the StratAlerts dropdowns, because screener columns can only show numbers. Code columns show whole numbers. Lead Trigger Dist %, C2 Color and CC Color are dropped to keep the screener Strat-focused. Budget: 38 plots + 24 alert conditions = 62 of 64.
 

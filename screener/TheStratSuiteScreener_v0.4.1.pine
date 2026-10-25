@@ -1,5 +1,5 @@
 //@version=6
-// TheStrat Suite Screener - v0.4.0
+// TheStrat Suite Screener - v0.4.1
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -55,14 +55,21 @@
 // dropdowns: C2 and C1 as 1 / 2U / 2D / 3, CC as 1 / 2U / 2D / 3 / 2U red / 2D green, C1 green
 // or red, C1 hammer or shooter, and In force. Code columns show whole numbers. Lead Trigger
 // Dist %, C2 Color and CC Color are dropped to keep the screener Strat-focused.
-// Budget now: 38 plots + 24 alertconditions = 62 of 64.
+// Budget then: 38 plots + 24 alertconditions = 62 of 64.
+//
+// SCREENER-5 (2026-10-25): CC hammer and shooter filters. "C1: hammer" tests the candle before
+// CC, so a weekly 2D that closed green as a hammer could not be screened in one pass. CC's shape
+// uses the same detectPatterns() and Hammer/Shooter settings as C1. It is a filter only, with no
+// column, because the budget is full.
+// Budget now: 38 plots + 26 alertconditions = 64 of 64, the limit. A new plot or filter needs
+// one removed first.
 //
 // Sign convention for every plot: positive = bullish, negative = bearish, 0 = none or conflict.
 // One exception: a potential (State 1) has no direction yet, so its State and Pattern are
 // unsigned.
 // Column guide and screen recipes: screener/README.md and thestratsuite.com.
 
-indicator("TheStrat Suite Screener - v0.4.0", shorttitle = "Strat Screener", overlay = false, precision = 2, max_bars_back = 200)
+indicator("TheStrat Suite Screener - v0.4.1", shorttitle = "Strat Screener", overlay = false, precision = 2, max_bars_back = 200)
 
 import SpinTrades/TheStratGrammar/1 as sg
 
@@ -654,6 +661,7 @@ float pFCT = na
 float pFShape = na
 float pFC1Color = na
 float pFCCColor = na
+float pFCCShape = na
 float pState1 = na, float pState2 = na, float pState3 = na, float pState4 = na, float pState5 = na, float pState6 = na
 
 bool aFtfcUp = false
@@ -761,6 +769,8 @@ if barstate.islast
         pFShape := fHam ? 1 : fSho ? -1 : 0
         pFC1Color := cF1 > oF1 ? 1 : -1
         pFCCColor := cF0 > oF0 ? 1 : -1
+        [ccHam, ccSho] = detectPatterns(oF0, hF0, lF0, cF0)
+        pFCCShape := ccHam ? 1 : ccSho ? -1 : 0
     pNetInForce := netIn
     aBullInForce := array.includes(rInH, true)
     aBearInForce := array.includes(rInL, true)
@@ -974,6 +984,8 @@ alertcondition(pFCC == -2, "CC: 2D", "CC is 2D")
 alertcondition(math.abs(pFCC) == 3, "CC: 3", "CC is outside")
 alertcondition(pFCC == 2 and pFCCColor == -1, "CC: 2U red", "CC is 2U closing red")
 alertcondition(pFCC == -2 and pFCCColor == 1, "CC: 2D green", "CC is 2D closing green")
+alertcondition(pFCCShape == 1, "CC: hammer", "CC is a hammer")
+alertcondition(pFCCShape == -1, "CC: shooter", "CC is a shooter")
 alertcondition(pFC1Color == 1, "C1: green", "C1 closed green")
 alertcondition(pFC1Color == -1, "C1: red", "C1 closed red")
 alertcondition(pFShape == 1, "C1: hammer", "C1 is a hammer")
