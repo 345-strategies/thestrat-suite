@@ -14,7 +14,7 @@ This is a study only. It never places orders. A paperMoney login is enough.
 
 ## Install
 
-1. Get `TheStratSuite_TOS_v0.2.0.txt` from the [thinkorswim folder on GitHub](https://github.com/345-strategies/thestrat-suite/tree/main/thinkorswim), or from whoever sent you this guide. On GitHub, open the file and click **Copy raw file**. Otherwise open it in a text editor, select all and copy.
+1. Get `TheStratSuite_TOS_v0.2.0.txt` from the [v0.2.0 beta pre-release](https://github.com/345-strategies/thestrat-suite/releases/tag/tos-TheStratSuite-v0.2.0-beta) or the [thinkorswim folder on GitHub](https://github.com/345-strategies/thestrat-suite/tree/main/thinkorswim), or from whoever sent you this guide. In the folder, open the file and click **Copy raw file**. Otherwise open it in a text editor, select all and copy.
 2. In thinkorswim, on the **Charts** tab, click **Studies > Edit Studies**. In the window that opens, click **Create** (bottom left).
 3. At the top of the editor, replace the name (`NewStudy0`) with `TheStratSuite`. Delete the placeholder code, paste, and click **OK**.
 4. Back in Edit Studies, add **TheStratSuite** to the chart and click **OK**.

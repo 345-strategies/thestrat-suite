@@ -5,6 +5,11 @@ original. The goal is a **full port** of every Suite feature; `FULL_PORT_PLAN.md
 to a thinkScript approach, lists the hard platform limits and their equivalents, and sets the
 build order. The study shipped today is layer 1 of that plan.
 
+> **Beta, for testing.** v0.2.0 is a pre-release for beta testers, not a finished study. Nobody
+> has loaded it in thinkorswim yet. Download it from the
+> [v0.2.0 beta pre-release](https://github.com/345-strategies/thestrat-suite/releases/tag/tos-TheStratSuite-v0.2.0-beta) or copy it from this folder, and follow
+> `TESTER_GUIDE.md`.
+
 **Status: v0.2.0 beta, layer 1. Not yet loaded in thinkorswim.** The classifier and the presets
 are checked by Python tests (below); everything else needs the in-app checks at the bottom of
 this file. `TESTER_GUIDE.md` is the short version to hand to beta testers.
