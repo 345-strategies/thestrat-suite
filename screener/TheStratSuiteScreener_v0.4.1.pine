@@ -40,8 +40,7 @@
 // daily 2-1-2 can be screened as potential or in force even when a larger slot holds the Lead.
 // Budget then: 43 plots + 5 alertconditions = 48 of 64.
 //
-// SCREENER-3 (2026-10-25): focus columns, modeled on the StratAlerts Setups table, where each row
-// is one setup on one timeframe picked by a tab. Pine Screener's own timeframe is that tab: the
+// SCREENER-3 (2026-10-25): focus columns. Pine Screener's own timeframe picks the row: the
 // focus columns (State, Pattern, C2, C1, CC, CT, C1 Shape, colors) describe the screen's
 // timeframe, read from the chart series with the same slotData() and evalSlot() as a slot, so a
 // 1D screen shows the daily row and a 1W screen the weekly. Per-slot State, Type and Above Open
@@ -51,10 +50,10 @@
 //
 // SCREENER-4 (2026-10-25): named candle filters. Screener columns can only hold numbers, so "2D"
 // read as -2.00 and "2D closing green" took two filters. Each focus candle state is now also an
-// alertcondition, which the screener lists as a named True filter, mirroring the StratAlerts
-// dropdowns: C2 and C1 as 1 / 2U / 2D / 3, CC as 1 / 2U / 2D / 3 / 2U red / 2D green, C1 green
-// or red, C1 hammer or shooter, and In force. Code columns show whole numbers. Lead Trigger
-// Dist %, C2 Color and CC Color are dropped to keep the screener Strat-focused.
+// alertcondition, which the screener lists as a named True filter: C2 and C1 as 1 / 2U / 2D / 3,
+// CC as 1 / 2U / 2D / 3 / 2U red / 2D green, C1 green or red, C1 hammer or shooter, and In force.
+// Code columns show whole numbers. Lead Trigger Dist %, C2 Color and CC Color are dropped to keep
+// the screener Strat-focused.
 // Budget then: 38 plots + 24 alertconditions = 62 of 64.
 //
 // SCREENER-5 (2026-10-25): CC hammer and shooter filters. "C1: hammer" tests the candle before

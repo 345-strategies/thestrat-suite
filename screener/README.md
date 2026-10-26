@@ -69,7 +69,7 @@ So -212 is a bearish 2-1-2 and 1022 is a bullish 2-F2d.
 
 ### Named filters (True)
 
-Columns hold numbers only, so each focus candle state is also a named filter: pick it from the filter list and it matches when True. They mirror the StratAlerts Setups dropdowns and describe the screen's own timeframe.
+Columns hold numbers only, so each focus candle state is also a named filter: pick it from the filter list and it matches when True. They describe the screen's own timeframe.
 
 | Group | Filters |
 |---|---|
@@ -79,6 +79,8 @@ Columns hold numbers only, so each focus candle state is also a named filter: pi
 | CC (current) | `CC: 1`, `CC: 2U`, `CC: 2D`, `CC: 3`, `CC: 2U red`, `CC: 2D green`, `CC: hammer`, `CC: shooter` |
 
 A 2U or 2D is by structure, so `CC: 2D` includes a 2D closing green. Colors use FTFC's rule: a doji counts red. Hammer and shooter follow the Hammer/Shooter settings; the default, Broad, calls a candle a hammer when its open and close are both in the upper half of its range. Combine filters for a sequence: `C1: 1` plus `CC: 2U` is a 1-2U.
+
+Broad is the loosest of the three definitions: it checks where the open and close sit, not how long the wick is, so it flags many candles without a long wick. For a strict long-wick read, choose Classic or Pin Bar.
 
 ### Other alert conditions (usable as filters)
 
@@ -126,9 +128,9 @@ The script draws a small check table (TF, C2, C1, CC, FTFC, Lead) in its pane. P
 
 **v0.4.1 (2026-10-25).** `CC: hammer` and `CC: shooter` filters. `C1: hammer` tests the candle before CC, so a 2D closing green as a hammer took a second pass. CC's shape uses the same Hammer/Shooter settings as C1. Filters only, no column. Budget: 38 plots + 26 alert conditions = 64 of 64, the limit, so a new plot or filter needs one removed first.
 
-**v0.4.0 (2026-10-25).** Named candle filters: each focus candle state is also a True filter (`C2: 2U`, `CC: 2D green`, `C1: hammer`, `In force` and so on), mirroring the StratAlerts dropdowns, because screener columns can only show numbers. Code columns show whole numbers. Lead Trigger Dist %, C2 Color and CC Color are dropped to keep the screener Strat-focused. Budget: 38 plots + 24 alert conditions = 62 of 64.
+**v0.4.0 (2026-10-25).** Named candle filters: each focus candle state is also a True filter (`C2: 2U`, `CC: 2D green`, `C1: hammer`, `In force` and so on), because screener columns can only show numbers. Code columns show whole numbers. Lead Trigger Dist %, C2 Color and CC Color are dropped to keep the screener Strat-focused. Budget: 38 plots + 24 alert conditions = 62 of 64.
 
-**v0.3.0 (2026-10-25).** Focus columns, after the StratAlerts Setups table: State, Pattern, C2, C1, CC, CT, C1 Shape and the three candle colors describe the screen's own timeframe, read from the chart series with the same engine as a slot. They are now the first seven columns. Per-slot Pattern and Failing are removed. Budget: 41 plots + 5 alert conditions = 46 of 64.
+**v0.3.0 (2026-10-25).** Focus columns: State, Pattern, C2, C1, CC, CT, C1 Shape and the three candle colors describe the screen's own timeframe, read from the chart series with the same engine as a slot. They are now the first seven columns. Per-slot Pattern and Failing are removed. Budget: 41 plots + 5 alert conditions = 46 of 64.
 
 **v0.2.0 (2026-10-25).** Fixes the chart runtime error RE10140, "The script creates too many plots (67). The limit is 64." A plot with a series color counts as two plots and each alert condition as one, so v0.1.0 used 31 x 2 + 5 = 67. Plot colors are now constant. Adds S1 to S6 State and Pattern, so a slot's potential or in-force signal can be screened even when a larger slot holds the Lead. Budget: 43 plots + 5 alert conditions = 48 of 64.
 
