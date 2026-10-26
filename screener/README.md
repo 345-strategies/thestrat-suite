@@ -2,7 +2,7 @@
 
 A companion to TheStrat Suite for TradingView's **Pine Screener** (Products > Screeners > Pine). The Suite draws levels, labels and a data table; the screener can read none of that. It reads only `plot()` values and `alertcondition()` states. This script runs the Suite's signal engine and puts every screenable state into a numeric plot, so a watchlist or an index's constituents can be filtered by FTFC, Strat combos, failing 2s, targets and Domino setups.
 
-Source: `TheStratSetupScreener_v0.4.2.pine`. Requires TheStratGrammar (`SpinTrades/TheStratGrammar/1`), the same library the Suite imports. Pine Screener requires a TradingView Premium plan or higher.
+Source: `TheStratSetupScreener_v0.5.0.pine`. Requires TheStratGrammar (`SpinTrades/TheStratGrammar/1`), the same library the Suite imports. Pine Screener requires a TradingView Premium plan or higher.
 
 ## How to use it
 
@@ -14,7 +14,7 @@ Source: `TheStratSetupScreener_v0.4.2.pine`. Requires TheStratGrammar (`SpinTrad
 
 ## Columns
 
-Every column follows one sign rule: **positive = bullish, negative = bearish, 0 = none or conflict.** The one exception is a potential (State 1), which has no direction until it triggers. Code columns show whole numbers (-2, not -2.00). Plots draw in one grey on a chart: a colored plot would count twice against TradingView's 64-plot limit.
+Every column follows one sign rule: **positive = bullish, negative = bearish, 0 = none or conflict.** The one exception is a potential (State 1), which has no direction until it triggers. Code columns show whole numbers (-2, not -2.00). Plots don't draw on the chart; they show only in the data window and in Pine Screener. They use one color, because a colored plot would count twice against TradingView's 64-plot limit.
 
 The first ten appear automatically. The rest can be added from the column menu.
 
@@ -120,11 +120,20 @@ Room-to-run columns are information, not a tested edge. The project's own resear
 - **Last bar only.** History plots `na`. Under `lookahead_on` the forming higher-timeframe candle shows its final high and low on historical bars, so any historical value would repaint. Filter on values, not on "crossing" conditions.
 - **Stateless.** The Suite's per-period latches reduce to direct tests on the last bar. Stops always use the CC reference.
 
-## Checking it against the Suite
+## On a chart
 
-The script draws a small check table (TF, C2, C1, CC, FTFC, Lead) in its pane. Put the Suite and this script on the same chart with matching slots and signal settings, and the two tables should agree cell for cell on every slot at or above the chart timeframe. Any difference is a bug in this script.
+The script sits on the price chart and draws only a match card and three tags.
+
+- **Match card** (top right by default): the chart timeframe's current candle and signal, for example `CC 2u · Bullish 2-2 in force`. Then the named filters the symbol matches right now, one row per slot with C2, C1 and CC, and FTFC and Lead. A highlighted timeframe has a signal in force. To check a scan result, open the symbol at the scan's timeframe: the Matches line lists the filters it passed.
+- **Tags** mark the C2, C1 and CC candles, colored by candle type. Hover a tag for its type.
+
+The Display settings turn the card, its timeframe rows and the tags on or off, and set the card's position and text size.
+
+The slot rows match the Suite's data table. Put both on the same chart with matching slots and signal settings, and they should agree cell for cell on every slot at or above the chart timeframe. Any difference is a bug in this script.
 
 ## Version history
+
+**v0.5.0 (2026-10-26).** Moves to the price chart. Plots show only in the data window and Pine Screener (`display.pine_screener`; data-window-only plots drop out of the screener), so there is no pane with a 0-1600 scale. The check table becomes a match card that lists the named filters the symbol matches, and tags mark the C2, C1 and CC candles. Slots finer than the chart get no row. Budget unchanged: 36 plots + 28 alert conditions = 64 of 64.
 
 **v0.4.2 (2026-10-25).** `CC: F2D` and `CC: F2U` filters, so a Failing 2 can be screened by name instead of by Pattern code. Lead Exhaustion R and Lead C1 HAM/SHO are dropped to make room; C1 Shape and the hammer and shooter filters still cover hammers. Budget: 36 plots + 28 alert conditions = 64 of 64.
 

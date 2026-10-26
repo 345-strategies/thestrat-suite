@@ -1,5 +1,5 @@
 //@version=6
-// TheStrat Setup Screener - v0.4.2
+// TheStrat Setup Screener - v0.5.0
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -70,14 +70,22 @@
 // instead of by Pattern code. They follow the Failing 2 Detection settings. Lead Exhaustion R and
 // Lead C1 HAM/SHO are dropped to make room; exhaustion levels still drive 'Exhaustion Disables
 // In Force', and C1 Shape plus the C1/CC hammer and shooter filters still cover hammers.
-// Budget now: 36 plots + 28 alertconditions = 64 of 64.
+// Budget then: 36 plots + 28 alertconditions = 64 of 64.
+//
+// SCREENER-8 (2026-10-26): a chart face for the listing and for checking a scan result. The
+// script now sits on the price chart. Every plot shows in the data window and Pine Screener only
+// (display.pine_screener is required: data_window alone drops the screener columns), so nothing
+// draws on the chart and there is no pane with a meaningless 0-1600 scale. The check
+// table becomes a match card: the chart timeframe's candle and signal in words, the named
+// filters it matches right now, the slot rows and FTFC/Lead. Tags mark the C2, C1 and CC
+// candles. Tables and labels don't count toward the plot budget: still 64 of 64.
 //
 // Sign convention for every plot: positive = bullish, negative = bearish, 0 = none or conflict.
 // One exception: a potential (State 1) has no direction yet, so its State and Pattern are
 // unsigned.
 // Column guide and screen recipes: screener/README.md and thestratsuite.com.
 
-indicator("TheStrat Setup Screener - v0.4.2", shorttitle = "Setup Screener", overlay = false, precision = 2, max_bars_back = 200)
+indicator("TheStrat Setup Screener - v0.5.0", shorttitle = "Setup Screener", overlay = true, precision = 2, max_bars_back = 200)
 
 import SpinTrades/TheStratGrammar/1 as sg
 
@@ -143,7 +151,21 @@ enableFailed2Detection = input.bool(true, "Enable Failing 2 Detection", group = 
 failed_2_method = input.string("Reclaim", "Detection Method", options = ["Reclaim", "Open", "Reclaim + Open", "Reclaim OR Open"], group = grpAdvF2)
 
 grpDisplay = "Display"
-showCheckTable = input.bool(true, "Show Check Table", group = grpDisplay, tooltip = "A small table for comparing this script against the Suite's data table on a chart. The screener ignores it.")
+showCard = input.bool(true, "Show match card", group = grpDisplay, tooltip = "What this symbol is on the chart's timeframe and the named filters it matches right now, so a scan result can be checked on the chart. The screener ignores it.")
+cardPosInput = input.string("Top Right", "Card position", options = ["Top Right", "Top Left", "Bottom Right", "Bottom Left"], group = grpDisplay)
+cardSizeInput = input.string("Normal", "Card text size", options = ["Small", "Normal", "Large"], group = grpDisplay)
+showSlotRows = input.bool(true, "Show timeframe rows", group = grpDisplay, tooltip = "C2, C1 and CC for each slot, largest first. A highlighted timeframe has a signal in force. With matching settings, these rows agree with the Suite's data table on the same chart.")
+showTags = input.bool(true, "Tag C2, C1 and CC candles", group = grpDisplay)
+
+cardPosition = switch cardPosInput
+    "Top Left"     => position.top_left
+    "Bottom Right" => position.bottom_right
+    "Bottom Left"  => position.bottom_left
+    => position.top_right
+cardText = switch cardSizeInput
+    "Small" => size.small
+    "Large" => size.large
+    => size.normal
 
 // Style: the Suite's palette. Green/red always mean bull/bear.
 COLOR_BULL = #4caf50
@@ -639,6 +661,37 @@ slotTokenColor(string tok) =>
         "3d"  => #e91e63
         => color.gray
 
+// Match card helpers (SCREENER-8).
+chartTfLabel() =>
+    string s = timeframe.period
+    int m = timeframe.multiplier
+    if timeframe.isminutes
+        s := m % 60 == 0 ? str.tostring(m / 60) + "H" : str.tostring(m) + "m"
+    else if timeframe.isdaily
+        s := m == 1 ? "D" : str.tostring(m) + "D"
+    else if timeframe.isweekly
+        s := m == 1 ? "W" : str.tostring(m) + "W"
+    else if timeframe.ismonthly
+        s := m == 1 ? "M" : str.tostring(m) + "M"
+    s
+
+// Pattern code as the combo reads: 212 -> 2-1-2, 22 -> 2-2, 1022 -> 2-F2. The sign is ignored.
+patternText(float code) =>
+    string out = ""
+    if not na(code) and code != 0
+        int a = int(math.abs(code))
+        if a >= 1000
+            out := str.tostring(int((a - 1000) / 10)) + "-F2"
+        else if a >= 100
+            out := str.tostring(int(a / 100)) + "-" + str.tostring(int(a / 10) % 10) + "-" + str.tostring(a % 10)
+        else
+            out := str.tostring(int(a / 10)) + "-" + str.tostring(a % 10)
+    out
+
+// A type code as the named filters spell it: 1, 2U, 2D, 3.
+filterType(float code) =>
+    code == 1 ? "1" : code == 2 ? "2U" : code == -2 ? "2D" : math.abs(code) == 3 ? "3" : ""
+
 // ============================================================================
 // SECTION 5: LAST-BAR EVALUATION
 // ============================================================================
@@ -883,38 +936,111 @@ if barstate.islast
     pState5 := array.get(stateOut, 4)
     pState6 := array.get(stateOut, 5)
 
-    // Check table: the Suite's C2 / C1 / CC tokens per slot, largest first, for side-by-side
-    // comparison with the Suite's data table on the same chart and settings.
-    if showCheckTable
-        var table chk = table.new(position.top_right, 4, 9, bgcolor = color.new(color.black, 0), frame_color = color.gray, frame_width = 1, border_color = #333333, border_width = 1)
-        table.clear(chk, 0, 0, 3, 8)
-        table.cell(chk, 0, 0, "TF", text_color = #888888, text_size = size.small)
-        table.cell(chk, 1, 0, "C2", text_color = #888888, text_size = size.small)
-        table.cell(chk, 2, 0, "C1", text_color = #888888, text_size = size.small)
-        table.cell(chk, 3, 0, "CC", text_color = #888888, text_size = size.small)
-        int row = 1
-        for i = 5 to 0
-            string s = array.get(lbl, i)
-            if s != "Off"
-                if array.get(ok, i)
+    // Match card (SCREENER-8): what this symbol is on the chart's timeframe, the named filters it
+    // matches right now, the slot rows (largest first) and FTFC/Lead. Tags on the last three
+    // candles mark C2, C1 and CC. Display only: the screener reads the plots and alert conditions.
+    // Column 4 is an empty spacer: the text rows span it, so their extra width lands there and
+    // the slot columns keep their natural widths.
+    string fTokC2 = detectBarTypeAndFailed(hF3, lF3, hF2, lF2, oF2, cF2)
+    string fTokC1 = detectBarTypeAndFailed(hF2, lF2, hF1, lF1, oF1, cF1)
+    string fTokCC = detectBarTypeAndFailed(hF1, lF1, hF0, lF0, oF0, cF0)
+    if showCard
+        array<string> hits = array.new<string>()
+        if math.abs(pFState) == 2
+            array.push(hits, "In force")
+        if filterType(pFC2) != ""
+            array.push(hits, "C2: " + filterType(pFC2))
+        if filterType(pFC1) != ""
+            array.push(hits, "C1: " + filterType(pFC1))
+        if pFC1Color == 1
+            array.push(hits, "C1: green")
+        else if pFC1Color == -1
+            array.push(hits, "C1: red")
+        if pFShape == 1
+            array.push(hits, "C1: hammer")
+        else if pFShape == -1
+            array.push(hits, "C1: shooter")
+        if filterType(pFCC) != ""
+            array.push(hits, "CC: " + filterType(pFCC))
+        if pFCC == 2 and pFCCColor == -1
+            array.push(hits, "CC: 2U red")
+        if pFCC == -2 and pFCCColor == 1
+            array.push(hits, "CC: 2D green")
+        if pFCCShape == 1
+            array.push(hits, "CC: hammer")
+        else if pFCCShape == -1
+            array.push(hits, "CC: shooter")
+        if pFCCF2 == 1
+            array.push(hits, "CC: F2D")
+        else if pFCCF2 == -1
+            array.push(hits, "CC: F2U")
+        if aFtfcUp
+            array.push(hits, "FTFC Up (state)")
+        else if aFtfcDown
+            array.push(hits, "FTFC Down (state)")
+        if aDomino
+            array.push(hits, "Domino (state)")
+        string hitText = ""
+        for [k, h] in hits
+            hitText += (k == 0 ? "" : k % 3 == 0 ? "\n" : "  ·  ") + h
+
+        var table card = table.new(cardPosition, 5, 14, bgcolor = color.new(#000000, 0), frame_color = #434651, frame_width = 1, border_color = #2a2e39, border_width = 1)
+        table.clear(card, 0, 0, 4, 13)
+        int r = 0
+        table.merge_cells(card, 0, r, 4, r)
+        table.cell(card, 0, r, "Setup Screener  ·  " + chartTfLabel(), text_color = color.white, bgcolor = #1e222d, text_size = cardText, text_halign = text.align_left)
+        r += 1
+        string stateText = pFState == 2 ? "Bullish " + patternText(pFPattern) + " in force" : pFState == -2 ? "Bearish " + patternText(pFPattern) + " in force" : pFState == 1 ? patternText(pFPattern) + " setup, trigger untouched" : "No signal"
+        table.merge_cells(card, 0, r, 4, r)
+        table.cell(card, 0, r, "CC " + (fTokCC == "" ? "-" : fTokCC) + "  ·  " + stateText, text_color = pFState == 2 ? COLOR_BULL : pFState == -2 ? COLOR_BEAR : color.white, text_size = cardText, text_halign = text.align_left)
+        r += 1
+        table.merge_cells(card, 0, r, 4, r)
+        table.cell(card, 0, r, "Matches:  " + (hitText == "" ? "none" : hitText), text_color = #b2b5be, text_size = cardText, text_halign = text.align_left)
+        r += 1
+        if showSlotRows
+            table.cell(card, 0, r, "TF", text_color = #787b86, text_size = cardText)
+            table.cell(card, 1, r, "C2", text_color = #787b86, text_size = cardText)
+            table.cell(card, 2, r, "C1", text_color = #787b86, text_size = cardText)
+            table.cell(card, 3, r, "CC", text_color = #787b86, text_size = cardText)
+            r += 1
+            for i = 5 to 0
+                string s = array.get(lbl, i)
+                // Off slots and slots the chart can't build (finer than the chart) get no row.
+                if s != "Off" and array.get(ok, i)
                     string tC2 = detectBarTypeAndFailed(array.get(C3H, i), array.get(C3L, i), array.get(C2H, i), array.get(C2L, i), array.get(C2O, i), array.get(C2C, i))
                     string tC1 = detectBarTypeAndFailed(array.get(C2H, i), array.get(C2L, i), array.get(C1H, i), array.get(C1L, i), array.get(C1O, i), array.get(C1C, i))
                     string tCC = detectBarTypeAndFailed(array.get(C1H, i), array.get(C1L, i), array.get(CCH, i), array.get(CCL, i), array.get(CCO, i), array.get(CCC, i))
                     bool inF = array.get(rInH, i) or array.get(rInL, i)
-                    table.cell(chk, 0, row, s, text_color = inF ? color.black : color.white, bgcolor = inF ? slotTokenColor(tCC) : #111111, text_size = size.small)
-                    table.cell(chk, 1, row, tC2, text_color = slotTokenColor(tC2), text_size = size.small)
-                    table.cell(chk, 2, row, tC1, text_color = slotTokenColor(tC1), text_size = size.small)
-                    table.cell(chk, 3, row, tCC, text_color = color.black, bgcolor = slotTokenColor(tCC), text_size = size.small)
-                else
-                    table.cell(chk, 0, row, s, text_color = #555555, bgcolor = #111111, text_size = size.small)
-                row += 1
-        string ftfcText = ftfc_up ? "FTFC Up" : ftfc_down ? "FTFC Down" : "Conflict"
-        table.merge_cells(chk, 0, row, 3, row)
-        table.cell(chk, 0, row, ftfcText, text_color = ftfc_up ? COLOR_BULL : ftfc_down ? COLOR_BEAR : COLOR_NEUTRAL, bgcolor = color.new(ftfc_up ? COLOR_BULL : ftfc_down ? COLOR_BEAR : COLOR_NEUTRAL, 80), text_size = size.small)
-        row += 1
-        string leadText = leadIdx >= 0 ? "Lead: " + array.get(lbl, leadIdx) + (leadDir == 1 ? " BULL " : " BEAR ") + str.tostring(math.abs(pLeadPattern)) : "No Lead"
-        table.merge_cells(chk, 0, row, 3, row)
-        table.cell(chk, 0, row, leadText, text_color = leadDir == 1 ? COLOR_BULL : leadDir == -1 ? COLOR_BEAR : COLOR_NEUTRAL, bgcolor = color.new(leadDir == 1 ? COLOR_BULL : leadDir == -1 ? COLOR_BEAR : COLOR_NEUTRAL, 85), text_size = size.small)
+                    table.cell(card, 0, r, s, text_color = inF ? color.black : color.white, bgcolor = inF ? slotTokenColor(tCC) : #111111, text_size = cardText)
+                    table.cell(card, 1, r, tC2, text_color = slotTokenColor(tC2), text_size = cardText)
+                    table.cell(card, 2, r, tC1, text_color = slotTokenColor(tC1), text_size = cardText)
+                    table.cell(card, 3, r, tCC, text_color = color.black, bgcolor = slotTokenColor(tCC), text_size = cardText)
+                    r += 1
+        string ftfcText = ftfc_up ? "FTFC: up" : ftfc_down ? "FTFC: down" : "FTFC: conflict"
+        color ftfcCol = ftfc_up ? COLOR_BULL : ftfc_down ? COLOR_BEAR : COLOR_NEUTRAL
+        table.merge_cells(card, 0, r, 4, r)
+        table.cell(card, 0, r, ftfcText, text_color = ftfcCol, bgcolor = color.new(ftfcCol, 80), text_size = cardText)
+        r += 1
+        string leadText = leadIdx >= 0 ? "Lead: " + array.get(lbl, leadIdx) + (leadDir == 1 ? " bull " : " bear ") + patternText(pLeadPattern) : "Lead: none"
+        color leadCol = leadDir == 1 ? COLOR_BULL : leadDir == -1 ? COLOR_BEAR : COLOR_NEUTRAL
+        table.merge_cells(card, 0, r, 4, r)
+        table.cell(card, 0, r, leadText, text_color = leadCol, bgcolor = color.new(leadCol, 85), text_size = cardText)
+
+    // Text-only tags anchored at each candle's high, colored by candle type. The type itself is
+    // in the tooltip and on the card, which keeps the tags narrow enough for adjacent candles.
+    if showTags and fTokCC != ""
+        var label tagC2 = label.new(bar_index, high, "C2", style = label.style_label_down, color = color.new(color.black, 100), size = size.small)
+        var label tagC1 = label.new(bar_index, high, "C1", style = label.style_label_down, color = color.new(color.black, 100), size = size.small)
+        var label tagCC = label.new(bar_index, high, "CC", style = label.style_label_down, color = color.new(color.black, 100), size = size.small)
+        label.set_xy(tagC2, bar_index - 2, high[2])
+        label.set_xy(tagC1, bar_index - 1, high[1])
+        label.set_xy(tagCC, bar_index, high)
+        label.set_textcolor(tagC2, slotTokenColor(fTokC2))
+        label.set_textcolor(tagC1, slotTokenColor(fTokC1))
+        label.set_textcolor(tagCC, slotTokenColor(fTokCC))
+        label.set_tooltip(tagC2, "C2 " + fTokC2 + ": two candles back")
+        label.set_tooltip(tagC1, "C1 " + fTokC1 + ": the last closed candle. Its high and low are the triggers.")
+        label.set_tooltip(tagCC, "CC " + fTokCC + ": the current candle")
 
 // ============================================================================
 // SECTION 6: OUTPUTS
@@ -923,42 +1049,42 @@ if barstate.islast
 // One constant color: a series color would count as a second plot (SCREENER-2), and the
 // screener reads values only. Codes show as whole numbers; R and percent columns keep decimals.
 
-plot(pFState, "State", color = COLOR_NEUTRAL, precision = 0)
-plot(pFPattern, "Pattern", color = COLOR_NEUTRAL, precision = 0)
-plot(pFC2, "C2", color = COLOR_NEUTRAL, precision = 0)
-plot(pFC1, "C1", color = COLOR_NEUTRAL, precision = 0)
-plot(pFCC, "CC", color = COLOR_NEUTRAL, precision = 0)
-plot(pFCT, "CT", color = COLOR_NEUTRAL, precision = 0)
-plot(pFShape, "C1 Shape", color = COLOR_NEUTRAL, precision = 0)
-plot(pFtfc, "FTFC", color = COLOR_NEUTRAL, precision = 0)
-plot(pFtfcScore, "FTFC Score", color = COLOR_NEUTRAL, precision = 0)
-plot(pLeadDir, "Lead Direction", color = COLOR_NEUTRAL, precision = 0)
-plot(pLeadPattern, "Lead Pattern", color = COLOR_NEUTRAL, precision = 0)
-plot(pLeadTF, "Lead TF (min)", color = COLOR_NEUTRAL, precision = 0)
-plot(pLeadMagR, "Lead Magnitude R", color = COLOR_NEUTRAL)
-plot(pSetupDist, "Nearest Setup %", color = COLOR_NEUTRAL)
-plot(pSetupTF, "Nearest Setup TF (min)", color = COLOR_NEUTRAL, precision = 0)
-plot(pDomino, "Domino", color = COLOR_NEUTRAL, precision = 0)
-plot(pNetInForce, "Net In Force", color = COLOR_NEUTRAL, precision = 0)
-plot(pFC1Color, "C1 Color", color = COLOR_NEUTRAL, precision = 0)
-plot(pState1, "S1 State", color = COLOR_NEUTRAL, precision = 0)
-plot(pState2, "S2 State", color = COLOR_NEUTRAL, precision = 0)
-plot(pState3, "S3 State", color = COLOR_NEUTRAL, precision = 0)
-plot(pState4, "S4 State", color = COLOR_NEUTRAL, precision = 0)
-plot(pState5, "S5 State", color = COLOR_NEUTRAL, precision = 0)
-plot(pState6, "S6 State", color = COLOR_NEUTRAL, precision = 0)
-plot(pType1, "S1 Type", color = COLOR_NEUTRAL, precision = 0)
-plot(pType2, "S2 Type", color = COLOR_NEUTRAL, precision = 0)
-plot(pType3, "S3 Type", color = COLOR_NEUTRAL, precision = 0)
-plot(pType4, "S4 Type", color = COLOR_NEUTRAL, precision = 0)
-plot(pType5, "S5 Type", color = COLOR_NEUTRAL, precision = 0)
-plot(pType6, "S6 Type", color = COLOR_NEUTRAL, precision = 0)
-plot(pAO1, "S1 Above Open", color = COLOR_NEUTRAL, precision = 0)
-plot(pAO2, "S2 Above Open", color = COLOR_NEUTRAL, precision = 0)
-plot(pAO3, "S3 Above Open", color = COLOR_NEUTRAL, precision = 0)
-plot(pAO4, "S4 Above Open", color = COLOR_NEUTRAL, precision = 0)
-plot(pAO5, "S5 Above Open", color = COLOR_NEUTRAL, precision = 0)
-plot(pAO6, "S6 Above Open", color = COLOR_NEUTRAL, precision = 0)
+plot(pFState, "State", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pFPattern, "Pattern", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pFC2, "C2", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pFC1, "C1", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pFCC, "CC", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pFCT, "CT", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pFShape, "C1 Shape", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pFtfc, "FTFC", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pFtfcScore, "FTFC Score", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pLeadDir, "Lead Direction", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pLeadPattern, "Lead Pattern", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pLeadTF, "Lead TF (min)", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pLeadMagR, "Lead Magnitude R", color = COLOR_NEUTRAL, display = display.data_window + display.pine_screener)
+plot(pSetupDist, "Nearest Setup %", color = COLOR_NEUTRAL, display = display.data_window + display.pine_screener)
+plot(pSetupTF, "Nearest Setup TF (min)", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pDomino, "Domino", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pNetInForce, "Net In Force", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pFC1Color, "C1 Color", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pState1, "S1 State", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pState2, "S2 State", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pState3, "S3 State", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pState4, "S4 State", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pState5, "S5 State", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pState6, "S6 State", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pType1, "S1 Type", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pType2, "S2 Type", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pType3, "S3 Type", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pType4, "S4 Type", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pType5, "S5 Type", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pType6, "S6 Type", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pAO1, "S1 Above Open", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pAO2, "S2 Above Open", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pAO3, "S3 Above Open", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pAO4, "S4 Above Open", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pAO5, "S5 Above Open", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pAO6, "S6 Above Open", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
 
 // States, not edges: a screen asks "is it true now", where the Suite's alerts ask "did it just
 // become true". Usable as screener filters and as ordinary chart alerts.
