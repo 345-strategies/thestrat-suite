@@ -1,14 +1,14 @@
-# TheStrat Suite Screener
+# TheStrat Setup Screener
 
 A companion to TheStrat Suite for TradingView's **Pine Screener** (Products > Screeners > Pine). The Suite draws levels, labels and a data table; the screener can read none of that. It reads only `plot()` values and `alertcondition()` states. This script runs the Suite's signal engine and puts every screenable state into a numeric plot, so a watchlist or an index's constituents can be filtered by FTFC, Strat combos, failing 2s, targets and Domino setups.
 
-Source: `TheStratSuiteScreener_v0.4.1.pine`. Requires TheStratGrammar (`SpinTrades/TheStratGrammar/1`), the same library the Suite imports. Pine Screener requires a TradingView Premium plan or higher.
+Source: `TheStratSetupScreener_v0.4.1.pine`. Requires TheStratGrammar (`SpinTrades/TheStratGrammar/1`), the same library the Suite imports. Pine Screener requires a TradingView Premium plan or higher.
 
 ## How to use it
 
 1. Open Products > Screeners > Pine.
 2. Choose the symbol source: the **Index** tab (S&P 500, NASDAQ 100, Dow 30, Russell 2000, sector indices and more) or the **Watchlist** tab. One source is active at a time.
-3. Click the indicator chip and pick **TheStrat Suite Screener** from the Indicators dialog. Favoriting is not required (since TradingView's 2026-09-01 update), but a favorite shows at the top of the list.
+3. Click the indicator chip and pick **TheStrat Setup Screener** from the Indicators dialog. Favoriting is not required (since TradingView's 2026-09-01 update), but a favorite shows at the top of the list.
 4. Pick the screen's timeframe. It is the **focus**: the State, Pattern, C2, C1, CC and other focus columns describe that timeframe's candles, like a timeframe tab in a setups table (1D = the daily row, 1W = the weekly row). Slots smaller than it are ignored.
 5. Set slots and signal toggles in the indicator's settings, add filters on the columns below, and press **Scan**. Changing anything requires a rescan.
 
@@ -126,7 +126,7 @@ The script draws a small check table (TF, C2, C1, CC, FTFC, Lead) in its pane. P
 
 ## Version history
 
-**v0.4.1 (2026-10-25).** `CC: hammer` and `CC: shooter` filters. `C1: hammer` tests the candle before CC, so a 2D closing green as a hammer took a second pass. CC's shape uses the same Hammer/Shooter settings as C1. Filters only, no column. Budget: 38 plots + 26 alert conditions = 64 of 64, the limit, so a new plot or filter needs one removed first.
+**v0.4.1 (2026-10-25).** Renamed TheStrat Setup Screener (short title Setup Screener). `CC: hammer` and `CC: shooter` filters. `C1: hammer` tests the candle before CC, so a 2D closing green as a hammer took a second pass. CC's shape uses the same Hammer/Shooter settings as C1. Filters only, no column. Budget: 38 plots + 26 alert conditions = 64 of 64, the limit, so a new plot or filter needs one removed first.
 
 **v0.4.0 (2026-10-25).** Named candle filters: each focus candle state is also a True filter (`C2: 2U`, `CC: 2D green`, `C1: hammer`, `In force` and so on), because screener columns can only show numbers. Code columns show whole numbers. Lead Trigger Dist %, C2 Color and CC Color are dropped to keep the screener Strat-focused. Budget: 38 plots + 24 alert conditions = 62 of 64.
 

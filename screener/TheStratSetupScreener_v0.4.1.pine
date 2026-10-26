@@ -1,5 +1,5 @@
 //@version=6
-// TheStrat Suite Screener - v0.4.1
+// TheStrat Setup Screener - v0.4.1
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -63,12 +63,15 @@
 // Budget now: 38 plots + 26 alertconditions = 64 of 64, the limit. A new plot or filter needs
 // one removed first.
 //
+// SCREENER-6 (2026-10-25): renamed TheStrat Setup Screener (shorttitle Setup Screener), the name
+// used on thestratsuite.com. No engine or output change.
+//
 // Sign convention for every plot: positive = bullish, negative = bearish, 0 = none or conflict.
 // One exception: a potential (State 1) has no direction yet, so its State and Pattern are
 // unsigned.
 // Column guide and screen recipes: screener/README.md and thestratsuite.com.
 
-indicator("TheStrat Suite Screener - v0.4.1", shorttitle = "Strat Screener", overlay = false, precision = 2, max_bars_back = 200)
+indicator("TheStrat Setup Screener - v0.4.1", shorttitle = "Setup Screener", overlay = false, precision = 2, max_bars_back = 200)
 
 import SpinTrades/TheStratGrammar/1 as sg
 
