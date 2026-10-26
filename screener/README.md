@@ -63,9 +63,9 @@ Read like the Suite's alert combo, signed by direction:
 |---|---|---|
 | C1 is inside | C2, C1, CC digits | 212 (2-1-2), 312 (3-1-2), 112, 213 (2-1-3) |
 | Anything else | C1, CC digits | 22 (2-2), 32 (3-2), 23, 33 |
-| CC is a Failing 2 | 1000 + C1 digit x 10 + 2 | 1022 (2-F2), 1032 (3-F2), 1012 (1-F2) |
+| CC is a Failing 2 | 1000 + the two-digit pair | 1012 (1-F2), 1022 (2-F2), 1032 (3-F2) |
 
-So -212 is a bearish 2-1-2 and 1022 is a bullish 2-F2d.
+So -212 is a bearish 2-1-2. A Failing 2 just adds 1000: a 2-2 is 22 and a 2-F2 is 1022. There are only three Failing 2 codes, 1012, 1022 and 1032, and a minus sign makes them bearish.
 
 ### Named filters (True)
 
