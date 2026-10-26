@@ -1,0 +1,1122 @@
+//@version=6
+// TheStrat Setup Screener - v0.5.0
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
+// SCREENER-1 (2026-10-24): companion to TheStrat Suite v3.1.1, built for TradingView's
+// Pine Screener. The Suite draws levels, labels and tables, none of which the screener can
+// read: it reads plot() values and alertcondition() states only. This script runs the same
+// signal engine and exposes every screenable state as a numeric plot.
+//
+// What carries over from the Suite unchanged (copied, not re-derived):
+//   - classification, Failing 2s, hammers/shooters: the TheStratGrammar library
+//   - findExhaustionLevels() current channel (P0-2), detectFailed2(), shouldDrawC1Level()
+//   - the seven in-force terms of computeSignalState() (DEBUG-TERMS-1, CSS-1, CONT22-PRIOR-1)
+//   - getSignalDirection() for the Lead (LEAD-F2-TIEBREAK-2), the Domino chain (DOMINO-PREVIEW-1)
+//   - FTFC as calculateFTFC(): strict close > open, a doji buckets down
+//
+// What is different, and why:
+//   - Timeframe slots are input.string dropdowns. The screener ignores input.timeframe() and
+//     only serves 1, 5, 15, 30, 60, 120, 240, D, W and M, so the dropdowns offer exactly those.
+//   - Q and Y are derived from the monthly series (SCREENER-QY-1 below), because "3M" and "12M"
+//     cannot be requested inside the screener.
+//   - No Preview Mode and no live straddle: both depend on timenow and the chart's last bar,
+//     and are untested inside a screener batch run. Slots always read the period in progress.
+//   - Slots below the chart timeframe are excluded everywhere, FTFC included. The Suite skips
+//     them in the table but still counts them in calculateFTFC.
+//   - Everything is computed on the last bar only, so history plots na. Under lookahead_on the
+//     forming HTF candle's high/low are its FINAL values on historical bars; anything graded on
+//     them would repaint (Simulation Rule 21). Use value filters, not "crossing" filters.
+//   - Stateless: the Suite's per-period latches (magHighCrossed, exhHighCrossed, prevHigh) reduce
+//     to direct tests on the last bar, because the forming candle's high/low ARE the period's
+//     running extremes there. Stops always use the Suite's default CC reference.
+//
+// SCREENER-2 (2026-10-25): v0.1.0 compiled but failed on the chart with RE10140, "The script
+// creates too many plots (67). The limit is 64." A plot with a series color counts twice, and
+// alertcondition() counts once: 31 x 2 + 5 = 67. Plot colors are now constant (the screener
+// never reads them), and the freed budget carries per-slot Pattern and State columns, so a
+// daily 2-1-2 can be screened as potential or in force even when a larger slot holds the Lead.
+// Budget then: 43 plots + 5 alertconditions = 48 of 64.
+//
+// SCREENER-3 (2026-10-25): focus columns. Pine Screener's own timeframe picks the row: the
+// focus columns (State, Pattern, C2, C1, CC, CT, C1 Shape, colors) describe the screen's
+// timeframe, read from the chart series with the same slotData() and evalSlot() as a slot, so a
+// 1D screen shows the daily row and a 1W screen the weekly. Per-slot State, Type and Above Open
+// stay (multi-timeframe filters and continuity); per-slot Pattern and Failing are dropped, since
+// focus Pattern and CC carry them for the screen's timeframe.
+// Budget then: 41 plots + 5 alertconditions = 46 of 64.
+//
+// SCREENER-4 (2026-10-25): named candle filters. Screener columns can only hold numbers, so "2D"
+// read as -2.00 and "2D closing green" took two filters. Each focus candle state is now also an
+// alertcondition, which the screener lists as a named True filter: C2 and C1 as 1 / 2U / 2D / 3,
+// CC as 1 / 2U / 2D / 3 / 2U red / 2D green, C1 green or red, C1 hammer or shooter, and In force.
+// Code columns show whole numbers. Lead Trigger Dist %, C2 Color and CC Color are dropped to keep
+// the screener Strat-focused.
+// Budget then: 38 plots + 24 alertconditions = 62 of 64.
+//
+// SCREENER-5 (2026-10-25): CC hammer and shooter filters. "C1: hammer" tests the candle before
+// CC, so a weekly 2D that closed green as a hammer could not be screened in one pass. CC's shape
+// uses the same detectPatterns() and Hammer/Shooter settings as C1. It is a filter only, with no
+// column, because the budget is full.
+// Budget then: 38 plots + 26 alertconditions = 64 of 64, the limit. A new plot or filter needs
+// one removed first.
+//
+// SCREENER-6 (2026-10-25): renamed TheStrat Setup Screener (shorttitle Setup Screener). No engine
+// or output change.
+//
+// SCREENER-7 (2026-10-25): CC: F2D and CC: F2U filters, so a Failing 2 can be screened by name
+// instead of by Pattern code. They follow the Failing 2 Detection settings. Lead Exhaustion R and
+// Lead C1 HAM/SHO are dropped to make room; exhaustion levels still drive 'Exhaustion Disables
+// In Force', and C1 Shape plus the C1/CC hammer and shooter filters still cover hammers.
+// Budget then: 36 plots + 28 alertconditions = 64 of 64.
+//
+// SCREENER-8 (2026-10-26): a chart face for the listing and for checking a scan result. The
+// script now sits on the price chart. Every plot shows in the data window and Pine Screener only
+// (display.pine_screener is required: data_window alone drops the screener columns), so nothing
+// draws on the chart and there is no pane with a meaningless 0-1600 scale. The check
+// table becomes a match card: the chart timeframe's candle and signal in words, the named
+// filters it matches right now, the slot rows and FTFC/Lead. Tags mark the C2, C1 and CC
+// candles. Tables and labels don't count toward the plot budget: still 64 of 64.
+//
+// Sign convention for every plot: positive = bullish, negative = bearish, 0 = none or conflict.
+// One exception: a potential (State 1) has no direction yet, so its State and Pattern are
+// unsigned.
+// Column guide and screen recipes: screener/README.md.
+
+indicator("TheStrat Setup Screener - v0.5.0", shorttitle = "Setup Screener", overlay = true, precision = 2, max_bars_back = 200)
+
+import SpinTrades/TheStratGrammar/1 as sg
+
+// ============================================================================
+// SECTION 1: INPUTS
+// ============================================================================
+
+// -------------------- TIMEFRAME SLOTS --------------------
+grpSlots = "Timeframes"
+SLOT_TIP = "Slot order matters: list slots from smallest to largest, as in the Suite. Pine Screener only serves 1m to M; Q and Y are built from monthly bars. A slot smaller than the screen's timeframe is ignored (plots na)."
+s1 = input.string("30m", "Slot 1", options = ["Off", "1m", "5m", "15m", "30m", "1H", "2H", "4H", "D", "W", "M", "Q", "Y"], group = grpSlots, tooltip = SLOT_TIP)
+s2 = input.string("1H",  "Slot 2", options = ["Off", "1m", "5m", "15m", "30m", "1H", "2H", "4H", "D", "W", "M", "Q", "Y"], group = grpSlots)
+s3 = input.string("D",   "Slot 3", options = ["Off", "1m", "5m", "15m", "30m", "1H", "2H", "4H", "D", "W", "M", "Q", "Y"], group = grpSlots)
+s4 = input.string("W",   "Slot 4", options = ["Off", "1m", "5m", "15m", "30m", "1H", "2H", "4H", "D", "W", "M", "Q", "Y"], group = grpSlots)
+s5 = input.string("M",   "Slot 5", options = ["Off", "1m", "5m", "15m", "30m", "1H", "2H", "4H", "D", "W", "M", "Q", "Y"], group = grpSlots)
+s6 = input.string("Q",   "Slot 6", options = ["Off", "1m", "5m", "15m", "30m", "1H", "2H", "4H", "D", "W", "M", "Q", "Y"], group = grpSlots)
+
+// -------------------- SIGNALS (names, defaults and logic match the Suite) --------------------
+grpSigRev = "Signals - Reversals"
+showInsideReversals = input.bool(true, "Inside Reversals |", inline = "s_ir", group = grpSigRev, tooltip = "C1 is inside, CC breaks opposite C2's direction (e.g. 2d-1-2u).")
+insideRevOnlyMomo = input.bool(false, "HAM/SHO", inline = "s_ir", group = grpSigRev)
+insideRevRequireFTFC = input.bool(false, "FTFC", inline = "s_ir", group = grpSigRev)
+
+showAllReversals = input.bool(true, "2-2 Reversals |", inline = "s_2r", group = grpSigRev, tooltip = "Direct reversal with no inside bar pause (e.g. 2d-2u).")
+reversalsRequireActionable = input.bool(false, "HAM/SHO", inline = "s_2r", group = grpSigRev)
+reversalsRequireC1F2 = input.bool(false, "F2", inline = "s_2r", group = grpSigRev)
+reversalsRequireFTFC = input.bool(false, "FTFC", inline = "s_2r", group = grpSigRev)
+
+grpSigCont = "Signals - Continuations"
+showInsideContinuations = input.bool(true, "Inside Continuations |", inline = "s_ic", group = grpSigCont, tooltip = "C1 is inside, CC breaks same direction as C2 (e.g. 2u-1-2u).")
+insideContOnlyMomo = input.bool(false, "HAM/SHO", inline = "s_ic", group = grpSigCont)
+insideContRequireFTFC = input.bool(false, "FTFC", inline = "s_ic", group = grpSigCont)
+
+showContinuations = input.bool(false, "2-2 Continuations |", inline = "s_2c", group = grpSigCont, tooltip = "Sustained momentum with no pause (e.g. 2u-2u).")
+twoTwoContOnlyMomo = input.bool(false, "HAM/SHO", inline = "s_2c", group = grpSigCont)
+continuationsRequireFTFC = input.bool(false, "FTFC", inline = "s_2c", group = grpSigCont)
+
+grpSigF2 = "Signals - Reclaims"
+show_p3_toggle = input.bool(false, "Failing 2s (Range Reclaims) |", inline = "s_f2", group = grpSigF2)
+p3RequireFTFC = input.bool(false, "FTFC", inline = "s_f2", group = grpSigF2)
+
+grpSigExp = "Signals - Expansions"
+showRangeExpansions = input.bool(false, "3-2 Expansions |", inline = "s_3e", group = grpSigExp)
+rangeExpOnlyMomo = input.bool(false, "HAM/SHO", inline = "s_3e", group = grpSigExp)
+rangeExpansionsRequireFTFC = input.bool(false, "FTFC", inline = "s_3e", group = grpSigExp)
+
+show3Expansions = input.bool(false, "Outside Bars (3 Exp) |", inline = "s_ob", group = grpSigExp)
+threeExpRequireFTFC = input.bool(false, "FTFC", inline = "s_ob", group = grpSigExp)
+
+// -------------------- FILTERS --------------------
+grpHammerShooter = "Filters - Hammer/Shooter Detection"
+logicType = input.string("Broad (Loose)", "Definition", options = ["Broad (Loose)", "Classic", "Pin Bar (Strict)"], group = grpHammerShooter)
+onlyColor = input.bool(false, "Match Candle Color", group = grpHammerShooter)
+
+grpDomino = "Filters - Domino Setups"
+minDominoTFs = input.int(2, "Minimum Timeframes", minval = 2, maxval = 6, group = grpDomino, tooltip = "The Domino column reports a run only when it reaches this many timeframes; shorter runs read 0.")
+
+grpAdvExh = "Advanced - Exhaustion Behavior"
+exhDisablesInForce = input.bool(false, "Exhaustion Disables 'In Force'", group = grpAdvExh)
+
+grpAdvF2 = "Advanced - Failing 2 Detection"
+enableFailed2Detection = input.bool(true, "Enable Failing 2 Detection", group = grpAdvF2)
+failed_2_method = input.string("Reclaim", "Detection Method", options = ["Reclaim", "Open", "Reclaim + Open", "Reclaim OR Open"], group = grpAdvF2)
+
+grpDisplay = "Display"
+showCard = input.bool(true, "Show match card", group = grpDisplay, tooltip = "What this symbol is on the chart's timeframe and the named filters it matches right now, so a scan result can be checked on the chart. The screener ignores it.")
+cardPosInput = input.string("Top Right", "Card position", options = ["Top Right", "Top Left", "Bottom Right", "Bottom Left"], group = grpDisplay)
+cardSizeInput = input.string("Normal", "Card text size", options = ["Small", "Normal", "Large"], group = grpDisplay)
+showSlotRows = input.bool(true, "Show timeframe rows", group = grpDisplay, tooltip = "C2, C1 and CC for each slot, largest first. A highlighted timeframe has a signal in force. With matching settings, these rows agree with the Suite's data table on the same chart.")
+showTags = input.bool(true, "Tag C2, C1 and CC candles", group = grpDisplay)
+
+cardPosition = switch cardPosInput
+    "Top Left"     => position.top_left
+    "Bottom Right" => position.bottom_right
+    "Bottom Left"  => position.bottom_left
+    => position.top_right
+cardText = switch cardSizeInput
+    "Small" => size.small
+    "Large" => size.large
+    => size.normal
+
+// Style: the Suite's palette. Green/red always mean bull/bear.
+COLOR_BULL = #4caf50
+COLOR_BEAR = #f23645
+COLOR_NEUTRAL = #808080
+
+// ============================================================================
+// SECTION 2: SLOT RESOLUTION
+// ============================================================================
+// Inlined ternaries, as in the Suite: request.security needs simple strings and ints, and a
+// user function would hand back a series.
+
+rTF1 = s1 == "1m" ? "1" : s1 == "5m" ? "5" : s1 == "15m" ? "15" : s1 == "30m" ? "30" : s1 == "1H" ? "60" : s1 == "2H" ? "120" : s1 == "4H" ? "240" : s1 == "D" ? "D" : s1 == "W" ? "W" : s1 == "Off" ? timeframe.period : "M"
+rTF2 = s2 == "1m" ? "1" : s2 == "5m" ? "5" : s2 == "15m" ? "15" : s2 == "30m" ? "30" : s2 == "1H" ? "60" : s2 == "2H" ? "120" : s2 == "4H" ? "240" : s2 == "D" ? "D" : s2 == "W" ? "W" : s2 == "Off" ? timeframe.period : "M"
+rTF3 = s3 == "1m" ? "1" : s3 == "5m" ? "5" : s3 == "15m" ? "15" : s3 == "30m" ? "30" : s3 == "1H" ? "60" : s3 == "2H" ? "120" : s3 == "4H" ? "240" : s3 == "D" ? "D" : s3 == "W" ? "W" : s3 == "Off" ? timeframe.period : "M"
+rTF4 = s4 == "1m" ? "1" : s4 == "5m" ? "5" : s4 == "15m" ? "15" : s4 == "30m" ? "30" : s4 == "1H" ? "60" : s4 == "2H" ? "120" : s4 == "4H" ? "240" : s4 == "D" ? "D" : s4 == "W" ? "W" : s4 == "Off" ? timeframe.period : "M"
+rTF5 = s5 == "1m" ? "1" : s5 == "5m" ? "5" : s5 == "15m" ? "15" : s5 == "30m" ? "30" : s5 == "1H" ? "60" : s5 == "2H" ? "120" : s5 == "4H" ? "240" : s5 == "D" ? "D" : s5 == "W" ? "W" : s5 == "Off" ? timeframe.period : "M"
+rTF6 = s6 == "1m" ? "1" : s6 == "5m" ? "5" : s6 == "15m" ? "15" : s6 == "30m" ? "30" : s6 == "1H" ? "60" : s6 == "2H" ? "120" : s6 == "4H" ? "240" : s6 == "D" ? "D" : s6 == "W" ? "W" : s6 == "Off" ? timeframe.period : "M"
+
+// Months per derived period: 0 = native slot, 3 = quarter, 12 = year.
+simple int agg1 = s1 == "Q" ? 3 : s1 == "Y" ? 12 : 0
+simple int agg2 = s2 == "Q" ? 3 : s2 == "Y" ? 12 : 0
+simple int agg3 = s3 == "Q" ? 3 : s3 == "Y" ? 12 : 0
+simple int agg4 = s4 == "Q" ? 3 : s4 == "Y" ? 12 : 0
+simple int agg5 = s5 == "Q" ? 3 : s5 == "Y" ? 12 : 0
+simple int agg6 = s6 == "Q" ? 3 : s6 == "Y" ? 12 : 0
+
+// Tiered calc_bars_count as in the Suite (Monthly/Weekly 100, Daily 150, 4H 200, intraday 250).
+// Derived Q/Y slots read 400 months so their exhaustion scan has completed periods to walk.
+simple int cb1 = agg1 > 0 ? 400 : rTF1 == "M" or rTF1 == "W" ? 100 : rTF1 == "D" ? 150 : rTF1 == "240" ? 200 : 250
+simple int cb2 = agg2 > 0 ? 400 : rTF2 == "M" or rTF2 == "W" ? 100 : rTF2 == "D" ? 150 : rTF2 == "240" ? 200 : 250
+simple int cb3 = agg3 > 0 ? 400 : rTF3 == "M" or rTF3 == "W" ? 100 : rTF3 == "D" ? 150 : rTF3 == "240" ? 200 : 250
+simple int cb4 = agg4 > 0 ? 400 : rTF4 == "M" or rTF4 == "W" ? 100 : rTF4 == "D" ? 150 : rTF4 == "240" ? 200 : 250
+simple int cb5 = agg5 > 0 ? 400 : rTF5 == "M" or rTF5 == "W" ? 100 : rTF5 == "D" ? 150 : rTF5 == "240" ? 200 : 250
+simple int cb6 = agg6 > 0 ? 400 : rTF6 == "M" or rTF6 == "W" ? 100 : rTF6 == "D" ? 150 : rTF6 == "240" ? 200 : 250
+
+// Real period length of a slot, for the chart-timeframe floor. Compared against the chart's own
+// timeframe.in_seconds, so an M slot on a monthly screen counts (a nominal 30 days would not).
+slotSeconds(string s) =>
+    switch s
+        "1m"  => timeframe.in_seconds("1")
+        "5m"  => timeframe.in_seconds("5")
+        "15m" => timeframe.in_seconds("15")
+        "30m" => timeframe.in_seconds("30")
+        "1H"  => timeframe.in_seconds("60")
+        "2H"  => timeframe.in_seconds("120")
+        "4H"  => timeframe.in_seconds("240")
+        "D"   => timeframe.in_seconds("D")
+        "W"   => timeframe.in_seconds("W")
+        "M"   => timeframe.in_seconds("M")
+        "Q"   => timeframe.in_seconds("3M")
+        "Y"   => timeframe.in_seconds("12M")
+        => 0
+
+// Lead TF and Nearest Setup TF columns report minutes on a 30-day month: D = 1440, W = 10080,
+// M = 43200, Q = 129600, Y = 518400.
+slotMinutes(string s) =>
+    switch s
+        "1m"  => 1
+        "5m"  => 5
+        "15m" => 15
+        "30m" => 30
+        "1H"  => 60
+        "2H"  => 120
+        "4H"  => 240
+        "D"   => 1440
+        "W"   => 10080
+        "M"   => 43200
+        "Q"   => 129600
+        "Y"   => 518400
+        => int(na)
+
+// ============================================================================
+// SECTION 3: HTF DATA (runs inside request.security)
+// ============================================================================
+
+// Copied from the Suite (FIX P0-2), current channel only: the NEXT channel only feeds Preview
+// Mode, which this script does not run. Seed from the completed bar [1], candidates from i=2,
+// so the forming bar never touches the intact-pivot gate and the level is reload-stable.
+findExhaustionLevels() =>
+    float exhHighPrice = na
+    int exhHighTime = na
+    float exhLowPrice = na
+    int exhLowTime = na
+    if bar_index > last_bar_index - 100 and bar_index > 50
+        float maxCur = high[1]
+        float minCur = low[1]
+        for i = 2 to 48
+            isPivotHigh = high[i] > high[i-1] and high[i] > high[i+1]
+            isPivotLow = low[i] < low[i-1] and low[i] < low[i+1]
+            if na(exhHighPrice) and isPivotHigh and maxCur < high[i]
+                exhHighPrice := high[i]
+                exhHighTime := time[i]
+            if na(exhLowPrice) and isPivotLow and minCur > low[i]
+                exhLowPrice := low[i]
+                exhLowTime := time[i]
+            maxCur := math.max(maxCur, high[i])
+            minCur := math.min(minCur, low[i])
+            if not na(exhHighPrice) and not na(exhLowPrice)
+                break
+    [exhHighPrice, exhHighTime, exhLowPrice, exhLowTime]
+
+// i-th completed period back from the newest (1 = newest completed). na when not stored.
+backF(array<float> a, int back) =>
+    int n = array.size(a)
+    back >= 1 and back <= n ? array.get(a, n - back) : float(na)
+
+backI(array<int> a, int back) =>
+    int n = array.size(a)
+    back >= 1 and back <= n ? array.get(a, n - back) : int(na)
+
+// SCREENER-QY-1: quarterly and yearly candles built from the monthly series. Runs on "M", where
+// each bar is one month. A period key changes at each quarter or year start; the finished
+// period is pushed into history and a new running candle starts. Month and year are read from
+// the open stamp +12h, the Suite's OFF_MS normalization: a futures month opens the prior
+// evening at 18:00 ET (July opens Jun 30), and +12h lands it in its true calendar month for
+// futures, equities and crypto alike. The first period seen is usually partial (it starts where
+// calc_bars_count does), so it is never stored. Exhaustion walks the completed periods with the
+// same rule as findExhaustionLevels: seed from C1, candidates from C2 back, up to 48 periods.
+aggPeriod(int n) =>
+    var array<float> aO = array.new<float>()
+    var array<float> aH = array.new<float>()
+    var array<float> aL = array.new<float>()
+    var array<float> aC = array.new<float>()
+    var array<int> aT = array.new<int>()
+    var float pO = na
+    var float pH = na
+    var float pL = na
+    var float pC = na
+    var int pT = na
+    var int pKey = na
+    var bool pFull = false
+    if n > 0
+        int t12 = time + 43200000
+        int mo = month(t12, "America/New_York")
+        int yr = year(t12, "America/New_York")
+        int key = n == 12 ? yr : yr * 10 + math.floor((mo - 1) / 3) + 1
+        if na(pKey) or key != pKey
+            if not na(pKey) and pFull
+                array.push(aO, pO)
+                array.push(aH, pH)
+                array.push(aL, pL)
+                array.push(aC, pC)
+                array.push(aT, pT)
+                if array.size(aO) > 60
+                    array.shift(aO)
+                    array.shift(aH)
+                    array.shift(aL)
+                    array.shift(aC)
+                    array.shift(aT)
+            pFull := not na(pKey)
+            pO := open
+            pH := high
+            pL := low
+            pT := time
+            pKey := key
+        else
+            pH := math.max(pH, high)
+            pL := math.min(pL, low)
+        pC := close
+    float eHP = na
+    int eHT = na
+    float eLP = na
+    int eLT = na
+    int sz = array.size(aH)
+    if n > 0 and sz >= 3
+        float maxCur = backF(aH, 1)
+        float minCur = backF(aL, 1)
+        int lim = math.min(48, sz - 1)
+        for i = 2 to lim
+            float hI = backF(aH, i)
+            float lI = backF(aL, i)
+            bool isPivotHigh = hI > backF(aH, i - 1) and hI > backF(aH, i + 1)
+            bool isPivotLow = lI < backF(aL, i - 1) and lI < backF(aL, i + 1)
+            if na(eHP) and isPivotHigh and maxCur < hI
+                eHP := hI
+                eHT := backI(aT, i)
+            if na(eLP) and isPivotLow and minCur > lI
+                eLP := lI
+                eLT := backI(aT, i)
+            maxCur := math.max(maxCur, hI)
+            minCur := math.min(minCur, lI)
+            if not na(eHP) and not na(eLP)
+                break
+    [pT, pO, pH, pL, pC, backI(aT, 1), backF(aH, 1), backF(aL, 1), backF(aO, 1), backF(aC, 1), backI(aT, 2), backF(aH, 2), backF(aL, 2), backF(aO, 2), backF(aC, 2), backF(aH, 3), backF(aL, 3), eHP, eHT, eLP, eLT]
+
+// One tuple per slot: CC (forming), C1, C2, C3 high/low, exhaustion. Both paths always run so
+// neither carries history references or var state through a conditional branch; the monthly
+// aggregation is a few array pushes per bar and the native scan is gated to the last 100 bars.
+slotData(int n) =>
+    [eHP, eHT, eLP, eLT] = findExhaustionLevels()
+    [qT0, qO0, qH0, qL0, qC0, qT1, qH1, qL1, qO1, qC1, qT2, qH2, qL2, qO2, qC2, qH3, qL3, qEHP, qEHT, qELP, qELT] = aggPeriod(n)
+    bool nat = n == 0
+    [nat ? time : qT0, nat ? open : qO0, nat ? high : qH0, nat ? low : qL0, nat ? close : qC0, nat ? time[1] : qT1, nat ? high[1] : qH1, nat ? low[1] : qL1, nat ? open[1] : qO1, nat ? close[1] : qC1, nat ? time[2] : qT2, nat ? high[2] : qH2, nat ? low[2] : qL2, nat ? open[2] : qO2, nat ? close[2] : qC2, nat ? high[3] : qH3, nat ? low[3] : qL3, nat ? eHP : qEHP, nat ? eHT : qEHT, nat ? eLP : qELP, nat ? eLT : qELT]
+
+[t0_1, o0_1, h0_1, l0_1, c0_1, t1_1, h1_1, l1_1, o1_1, c1_1, t2_1, h2_1, l2_1, o2_1, c2_1, h3_1, l3_1, eh_1, eht_1, el_1, elt_1] = request.security(syminfo.tickerid, rTF1, slotData(agg1), lookahead = barmerge.lookahead_on, calc_bars_count = cb1)
+[t0_2, o0_2, h0_2, l0_2, c0_2, t1_2, h1_2, l1_2, o1_2, c1_2, t2_2, h2_2, l2_2, o2_2, c2_2, h3_2, l3_2, eh_2, eht_2, el_2, elt_2] = request.security(syminfo.tickerid, rTF2, slotData(agg2), lookahead = barmerge.lookahead_on, calc_bars_count = cb2)
+[t0_3, o0_3, h0_3, l0_3, c0_3, t1_3, h1_3, l1_3, o1_3, c1_3, t2_3, h2_3, l2_3, o2_3, c2_3, h3_3, l3_3, eh_3, eht_3, el_3, elt_3] = request.security(syminfo.tickerid, rTF3, slotData(agg3), lookahead = barmerge.lookahead_on, calc_bars_count = cb3)
+[t0_4, o0_4, h0_4, l0_4, c0_4, t1_4, h1_4, l1_4, o1_4, c1_4, t2_4, h2_4, l2_4, o2_4, c2_4, h3_4, l3_4, eh_4, eht_4, el_4, elt_4] = request.security(syminfo.tickerid, rTF4, slotData(agg4), lookahead = barmerge.lookahead_on, calc_bars_count = cb4)
+[t0_5, o0_5, h0_5, l0_5, c0_5, t1_5, h1_5, l1_5, o1_5, c1_5, t2_5, h2_5, l2_5, o2_5, c2_5, h3_5, l3_5, eh_5, eht_5, el_5, elt_5] = request.security(syminfo.tickerid, rTF5, slotData(agg5), lookahead = barmerge.lookahead_on, calc_bars_count = cb5)
+[t0_6, o0_6, h0_6, l0_6, c0_6, t1_6, h1_6, l1_6, o1_6, c1_6, t2_6, h2_6, l2_6, o2_6, c2_6, h3_6, l3_6, eh_6, eht_6, el_6, elt_6] = request.security(syminfo.tickerid, rTF6, slotData(agg6), lookahead = barmerge.lookahead_on, calc_bars_count = cb6)
+
+// SCREENER-3: the focus timeframe is the screen's own. Same tuple as a slot, from the chart series
+// directly, so no request is needed and a slot on the same timeframe reads identical values.
+[tF0, oF0, hF0, lF0, cF0, tF1, hF1, lF1, oF1, cF1, tF2, hF2, lF2, oF2, cF2, hF3, lF3, ehF, ehtF, elF, eltF] = slotData(0)
+
+// ============================================================================
+// SECTION 4: SIGNAL ENGINE (copied from the Suite)
+// ============================================================================
+
+detectPatterns(c1_open, c1_high, c1_low, c1_close) =>
+    [sg.isHammer(c1_open, c1_high, c1_low, c1_close, logicType, onlyColor), sg.isShooter(c1_open, c1_high, c1_low, c1_close, logicType, onlyColor)]
+
+isInsideBar(currH, currL, prevH, prevL) =>
+    currH <= prevH and currL >= prevL
+
+calcBarNum(prevH, prevL, currH, currL) =>
+    st = sg.structureOf(prevH, prevL, currH, currL)
+    st == "" ? "" : str.substring(st, 0, 1)
+
+// The Suite's table token (1u, 2d, F2u, 3d), for the check table only.
+detectBarTypeAndFailed(prevH, prevL, currH, currL, currO, currC) =>
+    if na(prevH) or na(prevL) or na(currH) or na(currL) or na(currO) or na(currC) or currH < currL or prevH < prevL
+        ""
+    else
+        s = sg.structureOf(prevH, prevL, currH, currL)
+        aboveOpen = currC > currO
+        isFailed = enableFailed2Detection and sg.isFailed(prevH, prevL, currO, currC, s, failed_2_method)
+        s == "1" ? (aboveOpen ? "1u" : "1d") : s == "3" ? (aboveOpen ? "3u" : "3d") : (isFailed ? "F" : "") + s
+
+detectFailed2(c1_high, c1_low, cc_open, cc_close, cc_high, cc_low, method) =>
+    cc_is_3 = cc_high > c1_high and cc_low < c1_low
+    cc_is_2u = cc_high > c1_high and cc_low >= c1_low and not cc_is_3
+    cc_is_2d = cc_low < c1_low and cc_high <= c1_high and not cc_is_3
+    is_f2u = false
+    is_f2d = false
+    if enableFailed2Detection and (cc_is_2u or cc_is_2d) and not cc_is_3
+        cc_inside_c1 = cc_close <= c1_high and cc_close >= c1_low
+        cc_above_open = cc_close > cc_open
+        if method == "Open"
+            is_f2u := cc_is_2u and not cc_above_open
+            is_f2d := cc_is_2d and cc_above_open
+        else if method == "Reclaim"
+            is_f2u := cc_is_2u and cc_inside_c1
+            is_f2d := cc_is_2d and cc_inside_c1
+        else if method == "Reclaim + Open"
+            is_f2u := cc_is_2u and not cc_above_open and cc_inside_c1
+            is_f2d := cc_is_2d and cc_above_open and cc_inside_c1
+        else
+            is_f2u := cc_is_2u and (not cc_above_open or cc_inside_c1)
+            is_f2d := cc_is_2d and (cc_above_open or cc_inside_c1)
+    [cc_is_2u, cc_is_2d, cc_is_3, is_f2u, is_f2d]
+
+// Verbatim from the Suite (FIX BTC-1, FIX CONT22-PRIOR-1 included).
+shouldDrawC1Level(bool isBullish, c1_is_inside, c1_is_hammer, c1_is_shooter, cc_is_2u, cc_is_2d, cc_is_3, is_f2u, is_f2d, ftfc_up, ftfc_down, c1_was_2u, c1_was_2d, c1_is_3, c2_closed_up, c2_closed_down) =>
+    result = false
+    cc_is_inside = not cc_is_2u and not cc_is_2d and not cc_is_3
+    ftfc_blocks = isBullish ? ftfc_down : ftfc_up
+    c2_same_dir = isBullish ? c2_closed_up : c2_closed_down
+    c2_opp_dir = isBullish ? c2_closed_down : c2_closed_up
+    momo_pattern = isBullish ? c1_is_hammer : c1_is_shooter
+    cc_in_force = isBullish ? cc_is_2u : cc_is_2d
+    cc_opposite = isBullish ? cc_is_2d : cc_is_2u
+    c1_was_same = isBullish ? c1_was_2u : c1_was_2d
+    c1_was_opp = isBullish ? c1_was_2d : c1_was_2u
+    failed_same = isBullish ? is_f2u : is_f2d
+    failed_opp = isBullish ? is_f2d : is_f2u
+    inside_rev_ftfc_blocks = insideRevRequireFTFC and ftfc_blocks
+    reversals_ftfc_blocks = reversalsRequireFTFC and ftfc_blocks
+    continuations_ftfc_blocks = continuationsRequireFTFC and ftfc_blocks
+    inside_cont_ftfc_blocks = insideContRequireFTFC and ftfc_blocks
+    expansions_ftfc_blocks = rangeExpansionsRequireFTFC and ftfc_blocks
+    threeExp_ftfc_blocks = threeExpRequireFTFC and ftfc_blocks
+    p3_ftfc_blocks = p3RequireFTFC and ftfc_blocks
+    inside_is_continuation = c1_is_inside and c2_same_dir
+    inside_is_reversal = c1_is_inside and (c2_opp_dir or (not c2_closed_up and not c2_closed_down))
+    if cc_is_3
+        if show3Expansions and not threeExp_ftfc_blocks
+            result := true
+    else if show_p3_toggle and failed_same
+        result := not p3_ftfc_blocks
+    else if show_p3_toggle and failed_opp
+        result := not p3_ftfc_blocks
+    else if c1_is_inside
+        if inside_is_reversal and showInsideReversals
+            if insideRevOnlyMomo and not momo_pattern
+                result := false
+            else
+                result := not inside_rev_ftfc_blocks
+        else if inside_is_reversal and not showInsideReversals
+            result := false
+        else if inside_is_continuation and showInsideContinuations
+            if insideContOnlyMomo and not momo_pattern
+                result := false
+            else
+                result := not inside_cont_ftfc_blocks
+        else if inside_is_continuation and not showInsideContinuations
+            result := false
+        else
+            if showInsideReversals
+                if insideRevOnlyMomo and not momo_pattern
+                    result := false
+                else
+                    result := not inside_rev_ftfc_blocks
+    else if c1_is_3 and cc_in_force and showRangeExpansions
+        if rangeExpOnlyMomo and not momo_pattern
+            result := false
+        else
+            result := not expansions_ftfc_blocks
+    else if c1_is_3 and cc_is_inside and showRangeExpansions
+        if rangeExpOnlyMomo and not momo_pattern
+            result := false
+        else
+            result := not expansions_ftfc_blocks
+    else if momo_pattern and not (c1_is_3 and not showRangeExpansions)
+        is_momo_reversal = c1_was_opp or (c2_opp_dir and not c1_was_same) or (not c1_was_2u and not c1_was_2d and not c2_same_dir)
+        is_momo_cont = c1_was_same or (c2_same_dir and not c1_was_opp)
+        cc_is_opp_continuation = cc_opposite and c1_was_opp
+        if cc_is_opp_continuation
+            result := false
+        else if is_momo_reversal and not cc_opposite
+            result := not reversals_ftfc_blocks
+        else if is_momo_cont and showContinuations
+            result := not continuations_ftfc_blocks
+    else if c1_was_opp and cc_in_force and showAllReversals
+        if momo_pattern
+            result := not reversals_ftfc_blocks
+        else if reversalsRequireActionable
+            result := false
+        else
+            result := not reversals_ftfc_blocks
+    else if c1_was_opp and showAllReversals and not cc_opposite
+        if momo_pattern
+            result := not reversals_ftfc_blocks
+        else if reversalsRequireActionable
+            result := false
+        else
+            result := not reversals_ftfc_blocks
+    else if c1_was_same and cc_in_force and showContinuations
+        if twoTwoContOnlyMomo and not momo_pattern
+            result := false
+        else
+            result := not continuations_ftfc_blocks
+    else if c1_was_same and cc_is_inside and showContinuations
+        if twoTwoContOnlyMomo and not momo_pattern
+            result := false
+        else
+            result := not continuations_ftfc_blocks
+    result
+
+// The signal half of the Suite's computeSignalState() for one slot on the last bar. Names
+// follow the original; data.prevHigh/prevLow are C1's high/low (what newPeriod latches), and
+// the crossed latches become direct tests against the period's running high/low.
+evalSlot(float c1H, float c1L, float c1O, float c1C, float ccO, float ccH, float ccL, float ccC, float c2H, float c2L, float c2O, float c2C, float c3H, float c3L, float exhHP, float exhLP, bool ftfc_up, bool ftfc_down) =>
+    [isHammer, isShooter] = detectPatterns(c1O, c1H, c1L, c1C)
+    isInside = isInsideBar(c1H, c1L, c2H, c2L)
+    [cc_is_2u, cc_is_2d, cc_is_3, is_f2u, is_f2d] = detectFailed2(c1H, c1L, ccO, ccC, ccH, ccL, failed_2_method)
+    string c2Num = calcBarNum(c3H, c3L, c2H, c2L)
+    string c1Num = calcBarNum(c2H, c2L, c1H, c1L)
+    string ccType = is_f2u ? "F2u" : is_f2d ? "F2d" : cc_is_3 ? (ccC > ccO ? "3u" : "3d") : cc_is_2u ? "2u" : cc_is_2d ? "2d" : "1"
+    cc_broke_high = ccH > c1H
+    cc_broke_low = ccL < c1L
+    c1_broke_mag_high = c1H > c2H
+    c1_broke_mag_low = c1L < c2L
+    c1_was_2u = c1_broke_mag_high and not c1_broke_mag_low
+    c1_was_2d = c1_broke_mag_low and not c1_broke_mag_high
+    c2_closed_up = c2C > c2O
+    c2_closed_down = c2C < c2O
+    c1_was_f2d = c1_was_2d and c1C > c2L
+    c1_was_f2u = c1_was_2u and c1C < c2H
+    c1_was_neutral = not c1_was_2u and not c1_was_2d
+    inside_bullish = isInside and c2_closed_up
+    inside_bearish = isInside and c2_closed_down
+    is_hammer_reversal = c1_was_2d or inside_bearish or (c1_was_neutral and not isInside)
+    is_shooter_reversal = c1_was_2u or inside_bullish or (c1_was_neutral and not isInside)
+    is_hammer_momo = c1_was_2u or inside_bullish
+    is_shooter_momo = c1_was_2d or inside_bearish
+    hammer_shows = isHammer and (is_hammer_reversal or (is_hammer_momo and showContinuations))
+    shooter_shows = isShooter and (is_shooter_reversal or (is_shooter_momo and showContinuations))
+    inside_cont_high_passes_momo = not insideContOnlyMomo or isHammer
+    inside_cont_low_passes_momo = not insideContOnlyMomo or isShooter
+    twotwo_cont_high_passes_momo = not twoTwoContOnlyMomo or isHammer
+    twotwo_cont_low_passes_momo = not twoTwoContOnlyMomo or isShooter
+    c1_is_3 = c1H > c2H and c1L < c2L
+    twotwo_rev_high_passes = (not reversalsRequireActionable or isHammer) and (not reversalsRequireC1F2 or c1_was_f2d)
+    twotwo_rev_low_passes = (not reversalsRequireActionable or isShooter) and (not reversalsRequireC1F2 or c1_was_f2u)
+    p3_high_passes_ftfc = not p3RequireFTFC or ftfc_up
+    p3_low_passes_ftfc = not p3RequireFTFC or ftfc_down
+    t_insideRev_h  = isInside and not c2_closed_up and cc_is_2u
+    t_insideCont_h = inside_bullish and showInsideContinuations and inside_cont_high_passes_momo and cc_is_2u
+    t_hamSho_h     = hammer_shows and cc_broke_high
+    t_rev22_h      = showAllReversals and c1_was_2d and cc_is_2u and twotwo_rev_high_passes
+    t_cont22_h     = showContinuations and c1_was_2u and cc_is_2u and twotwo_cont_high_passes_momo
+    t_exp32_h      = showRangeExpansions and c1_is_3 and cc_is_2u
+    t_f2_h         = show_p3_toggle and is_f2d and p3_high_passes_ftfc
+    t_insideRev_l  = isInside and not c2_closed_down and cc_is_2d
+    t_insideCont_l = inside_bearish and showInsideContinuations and inside_cont_low_passes_momo and cc_is_2d
+    t_hamSho_l     = shooter_shows and cc_broke_low
+    t_rev22_l      = showAllReversals and c1_was_2u and cc_is_2d and twotwo_rev_low_passes
+    t_cont22_l     = showContinuations and c1_was_2d and cc_is_2d and twotwo_cont_low_passes_momo
+    t_exp32_l      = showRangeExpansions and c1_is_3 and cc_is_2d
+    t_f2_l         = show_p3_toggle and is_f2u and p3_low_passes_ftfc
+    signal_in_force_high = t_insideRev_h or t_insideCont_h or t_hamSho_h or t_rev22_h or t_cont22_h or t_exp32_h or t_f2_h
+    signal_in_force_low = t_insideRev_l or t_insideCont_l or t_hamSho_l or t_rev22_l or t_cont22_l or t_exp32_l or t_f2_l
+    currently_above_trigger = ccC > c1H
+    currently_below_trigger = ccC < c1L
+    three_2u_suppress_low = c1_is_3 and cc_is_2u and not is_f2u
+    three_2d_suppress_high = c1_is_3 and cc_is_2d and not is_f2d
+    inside_breakout_suppress_low = isInside and cc_broke_high and not is_f2u and not cc_is_3
+    inside_breakout_suppress_high = isInside and cc_broke_low and not is_f2d and not cc_is_3
+    twotwo_rev_f2_suppress_high = reversalsRequireC1F2 and c1_was_2d and not c1_was_f2d and not c1_is_3 and not isInside and not is_f2u and not is_f2d
+    twotwo_rev_f2_suppress_low = reversalsRequireC1F2 and c1_was_2u and not c1_was_f2u and not c1_is_3 and not isInside and not is_f2u and not is_f2d
+    drawHighResult = shouldDrawC1Level(true, isInside, isHammer, isShooter, cc_is_2u, cc_is_2d, cc_is_3, is_f2u, is_f2d, ftfc_up, ftfc_down, c1_was_2u, c1_was_2d, c1_is_3, c2_closed_up, c2_closed_down)
+    drawLowResult = shouldDrawC1Level(false, isInside, isHammer, isShooter, cc_is_2u, cc_is_2d, cc_is_3, is_f2u, is_f2d, ftfc_up, ftfc_down, c1_was_2u, c1_was_2d, c1_is_3, c2_closed_up, c2_closed_down)
+    drawHigh = drawHighResult and not three_2d_suppress_high and not inside_breakout_suppress_high and not twotwo_rev_f2_suppress_high
+    drawLow = drawLowResult and not three_2u_suppress_low and not inside_breakout_suppress_low and not twotwo_rev_f2_suppress_low
+    // Crossed latches, stateless: the forming candle's high/low are the period's running extremes.
+    magHighCrossed = not na(c2H) and ccH >= c2H
+    magLowCrossed = not na(c2L) and ccL <= c2L
+    exhHighCrossed = not na(exhHP) and ccH >= exhHP
+    exhLowCrossed = not na(exhLP) and ccL <= exhLP
+    bool magFallbackHigh = na(exhHP) and not na(c2H) and magHighCrossed
+    bool magFallbackLow = na(exhLP) and not na(c2L) and magLowCrossed
+    exhDisablesHigh = exhDisablesInForce and (exhHighCrossed or magFallbackHigh)
+    exhDisablesLow = exhDisablesInForce and (exhLowCrossed or magFallbackLow)
+    non_f2_in_force_high = signal_in_force_high and not is_f2d and currently_above_trigger
+    f2_in_force_high = show_p3_toggle and is_f2d and drawHigh and p3_high_passes_ftfc
+    non_f2_in_force_low = signal_in_force_low and not is_f2u and currently_below_trigger
+    f2_in_force_low = show_p3_toggle and is_f2u and drawLow and p3_low_passes_ftfc
+    bool rawInForceHigh = (non_f2_in_force_high or f2_in_force_high) and drawHigh
+    bool rawInForceLow = (non_f2_in_force_low or f2_in_force_low) and drawLow
+    bool inForceHigh = rawInForceHigh and not exhDisablesHigh
+    bool inForceLow = rawInForceLow and not exhDisablesLow
+    [ccType, c1Num, c2Num, inForceHigh, inForceLow, drawHigh, drawLow, is_f2u, is_f2d, isHammer, isShooter]
+
+// Copied from the Suite (FIX LEAD-F2-TIEBREAK-2).
+getSignalDirection(bool inHigh, bool inLow, bool isF2u, bool isF2d, string ccType) =>
+    int direction = 0
+    if inHigh and inLow
+        if isF2u
+            direction := -1
+        else if isF2d
+            direction := 1
+        else if str.endswith(ccType, "u")
+            direction := 1
+        else
+            direction := -1
+    else if inHigh
+        direction := 1
+    else if inLow
+        direction := -1
+    direction
+
+// Pattern code, read like the Suite's alert combo (buildAlertLabel), signed by direction:
+//   inside C1      -> C2 C1 CC digits: 212, 312, 112, 213
+//   otherwise      -> C1 CC digits:    22, 32, 23, 33
+//   Failing 2 (CC) -> 1000 + C1 digit * 10 + 2: 1022 is 2-F2, 1032 is 3-F2
+patternCode(bool bull, string ccType, string c1Num, string c2Num, bool isF2u, bool isF2d) =>
+    int ccN = str.startswith(ccType, "3") ? 3 : ccType == "1" ? 1 : 2
+    float c1n = str.tonumber(c1Num)
+    float c2n = str.tonumber(c2Num)
+    float code = na
+    if (bull and isF2d) or (not bull and isF2u)
+        code := 1000 + c1n * 10 + 2
+    else if c1Num == "1"
+        code := c2n * 100 + 10 + ccN
+    else
+        code := c1n * 10 + ccN
+    bull ? code : -code
+
+typeCode(string ccType) =>
+    switch ccType
+        "1"   => 1
+        "1u"  => 1
+        "1d"  => 1
+        "2u"  => 2
+        "F2u" => 2
+        "2d"  => -2
+        "F2d" => -2
+        "3u"  => 3
+        "3d"  => -3
+        => int(na)
+
+slotTokenColor(string tok) =>
+    switch tok
+        "1u"  => #ffeb3b
+        "1d"  => #ff9800
+        "2u"  => #4caf50
+        "2d"  => #f23645
+        "F2u" => #f77c80
+        "F2d" => #81c784
+        "3u"  => #089981
+        "3d"  => #e91e63
+        => color.gray
+
+// Match card helpers (SCREENER-8).
+chartTfLabel() =>
+    string s = timeframe.period
+    int m = timeframe.multiplier
+    if timeframe.isminutes
+        s := m % 60 == 0 ? str.tostring(m / 60) + "H" : str.tostring(m) + "m"
+    else if timeframe.isdaily
+        s := m == 1 ? "D" : str.tostring(m) + "D"
+    else if timeframe.isweekly
+        s := m == 1 ? "W" : str.tostring(m) + "W"
+    else if timeframe.ismonthly
+        s := m == 1 ? "M" : str.tostring(m) + "M"
+    s
+
+// Pattern code as the combo reads: 212 -> 2-1-2, 22 -> 2-2, 1022 -> 2-F2. The sign is ignored.
+patternText(float code) =>
+    string out = ""
+    if not na(code) and code != 0
+        int a = int(math.abs(code))
+        if a >= 1000
+            out := str.tostring(int((a - 1000) / 10)) + "-F2"
+        else if a >= 100
+            out := str.tostring(int(a / 100)) + "-" + str.tostring(int(a / 10) % 10) + "-" + str.tostring(a % 10)
+        else
+            out := str.tostring(int(a / 10)) + "-" + str.tostring(a % 10)
+    out
+
+// A type code as the named filters spell it: 1, 2U, 2D, 3.
+filterType(float code) =>
+    code == 1 ? "1" : code == 2 ? "2U" : code == -2 ? "2D" : math.abs(code) == 3 ? "3" : ""
+
+// ============================================================================
+// SECTION 5: LAST-BAR EVALUATION
+// ============================================================================
+
+chartSecs = timeframe.in_seconds(timeframe.period)
+
+// Plot values. na on every bar but the last (see the header: history would repaint).
+float pFtfcScore = na
+float pFtfc = na
+float pLeadDir = na
+float pLeadPattern = na
+float pLeadTF = na
+float pLeadMagR = na
+float pSetupDist = na
+float pSetupTF = na
+float pDomino = na
+float pNetInForce = na
+float pType1 = na, float pType2 = na, float pType3 = na, float pType4 = na, float pType5 = na, float pType6 = na
+float pAO1 = na, float pAO2 = na, float pAO3 = na, float pAO4 = na, float pAO5 = na, float pAO6 = na
+float pFState = na
+float pFPattern = na
+float pFC2 = na
+float pFC1 = na
+float pFCC = na
+float pFCT = na
+float pFShape = na
+float pFC1Color = na
+float pFCCColor = na
+float pFCCShape = na
+float pFCCF2 = na
+float pState1 = na, float pState2 = na, float pState3 = na, float pState4 = na, float pState5 = na, float pState6 = na
+
+bool aFtfcUp = false
+bool aFtfcDown = false
+bool aBullInForce = false
+bool aBearInForce = false
+bool aDomino = false
+
+if barstate.islast
+    array<string> lbl = array.from(s1, s2, s3, s4, s5, s6)
+    array<float> C1H = array.from(h1_1, h1_2, h1_3, h1_4, h1_5, h1_6)
+    array<float> C1L = array.from(l1_1, l1_2, l1_3, l1_4, l1_5, l1_6)
+    array<float> C1O = array.from(o1_1, o1_2, o1_3, o1_4, o1_5, o1_6)
+    array<float> C1C = array.from(c1_1, c1_2, c1_3, c1_4, c1_5, c1_6)
+    array<float> CCO = array.from(o0_1, o0_2, o0_3, o0_4, o0_5, o0_6)
+    array<float> CCH = array.from(h0_1, h0_2, h0_3, h0_4, h0_5, h0_6)
+    array<float> CCL = array.from(l0_1, l0_2, l0_3, l0_4, l0_5, l0_6)
+    array<float> CCC = array.from(c0_1, c0_2, c0_3, c0_4, c0_5, c0_6)
+    array<int> CCT = array.from(t0_1, t0_2, t0_3, t0_4, t0_5, t0_6)
+    array<float> C2H = array.from(h2_1, h2_2, h2_3, h2_4, h2_5, h2_6)
+    array<float> C2L = array.from(l2_1, l2_2, l2_3, l2_4, l2_5, l2_6)
+    array<float> C2O = array.from(o2_1, o2_2, o2_3, o2_4, o2_5, o2_6)
+    array<float> C2C = array.from(c2_1, c2_2, c2_3, c2_4, c2_5, c2_6)
+    array<float> C3H = array.from(h3_1, h3_2, h3_3, h3_4, h3_5, h3_6)
+    array<float> C3L = array.from(l3_1, l3_2, l3_3, l3_4, l3_5, l3_6)
+    array<float> EXH = array.from(eh_1, eh_2, eh_3, eh_4, eh_5, eh_6)
+    array<float> EXL = array.from(el_1, el_2, el_3, el_4, el_5, el_6)
+
+    // A slot counts when it is on, not below the chart timeframe, and has served data.
+    array<bool> ok = array.new<bool>(6, false)
+    for i = 0 to 5
+        string s = array.get(lbl, i)
+        bool valid = s != "Off" and slotSeconds(s) >= chartSecs
+        array.set(ok, i, valid and not na(array.get(C1H, i)) and not na(array.get(C2H, i)) and not na(array.get(CCO, i)) and not na(array.get(CCC, i)))
+
+    // FTFC across counted slots: calculateFTFC's rule (strict close > open).
+    int nUp = 0
+    int nDown = 0
+    for i = 0 to 5
+        if array.get(ok, i)
+            if array.get(CCC, i) > array.get(CCO, i)
+                nUp += 1
+            else
+                nDown += 1
+    bool ftfc_up = nUp > 0 and nDown == 0
+    bool ftfc_down = nDown > 0 and nUp == 0
+    pFtfcScore := nUp - nDown
+    pFtfc := ftfc_up ? 1 : ftfc_down ? -1 : 0
+
+    array<string> rType = array.new<string>(6, "")
+    array<string> rC1N = array.new<string>(6, "")
+    array<string> rC2N = array.new<string>(6, "")
+    array<bool> rInH = array.new<bool>(6, false)
+    array<bool> rInL = array.new<bool>(6, false)
+    array<bool> rDrH = array.new<bool>(6, false)
+    array<bool> rDrL = array.new<bool>(6, false)
+    array<bool> rF2u = array.new<bool>(6, false)
+    array<bool> rF2d = array.new<bool>(6, false)
+    for i = 0 to 5
+        if array.get(ok, i)
+            [ccType, c1Num, c2Num, inH, inL, drH, drL, f2u, f2d, ham, sho] = evalSlot(array.get(C1H, i), array.get(C1L, i), array.get(C1O, i), array.get(C1C, i), array.get(CCO, i), array.get(CCH, i), array.get(CCL, i), array.get(CCC, i), array.get(C2H, i), array.get(C2L, i), array.get(C2O, i), array.get(C2C, i), array.get(C3H, i), array.get(C3L, i), array.get(EXH, i), array.get(EXL, i), ftfc_up, ftfc_down)
+            array.set(rType, i, ccType)
+            array.set(rC1N, i, c1Num)
+            array.set(rC2N, i, c2Num)
+            array.set(rInH, i, inH)
+            array.set(rInL, i, inL)
+            array.set(rDrH, i, drH)
+            array.set(rDrL, i, drL)
+            array.set(rF2u, i, f2u)
+            array.set(rF2d, i, f2d)
+
+    // Per-slot columns.
+    array<float> typeOut = array.new<float>(6, na)
+    array<float> aoOut = array.new<float>(6, na)
+    array<float> stateOut = array.new<float>(6, na)
+    int netIn = 0
+    for i = 0 to 5
+        if array.get(ok, i)
+            string t = array.get(rType, i)
+            array.set(typeOut, i, typeCode(t))
+            array.set(aoOut, i, array.get(CCC, i) > array.get(CCO, i) ? 1 : -1)
+            netIn += (array.get(rInH, i) ? 1 : 0) - (array.get(rInL, i) ? 1 : 0)
+            // State per slot. In force: the same direction the Lead uses. Potential: an inside CC
+            // with a setup drawn (the Nearest Setup test), which can still break either way.
+            int d = getSignalDirection(array.get(rInH, i), array.get(rInL, i), array.get(rF2u, i), array.get(rF2d, i), t)
+            array.set(stateOut, i, d != 0 ? 2 * d : t == "1" and (array.get(rDrH, i) or array.get(rDrL, i)) ? 1 : 0)
+
+    // Focus: the screen's own timeframe, as one Setups-table row. Same engine and codes as a slot;
+    // FTFC still comes from the slots. Pattern: in force -> the signed combo; potential -> the
+    // unsigned shape it would complete (2-1 -> 212). CT: C1 and CC the same directional 2, by
+    // structure (a failing 2 keeps its structure). Colors use FTFC's rule: a doji counts red.
+    if not na(hF3) and not na(lF3) and not na(oF2) and not na(cF2) and not na(oF1) and not na(cF1) and not na(oF0) and not na(cF0)
+        [fType, fC1N, fC2N, fInH, fInL, fDrH, fDrL, fF2u, fF2d, fHam, fSho] = evalSlot(hF1, lF1, oF1, cF1, oF0, hF0, lF0, cF0, hF2, lF2, oF2, cF2, hF3, lF3, ehF, elF, ftfc_up, ftfc_down)
+        int fd = getSignalDirection(fInH, fInL, fF2u, fF2d, fType)
+        pFState := fd != 0 ? 2 * fd : fType == "1" and (fDrH or fDrL) ? 1 : 0
+        pFPattern := fd != 0 ? patternCode(fd == 1, fType, fC1N, fC2N, fF2u, fF2d) : pFState == 1 ? str.tonumber(fC1N) * 100 + 12 : 0
+        pFC2 := typeCode(detectBarTypeAndFailed(hF3, lF3, hF2, lF2, oF2, cF2))
+        pFC1 := typeCode(detectBarTypeAndFailed(hF2, lF2, hF1, lF1, oF1, cF1))
+        pFCC := typeCode(fType)
+        pFCT := pFC1 == 2 and pFCC == 2 ? 1 : pFC1 == -2 and pFCC == -2 ? -1 : 0
+        pFShape := fHam ? 1 : fSho ? -1 : 0
+        pFC1Color := cF1 > oF1 ? 1 : -1
+        pFCCColor := cF0 > oF0 ? 1 : -1
+        [ccHam, ccSho] = detectPatterns(oF0, hF0, lF0, cF0)
+        pFCCShape := ccHam ? 1 : ccSho ? -1 : 0
+        pFCCF2 := fF2d ? 1 : fF2u ? -1 : 0
+    pNetInForce := netIn
+    aBullInForce := array.includes(rInH, true)
+    aBearInForce := array.includes(rInL, true)
+
+    // Lead: the largest counted slot with a signal in force (the Suite's anchor scan).
+    int leadIdx = -1
+    int leadDir = 0
+    for i = 5 to 0
+        if leadIdx == -1 and array.get(ok, i)
+            int d = getSignalDirection(array.get(rInH, i), array.get(rInL, i), array.get(rF2u, i), array.get(rF2d, i), array.get(rType, i))
+            if d != 0
+                leadIdx := i
+                leadDir := d
+    pLeadDir := leadDir
+    if leadIdx >= 0
+        bool bull = leadDir == 1
+        pLeadPattern := patternCode(bull, array.get(rType, leadIdx), array.get(rC1N, leadIdx), array.get(rC2N, leadIdx), array.get(rF2u, leadIdx), array.get(rF2d, leadIdx))
+        pLeadTF := slotMinutes(array.get(lbl, leadIdx))
+        // Trigger = C1 extreme on the signal side; stop = the CC's opposite extreme (the Suite's
+        // default CC stop reference); target = C2 extreme (magnitude).
+        float trig = bull ? array.get(C1H, leadIdx) : array.get(C1L, leadIdx)
+        float stop = bull ? array.get(CCL, leadIdx) : array.get(CCH, leadIdx)
+        float mag = bull ? array.get(C2H, leadIdx) : array.get(C2L, leadIdx)
+        float risk = bull ? trig - stop : stop - trig
+        bool magAhead = bull ? mag > trig : mag < trig
+        if risk > 0 and not na(mag) and magAhead
+            pLeadMagR := math.abs(mag - trig) / risk
+    else
+        pLeadPattern := 0
+
+    // Nearest setup: the closest untriggered trigger among inside-bar CCs with a signal drawn
+    // (the Suite's isPotentialBull/Bear). + = bullish trigger above price, - = bearish below.
+    float bestAbs = na
+    for i = 0 to 5
+        if array.get(ok, i) and array.get(rType, i) == "1"
+            if array.get(rDrH, i)
+                float dH = (array.get(C1H, i) - close) / close * 100
+                if dH >= 0 and (na(bestAbs) or dH < bestAbs)
+                    bestAbs := dH
+                    pSetupDist := dH
+                    pSetupTF := slotMinutes(array.get(lbl, i))
+            if array.get(rDrL, i)
+                float dL = (close - array.get(C1L, i)) / close * 100
+                if dL >= 0 and (na(bestAbs) or dL < bestAbs)
+                    bestAbs := dL
+                    pSetupDist := -dL
+                    pSetupTF := slotMinutes(array.get(lbl, i))
+
+    // Domino: the Suite's chain, largest slot first, same-candle slots counted once.
+    int currentRunBull = 0
+    int currentRunBear = 0
+    int bestRunBull = 0
+    int bestRunBear = 0
+    int prevCCTimeBull = na
+    int prevCCTimeBear = na
+    for i = 5 to 0
+        if array.get(lbl, i) != "Off"
+            bool counted = array.get(ok, i)
+            bool ccIsInside = counted and array.get(rType, i) == "1"
+            bool hasBullSetup = counted and array.get(rDrH, i)
+            bool hasBearSetup = counted and array.get(rDrL, i)
+            int thisCCTime = counted ? array.get(CCT, i) : int(na)
+            bool bullSameCandle = not na(thisCCTime) and not na(prevCCTimeBull) and thisCCTime == prevCCTimeBull
+            if ccIsInside and hasBullSetup and not bullSameCandle
+                currentRunBull += 1
+                prevCCTimeBull := thisCCTime
+                bestRunBull := math.max(bestRunBull, currentRunBull)
+            else if ccIsInside and hasBullSetup and bullSameCandle
+                prevCCTimeBull := thisCCTime
+            else
+                currentRunBull := 0
+                prevCCTimeBull := na
+            bool bearSameCandle = not na(thisCCTime) and not na(prevCCTimeBear) and thisCCTime == prevCCTimeBear
+            if ccIsInside and hasBearSetup and not bearSameCandle
+                currentRunBear += 1
+                prevCCTimeBear := thisCCTime
+                bestRunBear := math.max(bestRunBear, currentRunBear)
+            else if ccIsInside and hasBearSetup and bearSameCandle
+                prevCCTimeBear := thisCCTime
+            else
+                currentRunBear := 0
+                prevCCTimeBear := na
+    int dominoRun = bestRunBull >= bestRunBear ? bestRunBull : -bestRunBear
+    pDomino := math.abs(dominoRun) >= minDominoTFs ? dominoRun : 0
+    aDomino := pDomino != 0
+
+    aFtfcUp := ftfc_up
+    aFtfcDown := ftfc_down
+
+    pType1 := array.get(typeOut, 0)
+    pType2 := array.get(typeOut, 1)
+    pType3 := array.get(typeOut, 2)
+    pType4 := array.get(typeOut, 3)
+    pType5 := array.get(typeOut, 4)
+    pType6 := array.get(typeOut, 5)
+    pAO1 := array.get(aoOut, 0)
+    pAO2 := array.get(aoOut, 1)
+    pAO3 := array.get(aoOut, 2)
+    pAO4 := array.get(aoOut, 3)
+    pAO5 := array.get(aoOut, 4)
+    pAO6 := array.get(aoOut, 5)
+    pState1 := array.get(stateOut, 0)
+    pState2 := array.get(stateOut, 1)
+    pState3 := array.get(stateOut, 2)
+    pState4 := array.get(stateOut, 3)
+    pState5 := array.get(stateOut, 4)
+    pState6 := array.get(stateOut, 5)
+
+    // Match card (SCREENER-8): what this symbol is on the chart's timeframe, the named filters it
+    // matches right now, the slot rows (largest first) and FTFC/Lead. Tags on the last three
+    // candles mark C2, C1 and CC. Display only: the screener reads the plots and alert conditions.
+    // Column 4 is an empty spacer: the text rows span it, so their extra width lands there and
+    // the slot columns keep their natural widths.
+    string fTokC2 = detectBarTypeAndFailed(hF3, lF3, hF2, lF2, oF2, cF2)
+    string fTokC1 = detectBarTypeAndFailed(hF2, lF2, hF1, lF1, oF1, cF1)
+    string fTokCC = detectBarTypeAndFailed(hF1, lF1, hF0, lF0, oF0, cF0)
+    if showCard
+        array<string> hits = array.new<string>()
+        if math.abs(pFState) == 2
+            array.push(hits, "In force")
+        if filterType(pFC2) != ""
+            array.push(hits, "C2: " + filterType(pFC2))
+        if filterType(pFC1) != ""
+            array.push(hits, "C1: " + filterType(pFC1))
+        if pFC1Color == 1
+            array.push(hits, "C1: green")
+        else if pFC1Color == -1
+            array.push(hits, "C1: red")
+        if pFShape == 1
+            array.push(hits, "C1: hammer")
+        else if pFShape == -1
+            array.push(hits, "C1: shooter")
+        if filterType(pFCC) != ""
+            array.push(hits, "CC: " + filterType(pFCC))
+        if pFCC == 2 and pFCCColor == -1
+            array.push(hits, "CC: 2U red")
+        if pFCC == -2 and pFCCColor == 1
+            array.push(hits, "CC: 2D green")
+        if pFCCShape == 1
+            array.push(hits, "CC: hammer")
+        else if pFCCShape == -1
+            array.push(hits, "CC: shooter")
+        if pFCCF2 == 1
+            array.push(hits, "CC: F2D")
+        else if pFCCF2 == -1
+            array.push(hits, "CC: F2U")
+        if aFtfcUp
+            array.push(hits, "FTFC Up (state)")
+        else if aFtfcDown
+            array.push(hits, "FTFC Down (state)")
+        if aDomino
+            array.push(hits, "Domino (state)")
+        string hitText = ""
+        for [k, h] in hits
+            hitText += (k == 0 ? "" : k % 3 == 0 ? "\n" : "  ·  ") + h
+
+        var table card = table.new(cardPosition, 5, 14, bgcolor = color.new(#000000, 0), frame_color = #434651, frame_width = 1, border_color = #2a2e39, border_width = 1)
+        table.clear(card, 0, 0, 4, 13)
+        int r = 0
+        table.merge_cells(card, 0, r, 4, r)
+        table.cell(card, 0, r, "Setup Screener  ·  " + chartTfLabel(), text_color = color.white, bgcolor = #1e222d, text_size = cardText, text_halign = text.align_left)
+        r += 1
+        string stateText = pFState == 2 ? "Bullish " + patternText(pFPattern) + " in force" : pFState == -2 ? "Bearish " + patternText(pFPattern) + " in force" : pFState == 1 ? patternText(pFPattern) + " setup, trigger untouched" : "No signal"
+        table.merge_cells(card, 0, r, 4, r)
+        table.cell(card, 0, r, "CC " + (fTokCC == "" ? "-" : fTokCC) + "  ·  " + stateText, text_color = pFState == 2 ? COLOR_BULL : pFState == -2 ? COLOR_BEAR : color.white, text_size = cardText, text_halign = text.align_left)
+        r += 1
+        table.merge_cells(card, 0, r, 4, r)
+        table.cell(card, 0, r, "Matches:  " + (hitText == "" ? "none" : hitText), text_color = #b2b5be, text_size = cardText, text_halign = text.align_left)
+        r += 1
+        if showSlotRows
+            table.cell(card, 0, r, "TF", text_color = #787b86, text_size = cardText)
+            table.cell(card, 1, r, "C2", text_color = #787b86, text_size = cardText)
+            table.cell(card, 2, r, "C1", text_color = #787b86, text_size = cardText)
+            table.cell(card, 3, r, "CC", text_color = #787b86, text_size = cardText)
+            r += 1
+            for i = 5 to 0
+                string s = array.get(lbl, i)
+                // Off slots and slots the chart can't build (finer than the chart) get no row.
+                if s != "Off" and array.get(ok, i)
+                    string tC2 = detectBarTypeAndFailed(array.get(C3H, i), array.get(C3L, i), array.get(C2H, i), array.get(C2L, i), array.get(C2O, i), array.get(C2C, i))
+                    string tC1 = detectBarTypeAndFailed(array.get(C2H, i), array.get(C2L, i), array.get(C1H, i), array.get(C1L, i), array.get(C1O, i), array.get(C1C, i))
+                    string tCC = detectBarTypeAndFailed(array.get(C1H, i), array.get(C1L, i), array.get(CCH, i), array.get(CCL, i), array.get(CCO, i), array.get(CCC, i))
+                    bool inF = array.get(rInH, i) or array.get(rInL, i)
+                    table.cell(card, 0, r, s, text_color = inF ? color.black : color.white, bgcolor = inF ? slotTokenColor(tCC) : #111111, text_size = cardText)
+                    table.cell(card, 1, r, tC2, text_color = slotTokenColor(tC2), text_size = cardText)
+                    table.cell(card, 2, r, tC1, text_color = slotTokenColor(tC1), text_size = cardText)
+                    table.cell(card, 3, r, tCC, text_color = color.black, bgcolor = slotTokenColor(tCC), text_size = cardText)
+                    r += 1
+        string ftfcText = ftfc_up ? "FTFC: up" : ftfc_down ? "FTFC: down" : "FTFC: conflict"
+        color ftfcCol = ftfc_up ? COLOR_BULL : ftfc_down ? COLOR_BEAR : COLOR_NEUTRAL
+        table.merge_cells(card, 0, r, 4, r)
+        table.cell(card, 0, r, ftfcText, text_color = ftfcCol, bgcolor = color.new(ftfcCol, 80), text_size = cardText)
+        r += 1
+        string leadText = leadIdx >= 0 ? "Lead: " + array.get(lbl, leadIdx) + (leadDir == 1 ? " bull " : " bear ") + patternText(pLeadPattern) : "Lead: none"
+        color leadCol = leadDir == 1 ? COLOR_BULL : leadDir == -1 ? COLOR_BEAR : COLOR_NEUTRAL
+        table.merge_cells(card, 0, r, 4, r)
+        table.cell(card, 0, r, leadText, text_color = leadCol, bgcolor = color.new(leadCol, 85), text_size = cardText)
+
+    // Text-only tags anchored at each candle's high, colored by candle type. The type itself is
+    // in the tooltip and on the card, which keeps the tags narrow enough for adjacent candles.
+    if showTags and fTokCC != ""
+        var label tagC2 = label.new(bar_index, high, "C2", style = label.style_label_down, color = color.new(color.black, 100), size = size.small)
+        var label tagC1 = label.new(bar_index, high, "C1", style = label.style_label_down, color = color.new(color.black, 100), size = size.small)
+        var label tagCC = label.new(bar_index, high, "CC", style = label.style_label_down, color = color.new(color.black, 100), size = size.small)
+        label.set_xy(tagC2, bar_index - 2, high[2])
+        label.set_xy(tagC1, bar_index - 1, high[1])
+        label.set_xy(tagCC, bar_index, high)
+        label.set_textcolor(tagC2, slotTokenColor(fTokC2))
+        label.set_textcolor(tagC1, slotTokenColor(fTokC1))
+        label.set_textcolor(tagCC, slotTokenColor(fTokCC))
+        label.set_tooltip(tagC2, "C2 " + fTokC2 + ": two candles back")
+        label.set_tooltip(tagC1, "C1 " + fTokC1 + ": the last closed candle. Its high and low are the triggers.")
+        label.set_tooltip(tagCC, "CC " + fTokCC + ": the current candle")
+
+// ============================================================================
+// SECTION 6: OUTPUTS
+// ============================================================================
+// Plot order is column order: Pine Screener adds the first ten plots automatically.
+// One constant color: a series color would count as a second plot (SCREENER-2), and the
+// screener reads values only. Codes show as whole numbers; R and percent columns keep decimals.
+
+plot(pFState, "State", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pFPattern, "Pattern", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pFC2, "C2", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pFC1, "C1", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pFCC, "CC", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pFCT, "CT", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pFShape, "C1 Shape", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pFtfc, "FTFC", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pFtfcScore, "FTFC Score", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pLeadDir, "Lead Direction", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pLeadPattern, "Lead Pattern", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pLeadTF, "Lead TF (min)", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pLeadMagR, "Lead Magnitude R", color = COLOR_NEUTRAL, display = display.data_window + display.pine_screener)
+plot(pSetupDist, "Nearest Setup %", color = COLOR_NEUTRAL, display = display.data_window + display.pine_screener)
+plot(pSetupTF, "Nearest Setup TF (min)", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pDomino, "Domino", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pNetInForce, "Net In Force", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pFC1Color, "C1 Color", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pState1, "S1 State", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pState2, "S2 State", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pState3, "S3 State", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pState4, "S4 State", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pState5, "S5 State", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pState6, "S6 State", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pType1, "S1 Type", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pType2, "S2 Type", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pType3, "S3 Type", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pType4, "S4 Type", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pType5, "S5 Type", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pType6, "S6 Type", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pAO1, "S1 Above Open", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pAO2, "S2 Above Open", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pAO3, "S3 Above Open", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pAO4, "S4 Above Open", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pAO5, "S5 Above Open", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+plot(pAO6, "S6 Above Open", color = COLOR_NEUTRAL, precision = 0, display = display.data_window + display.pine_screener)
+
+// States, not edges: a screen asks "is it true now", where the Suite's alerts ask "did it just
+// become true". Usable as screener filters and as ordinary chart alerts.
+
+// SCREENER-4: named candle filters for the screen's own timeframe (the focus columns as words).
+// Colors use FTFC's rule: a doji counts red.
+alertcondition(math.abs(pFState) == 2, "In force", "Signal in force on the screen's timeframe")
+alertcondition(pFC2 == 1, "C2: 1", "C2 is inside")
+alertcondition(pFC2 == 2, "C2: 2U", "C2 is 2U")
+alertcondition(pFC2 == -2, "C2: 2D", "C2 is 2D")
+alertcondition(math.abs(pFC2) == 3, "C2: 3", "C2 is outside")
+alertcondition(pFC1 == 1, "C1: 1", "C1 is inside")
+alertcondition(pFC1 == 2, "C1: 2U", "C1 is 2U")
+alertcondition(pFC1 == -2, "C1: 2D", "C1 is 2D")
+alertcondition(math.abs(pFC1) == 3, "C1: 3", "C1 is outside")
+alertcondition(pFCC == 1, "CC: 1", "CC is inside")
+alertcondition(pFCC == 2, "CC: 2U", "CC is 2U")
+alertcondition(pFCC == -2, "CC: 2D", "CC is 2D")
+alertcondition(math.abs(pFCC) == 3, "CC: 3", "CC is outside")
+alertcondition(pFCC == 2 and pFCCColor == -1, "CC: 2U red", "CC is 2U closing red")
+alertcondition(pFCC == -2 and pFCCColor == 1, "CC: 2D green", "CC is 2D closing green")
+alertcondition(pFCCShape == 1, "CC: hammer", "CC is a hammer")
+alertcondition(pFCCShape == -1, "CC: shooter", "CC is a shooter")
+alertcondition(pFCCF2 == 1, "CC: F2D", "CC is a Failing 2D (broke the C1 low and failed)")
+alertcondition(pFCCF2 == -1, "CC: F2U", "CC is a Failing 2U (broke the C1 high and failed)")
+alertcondition(pFC1Color == 1, "C1: green", "C1 closed green")
+alertcondition(pFC1Color == -1, "C1: red", "C1 closed red")
+alertcondition(pFShape == 1, "C1: hammer", "C1 is a hammer")
+alertcondition(pFShape == -1, "C1: shooter", "C1 is a shooter")
+
+alertcondition(aFtfcUp, "FTFC Up (state)", "FTFC Up")
+alertcondition(aFtfcDown, "FTFC Down (state)", "FTFC Down")
+alertcondition(aBullInForce, "Bullish Signal In Force (any slot)", "Bullish signal in force")
+alertcondition(aBearInForce, "Bearish Signal In Force (any slot)", "Bearish signal in force")
+alertcondition(aDomino, "Domino (state)", "Domino")
