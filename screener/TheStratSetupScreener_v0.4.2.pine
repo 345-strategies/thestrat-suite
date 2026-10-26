@@ -1,5 +1,5 @@
 //@version=6
-// TheStrat Setup Screener - v0.4.1
+// TheStrat Setup Screener - v0.4.2
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -60,18 +60,24 @@
 // CC, so a weekly 2D that closed green as a hammer could not be screened in one pass. CC's shape
 // uses the same detectPatterns() and Hammer/Shooter settings as C1. It is a filter only, with no
 // column, because the budget is full.
-// Budget now: 38 plots + 26 alertconditions = 64 of 64, the limit. A new plot or filter needs
+// Budget then: 38 plots + 26 alertconditions = 64 of 64, the limit. A new plot or filter needs
 // one removed first.
 //
 // SCREENER-6 (2026-10-25): renamed TheStrat Setup Screener (shorttitle Setup Screener), the name
 // used on thestratsuite.com. No engine or output change.
+//
+// SCREENER-7 (2026-10-25): CC: F2D and CC: F2U filters, so a Failing 2 can be screened by name
+// instead of by Pattern code. They follow the Failing 2 Detection settings. Lead Exhaustion R and
+// Lead C1 HAM/SHO are dropped to make room; exhaustion levels still drive 'Exhaustion Disables
+// In Force', and C1 Shape plus the C1/CC hammer and shooter filters still cover hammers.
+// Budget now: 36 plots + 28 alertconditions = 64 of 64.
 //
 // Sign convention for every plot: positive = bullish, negative = bearish, 0 = none or conflict.
 // One exception: a potential (State 1) has no direction yet, so its State and Pattern are
 // unsigned.
 // Column guide and screen recipes: screener/README.md and thestratsuite.com.
 
-indicator("TheStrat Setup Screener - v0.4.1", shorttitle = "Setup Screener", overlay = false, precision = 2, max_bars_back = 200)
+indicator("TheStrat Setup Screener - v0.4.2", shorttitle = "Setup Screener", overlay = false, precision = 2, max_bars_back = 200)
 
 import SpinTrades/TheStratGrammar/1 as sg
 
@@ -646,12 +652,10 @@ float pLeadDir = na
 float pLeadPattern = na
 float pLeadTF = na
 float pLeadMagR = na
-float pLeadExhR = na
 float pSetupDist = na
 float pSetupTF = na
 float pDomino = na
 float pNetInForce = na
-float pLeadHamSho = na
 float pType1 = na, float pType2 = na, float pType3 = na, float pType4 = na, float pType5 = na, float pType6 = na
 float pAO1 = na, float pAO2 = na, float pAO3 = na, float pAO4 = na, float pAO5 = na, float pAO6 = na
 float pFState = na
@@ -664,6 +668,7 @@ float pFShape = na
 float pFC1Color = na
 float pFCCColor = na
 float pFCCShape = na
+float pFCCF2 = na
 float pState1 = na, float pState2 = na, float pState3 = na, float pState4 = na, float pState5 = na, float pState6 = na
 
 bool aFtfcUp = false
@@ -722,8 +727,6 @@ if barstate.islast
     array<bool> rDrL = array.new<bool>(6, false)
     array<bool> rF2u = array.new<bool>(6, false)
     array<bool> rF2d = array.new<bool>(6, false)
-    array<bool> rHam = array.new<bool>(6, false)
-    array<bool> rSho = array.new<bool>(6, false)
     for i = 0 to 5
         if array.get(ok, i)
             [ccType, c1Num, c2Num, inH, inL, drH, drL, f2u, f2d, ham, sho] = evalSlot(array.get(C1H, i), array.get(C1L, i), array.get(C1O, i), array.get(C1C, i), array.get(CCO, i), array.get(CCH, i), array.get(CCL, i), array.get(CCC, i), array.get(C2H, i), array.get(C2L, i), array.get(C2O, i), array.get(C2C, i), array.get(C3H, i), array.get(C3L, i), array.get(EXH, i), array.get(EXL, i), ftfc_up, ftfc_down)
@@ -736,8 +739,6 @@ if barstate.islast
             array.set(rDrL, i, drL)
             array.set(rF2u, i, f2u)
             array.set(rF2d, i, f2d)
-            array.set(rHam, i, ham)
-            array.set(rSho, i, sho)
 
     // Per-slot columns.
     array<float> typeOut = array.new<float>(6, na)
@@ -773,6 +774,7 @@ if barstate.islast
         pFCCColor := cF0 > oF0 ? 1 : -1
         [ccHam, ccSho] = detectPatterns(oF0, hF0, lF0, cF0)
         pFCCShape := ccHam ? 1 : ccSho ? -1 : 0
+        pFCCF2 := fF2d ? 1 : fF2u ? -1 : 0
     pNetInForce := netIn
     aBullInForce := array.includes(rInH, true)
     aBearInForce := array.includes(rInL, true)
@@ -791,23 +793,17 @@ if barstate.islast
         bool bull = leadDir == 1
         pLeadPattern := patternCode(bull, array.get(rType, leadIdx), array.get(rC1N, leadIdx), array.get(rC2N, leadIdx), array.get(rF2u, leadIdx), array.get(rF2d, leadIdx))
         pLeadTF := slotMinutes(array.get(lbl, leadIdx))
-        pLeadHamSho := array.get(rHam, leadIdx) ? 1 : array.get(rSho, leadIdx) ? -1 : 0
         // Trigger = C1 extreme on the signal side; stop = the CC's opposite extreme (the Suite's
-        // default CC stop reference); targets = C2 extreme (magnitude) and exhaustion.
+        // default CC stop reference); target = C2 extreme (magnitude).
         float trig = bull ? array.get(C1H, leadIdx) : array.get(C1L, leadIdx)
         float stop = bull ? array.get(CCL, leadIdx) : array.get(CCH, leadIdx)
         float mag = bull ? array.get(C2H, leadIdx) : array.get(C2L, leadIdx)
-        float exh = bull ? array.get(EXH, leadIdx) : array.get(EXL, leadIdx)
         float risk = bull ? trig - stop : stop - trig
         bool magAhead = bull ? mag > trig : mag < trig
-        bool exhAhead = bull ? exh > trig : exh < trig
         if risk > 0 and not na(mag) and magAhead
             pLeadMagR := math.abs(mag - trig) / risk
-        if risk > 0 and not na(exh) and exhAhead
-            pLeadExhR := math.abs(exh - trig) / risk
     else
         pLeadPattern := 0
-        pLeadHamSho := 0
 
     // Nearest setup: the closest untriggered trigger among inside-bar CCs with a signal drawn
     // (the Suite's isPotentialBull/Bear). + = bullish trigger above price, - = bearish below.
@@ -940,12 +936,10 @@ plot(pLeadDir, "Lead Direction", color = COLOR_NEUTRAL, precision = 0)
 plot(pLeadPattern, "Lead Pattern", color = COLOR_NEUTRAL, precision = 0)
 plot(pLeadTF, "Lead TF (min)", color = COLOR_NEUTRAL, precision = 0)
 plot(pLeadMagR, "Lead Magnitude R", color = COLOR_NEUTRAL)
-plot(pLeadExhR, "Lead Exhaustion R", color = COLOR_NEUTRAL)
 plot(pSetupDist, "Nearest Setup %", color = COLOR_NEUTRAL)
 plot(pSetupTF, "Nearest Setup TF (min)", color = COLOR_NEUTRAL, precision = 0)
 plot(pDomino, "Domino", color = COLOR_NEUTRAL, precision = 0)
 plot(pNetInForce, "Net In Force", color = COLOR_NEUTRAL, precision = 0)
-plot(pLeadHamSho, "Lead C1 HAM/SHO", color = COLOR_NEUTRAL, precision = 0)
 plot(pFC1Color, "C1 Color", color = COLOR_NEUTRAL, precision = 0)
 plot(pState1, "S1 State", color = COLOR_NEUTRAL, precision = 0)
 plot(pState2, "S2 State", color = COLOR_NEUTRAL, precision = 0)
@@ -988,6 +982,8 @@ alertcondition(pFCC == 2 and pFCCColor == -1, "CC: 2U red", "CC is 2U closing re
 alertcondition(pFCC == -2 and pFCCColor == 1, "CC: 2D green", "CC is 2D closing green")
 alertcondition(pFCCShape == 1, "CC: hammer", "CC is a hammer")
 alertcondition(pFCCShape == -1, "CC: shooter", "CC is a shooter")
+alertcondition(pFCCF2 == 1, "CC: F2D", "CC is a Failing 2D (broke the C1 low and failed)")
+alertcondition(pFCCF2 == -1, "CC: F2U", "CC is a Failing 2U (broke the C1 high and failed)")
 alertcondition(pFC1Color == 1, "C1: green", "C1 closed green")
 alertcondition(pFC1Color == -1, "C1: red", "C1 closed red")
 alertcondition(pFShape == 1, "C1: hammer", "C1 is a hammer")
