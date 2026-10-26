@@ -4,6 +4,8 @@
 
 **[The Strat Stats (NQ)](https://claude.ai/artifact/JQ5Uam7QrbktqqrAd54ZoY)**
 
+Our ES and NQ version of these stats, in the same format: **[Strat Stats: ES and NQ](https://345strategies.com/research/strat-stats)** on 345strategies.com.
+
 It is the cleanest public test of the setups that I know of. Every setup is measured the same way and compared against a baseline of every break on that timeframe, with honest statistics. All credit for the study and its format goes to him.
 
 This page explains how to read it in this repo's vocabulary (`concepts/bar-types.md`).
