@@ -63,8 +63,8 @@
 // Budget then: 38 plots + 26 alertconditions = 64 of 64, the limit. A new plot or filter needs
 // one removed first.
 //
-// SCREENER-6 (2026-10-25): renamed TheStrat Setup Screener (shorttitle Setup Screener), the name
-// used on thestratsuite.com. No engine or output change.
+// SCREENER-6 (2026-10-25): renamed TheStrat Setup Screener (shorttitle Setup Screener). No engine
+// or output change.
 //
 // SCREENER-7 (2026-10-25): CC: F2D and CC: F2U filters, so a Failing 2 can be screened by name
 // instead of by Pattern code. They follow the Failing 2 Detection settings. Lead Exhaustion R and
@@ -83,7 +83,7 @@
 // Sign convention for every plot: positive = bullish, negative = bearish, 0 = none or conflict.
 // One exception: a potential (State 1) has no direction yet, so its State and Pattern are
 // unsigned.
-// Column guide and screen recipes: screener/README.md and thestratsuite.com.
+// Column guide and screen recipes: screener/README.md.
 
 indicator("TheStrat Setup Screener - v0.5.0", shorttitle = "Setup Screener", overlay = true, precision = 2, max_bars_back = 200)
 
