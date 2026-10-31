@@ -82,6 +82,9 @@ class DayReplay:
     timeframes: tuple[str, ...]
     ftfc_timeframes: tuple[str, ...]
     minutes: list[MinuteState] = field(default_factory=list)
+    history: dict[str, list[Bar]] = field(default_factory=dict)   # completed bars before the day, for chart context
+
+    HISTORY_BARS = 60
 
     def as_dict(self) -> dict:
         return {
@@ -92,6 +95,8 @@ class DayReplay:
             "timeframes": list(self.timeframes),
             "ftfc_timeframes": list(self.ftfc_timeframes),
             "failed_method": "Reclaim",
+            "history": {tf: [{"start": b.ts.isoformat(timespec="minutes"), "o": b.open, "h": b.high, "l": b.low, "c": b.close}
+                             for b in bars] for tf, bars in self.history.items()},
             "minutes": [m.as_dict() for m in self.minutes],
             "events": [e.as_dict() for e in self.events()],
             "event_types": {k: {"default_on": v[1]} for k, v in _event_types().items()},
@@ -196,6 +201,7 @@ def replay_day(
         key[tf] = session.bucket(first_ts, tf) if carry else None
 
     replay = DayReplay(symbol, day, tfs, ftfc_tfs)
+    replay.history = {tf: list(completed[tf][-DayReplay.HISTORY_BARS:]) for tf in tfs}
     latch = {tf: PeriodLatch() for tf in tfs}
     for m in today:
         for tf in tfs:
