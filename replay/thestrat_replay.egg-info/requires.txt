@@ -1,0 +1,8 @@
+thestrat-grammar
+
+[dev]
+pytest>=7
+
+[parquet]
+pandas
+pyarrow
