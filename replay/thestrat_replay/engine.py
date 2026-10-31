@@ -20,6 +20,7 @@ from thestrat_grammar import Candle, Continuity, FailedMethod, State, classify, 
 
 from .bars import Bar
 from .sessions import TIMEFRAMES, EquityRTH
+from .signals import PeriodLatch, SignalSettings, SignalState, evaluate, exhaustion_levels
 
 CALENDAR_TFS = ("D", "W", "M")
 
@@ -32,6 +33,7 @@ class TFState:
     bar: Bar                 # the forming bar so far (ts = its open time)
     c1: Bar | None           # last completed bar; None when history is too short
     state: State | None      # bar type of the forming bar vs C1; None without C1
+    signal: SignalState | None = None   # Suite signal/target picture; None without C1..C3
 
     @property
     def notation(self) -> str | None:
@@ -49,6 +51,8 @@ class TFState:
             d["structure"] = self.state.structure.value
             d["above_open"] = self.state.above_open
             d["failed"] = self.state.failed
+        if self.signal is not None:
+            d["signal"] = self.signal.as_dict()
         return d
 
 
@@ -123,6 +127,7 @@ def replay_day(
     ftfc_timeframes: Sequence[str] | None = None,
     failed_method: FailedMethod = FailedMethod.RECLAIM,
     session: EquityRTH | None = None,
+    signals: SignalSettings | None = None,
 ) -> DayReplay:
     """Replay `day` minute by minute.
 
@@ -133,8 +138,13 @@ def replay_day(
         week's and month's earlier sessions, so pass enough (two months covers
         it). Without it, daily history is built from `minutes`.
     ftfc_timeframes: which timeframes FTFC reads; defaults to all of them.
+    signals: Suite signal settings; defaults to the Suite's defaults.
     """
     session = session or EquityRTH()
+    settings = signals or SignalSettings()
+    if settings.failed_2_method != {"reclaim": "Reclaim", "open": "Open", "reclaim_and_open": "Reclaim + Open",
+                                    "reclaim_or_open": "Reclaim OR Open"}[failed_method.value]:
+        raise ValueError("failed_method and signals.failed_2_method must agree")
     tfs = tuple(timeframes)
     for tf in tfs:
         if tf not in TIMEFRAMES:
@@ -175,8 +185,8 @@ def replay_day(
         key[tf] = session.bucket(first_ts, tf) if carry else None
 
     replay = DayReplay(symbol, day, tfs, ftfc_tfs)
+    latch = {tf: PeriodLatch() for tf in tfs}
     for m in today:
-        states: dict[str, TFState] = {}
         for tf in tfs:
             k = session.bucket(m.ts, tf)
             if k != key[tf]:
@@ -186,10 +196,22 @@ def replay_day(
                 key[tf] = k
             else:
                 forming[tf] = forming[tf].extend(m)
-            bar = forming[tf]
-            c1 = completed[tf][-1] if completed[tf] else None
+        cand = [forming[tf].candle() for tf in ftfc_tfs]
+        ftfc = continuity(cand)
+        ftfc_up = all(c.above_open for c in cand)
+        ftfc_down = not any(c.above_open for c in cand)
+        states: dict[str, TFState] = {}
+        for tf in tfs:
+            bar, done = forming[tf], completed[tf]
+            c1 = done[-1] if done else None
             st = classify(bar.candle(), c1.candle(), method=failed_method, live=True) if c1 else None
-            states[tf] = TFState(tf, bar, c1, st)
-        ftfc = continuity(states[tf].bar.candle() for tf in ftfc_tfs)
+            sig = None
+            if len(done) >= 3:
+                L = latch[tf]
+                if L.period_start != bar.ts:
+                    exh_h, exh_l = exhaustion_levels(done)
+                    L.roll(bar.ts, done[-1], done[-2], exh_h, exh_l)
+                sig = evaluate(bar, done[-1], done[-2], done[-3], L, ftfc_up, ftfc_down, settings)
+            states[tf] = TFState(tf, bar, c1, st, sig)
         replay.minutes.append(MinuteState(m.ts, m, states, ftfc))
     return replay

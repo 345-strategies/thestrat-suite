@@ -2,8 +2,26 @@
 
 Replays a trading day through TheStrat Suite's logic one minute at a time, for the day replay tool.
 
-**Status: Phase 1 of the MVP, private.** It builds every timeframe's forming bar minute by minute, finds each
-one's C1, labels its bar type and reads FTFC. Signals, targets and events come in later phases.
+**Status: Phases 1 and 2 of the MVP, private.** It builds every timeframe's forming bar minute by minute,
+finds each one's C1, labels its bar type and reads FTFC (Phase 1). It also runs the Suite's signal, in-force,
+magnitude and exhaustion logic for every timeframe at every minute (Phase 2, `signals.py`). Events and the
+player come next.
+
+## Signals (Phase 2)
+
+`signals.py` is a line-by-line port of `computeSignalState`, `shouldDrawC1Level`, `detectFailed2` and
+`findExhaustionLevels` from `pine/TheStratSuite_v3.1.1.pine`, using the Pine's own variable names.
+`SignalSettings()` holds the Suite's defaults: inside reversals, 2-2 reversals and inside continuations on,
+everything else off, and Reclaim Failing 2 detection. `SignalSettings.all_signals()` turns on every family.
+
+Levels latch per period the way the Suite does. The trigger is C1, magnitude is C2, and exhaustion is the
+nearest intact pivot scanned from completed bars at period open. Hit flags only ever turn on within a period.
+Exhaustion needs more than 50 completed bars on that timeframe (the Pine's `bar_index > 50` gate). That means
+about 4 years of history for M and a year for W.
+
+Not ported: stops and break-even, the Lead filter, Domino, preview and straddle shifts, and line styles. The
+`combo` string is the replay's own label and has not been checked against the Suite's label text yet. This port
+has not been compared to the Suite on real data yet.
 
 ## Why a separate engine
 
