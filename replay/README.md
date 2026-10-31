@@ -2,10 +2,10 @@
 
 Replays a trading day through TheStrat Suite's logic one minute at a time, for the day replay tool.
 
-**Status: Phases 1 and 2 of the MVP, private.** It builds every timeframe's forming bar minute by minute,
+**Status: Phases 1 to 3 of the MVP, private.** It builds every timeframe's forming bar minute by minute,
 finds each one's C1, labels its bar type and reads FTFC (Phase 1). It also runs the Suite's signal, in-force,
-magnitude and exhaustion logic for every timeframe at every minute (Phase 2, `signals.py`). Events and the
-player come next.
+magnitude and exhaustion logic for every timeframe at every minute (Phase 2, `signals.py`). Then it turns
+the day into a ranked event feed (Phase 3, `events.py`). The replay page comes next.
 
 ## Signals (Phase 2)
 
@@ -63,3 +63,23 @@ daily bars, or include that much 1m history.
 
 The day file (`schema: thestrat-replay/day/1`) holds one entry per minute: the 1m bar, FTFC, and for each
 timeframe the forming OHLC, its C1, and its bar type.
+
+## Events (Phase 3)
+
+`events.py` compares each minute with the one before and emits:
+
+| Type | Fires when | Default |
+| --- | --- | --- |
+| `signal_in_force` | a timeframe's signal goes in force, once per side per bar | on |
+| `signal_lost` | an in-force signal drops back through its trigger | on |
+| `failing_2` | a forming bar becomes F2u or F2d, once per bar | on |
+| `simultaneous_break` | 2 or more distinct C1 prices broken on the same side in the same minute | on |
+| `magnitude_hit` / `exhaustion_hit` | a drawn target is touched (the Suite's crossed latch) | on |
+| `liquidity_touch` | first touch today of a prior D, W or M high or low, or a D/W/M exhaustion level | on |
+| `ftfc_change` | FTFC turns up, down or to conflict and holds for 5 minutes | on |
+| `bar_type_change` | a forming bar changes type (1 to 2u, 2u to 3, and so on) | off |
+
+Each event gets a score: a base for its type, plus half its highest timeframe's weight (5m = 1 up to
+M = 8), plus 1 when it agrees with FTFC. Events in the opening minute lose 1.5, because every intraday bar
+starts then and breaks are expected. The top 4 default-on events in each clock hour are marked as headlines.
+These weights are a first guess, to be tuned on real days. Times in the feed are Pacific.

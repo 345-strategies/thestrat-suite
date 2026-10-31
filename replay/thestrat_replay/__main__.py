@@ -25,7 +25,7 @@ def main(argv=None) -> None:
     ap.add_argument("--symbol", default="SPY")
     ap.add_argument("--ts-col", default="ts")
     ap.add_argument("--timeframes", default="5,15,30,60,240,D,W,M")
-    ap.add_argument("--ftfc", default=None, help="comma list; defaults to all timeframes")
+    ap.add_argument("--ftfc", default="15,30,60,240,D", help="comma list; default is the Suite Day Trade preset")
     ap.add_argument("--out")
     a = ap.parse_args(argv)
     tfs = tuple(a.timeframes.split(","))

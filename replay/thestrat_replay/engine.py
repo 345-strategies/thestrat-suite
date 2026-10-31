@@ -93,7 +93,18 @@ class DayReplay:
             "ftfc_timeframes": list(self.ftfc_timeframes),
             "failed_method": "Reclaim",
             "minutes": [m.as_dict() for m in self.minutes],
+            "events": [e.as_dict() for e in self.events()],
+            "event_types": {k: {"default_on": v[1]} for k, v in _event_types().items()},
         }
+
+    def events(self):
+        from .events import build_events
+        return build_events(self)
+
+
+def _event_types():
+    from .events import EVENT_TYPES
+    return EVENT_TYPES
 
 
 def _aggregate(bars: Iterable[Bar], tf: str, session: EquityRTH) -> list[Bar]:
