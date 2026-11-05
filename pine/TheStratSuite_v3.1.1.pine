@@ -16,6 +16,11 @@
 // plain 2s so 1s, 3s and Failing 2s stand out. Off by default; inputs in "Display - Bar
 // Numbers", engine in SECTION 15.
 //
+// BARCOLOR-SIF-1 (2026-11-05): Signals In Force Candles. A third Color Chart Candles mode that
+// paints a candle bull or bear when a Suite signal is in force on the user's timeframes, as it
+// stood at that candle's close (each slot's forming period is rebuilt from chart bars, the way
+// FTFC Candles grades continuity, so history does not repaint). Engine in SECTION 14.
+//
 // CHART-TF-1 (2026-11-05): Include Chart Timeframe. The timeframe being viewed joins the six
 // slots, in timeframe order, and follows the chart. Off by default; toggle in "Timeframe Preset",
 // slot resolution right after the preset overrides in SECTION 2.
@@ -31,7 +36,7 @@
 //
 // Features:
 //   - 6 configurable timeframes with independent settings, optionally including the chart's own
-//   - Bar coloring by Strat classification or timeframe continuity (v3)
+//   - Bar coloring by Strat classification, timeframe continuity, or signals in force (v3)
 //   - Bar numbers (1/2u/2d/3) on chart candles, with tiered emphasis
 //   - Pattern detection: Inside bars, Hammers, Shooters, Failed 2s, Outside bars
 //   - Magnitude and Exhaustion level targets
@@ -398,15 +403,19 @@ labelBackgroundTransparency = input.int(20, "Transparency", minval = 0, maxval =
 // -------------------- DISPLAY - BAR COLORING --------------------
 // FEATURE BARCOLOR-1 (2026-07-30): candle painting. Engine and rationale in SECTION 14.
 grpBarColor = "Display - Bar Coloring"
-barColorMode = input.string("Off", "Color Chart Candles", options = ["Off", "Strat Candles", "FTFC Candles"], group = grpBarColor, tooltip = "Paint the chart's candles.\n\nStrat Candles: color each chart bar by its Strat classification against the prior bar - inside 1, directional 2u/2d, outside 3u/3d, and Failing 2s - using the same classification (and Failing 2 Detection Method) as the data table's CC cell.\n\nFTFC Candles: color each bar by Full Timeframe Continuity - all monitored timeframes above their open (up), all below (down), or conflicting. Historical bars are graded by that bar's close against each timeframe's open as it stood at the time, so painted history shows continuity as it actually developed, not as the periods finally closed.")
+barColorMode = input.string("Off", "Color Chart Candles", options = ["Off", "Strat Candles", "FTFC Candles", "Signals In Force"], group = grpBarColor, tooltip = "Paint the chart's candles.\n\nStrat Candles: color each chart bar by its Strat classification against the prior bar - inside 1, directional 2u/2d, outside 3u/3d, and Failing 2s - using the same classification (and Failing 2 Detection Method) as the data table's CC cell.\n\nFTFC Candles: color each bar by Full Timeframe Continuity - all monitored timeframes above their open (up), all below (down), or conflicting. Historical bars are graded by that bar's close against each timeframe's open as it stood at the time, so painted history shows continuity as it actually developed, not as the periods finally closed.\n\nSignals In Force: color each bar bull or bear when one of your enabled signals is in force on your timeframes - the same in-force test the data table uses, with your signal toggles and filters. Bars with nothing in force keep the chart's normal colors. Historical bars are graded as each timeframe stood at that bar's close, so history shows when signals were actually in force.")
 paintInsideBars = input.bool(true, "1 (Inside)", inline = "bc_f1", group = grpBarColor, active = barColorMode == "Strat Candles", tooltip = "Toggle candle paint per family. Colors follow the Style sections: 1s use the Inside Bar colors, 2s use the Signal colors, 3s use the Outside Bar colors, and Failing 2s use the Range Reclaim colors - so a custom palette applies to lines, labels, and candles together. With F2 (Failing) unchecked, or Failing 2 Detection disabled, a Failing 2 paints as its plain 2u/2d.")
 paint2Bars = input.bool(true, "2 (Directional)", inline = "bc_f1", group = grpBarColor, active = barColorMode == "Strat Candles")
 paintOutsideBars = input.bool(true, "3 (Outside)", inline = "bc_f2", group = grpBarColor, active = barColorMode == "Strat Candles")
 paintFailedBars = input.bool(true, "F2 (Failing)", inline = "bc_f2", group = grpBarColor, active = barColorMode == "Strat Candles")
-colorFtfcUpBar = input.color(#4caf50, "Up / Down / Conflict", inline = "bc_ftfc", group = grpBarColor, active = barColorMode == "FTFC Candles", tooltip = "Candle colors for full timeframe continuity up, down, and conflict.")
-colorFtfcDownBar = input.color(#f23645, "", inline = "bc_ftfc", group = grpBarColor, active = barColorMode == "FTFC Candles")
-colorFtfcConflictBar = input.color(#808080, "", inline = "bc_ftfc", group = grpBarColor, active = barColorMode == "FTFC Candles")
-paintFtfcConflict = input.bool(true, "Color Conflict Bars", group = grpBarColor, active = barColorMode == "FTFC Candles", tooltip = "OFF: conflicted bars keep the chart's normal candle colors, so only full up/down agreement is painted.")
+colorFtfcUpBar = input.color(#4caf50, "Up / Down / Conflict", inline = "bc_ftfc", group = grpBarColor, active = barColorMode == "FTFC Candles" or barColorMode == "Signals In Force", tooltip = "Candle colors for bull (up), bear (down), and conflict. Shared by FTFC Candles and Signals In Force.")
+colorFtfcDownBar = input.color(#f23645, "", inline = "bc_ftfc", group = grpBarColor, active = barColorMode == "FTFC Candles" or barColorMode == "Signals In Force")
+colorFtfcConflictBar = input.color(#808080, "", inline = "bc_ftfc", group = grpBarColor, active = barColorMode == "FTFC Candles" or barColorMode == "Signals In Force")
+paintFtfcConflict = input.bool(true, "Color Conflict Bars", group = grpBarColor, active = barColorMode == "FTFC Candles" or barColorMode == "Signals In Force", tooltip = "OFF: conflicted bars keep the chart's normal candle colors, so only full up/down agreement is painted. Signals In Force uses this only with Conflict Color, when bull and bear signals are in force on different timeframes at once.")
+// FEATURE BARCOLOR-SIF-1 (2026-11-05): Signals In Force Candles. Engine in SECTION 14.
+sifDisagree = input.string("Lead Timeframe Wins", "When Timeframes Disagree", options = ["Lead Timeframe Wins", "Conflict Color"], group = grpBarColor, active = barColorMode == "Signals In Force", tooltip = "What a bar shows when a bull signal is in force on one timeframe and a bear signal on another.\n\nLead Timeframe Wins: the largest timeframe with a signal in force sets the color - the same timeframe the Lead Signal filter anchors to. Smaller timeframes pointing the other way do not override it.\n\nConflict Color: the bar is painted the Conflict color (or left normal with Color Conflict Bars off).")
+sifMinCount = input.int(1, "Minimum Timeframes In Force", minval = 1, maxval = 6, group = grpBarColor, active = barColorMode == "Signals In Force", tooltip = "Paint only when at least this many timeframes have a signal in force in the painted direction. 1 paints any in-force signal; raise it to show only stacked, multi-timeframe agreement.")
+sifShadeByCount = input.bool(true, "Shade By Count", group = grpBarColor, active = barColorMode == "Signals In Force", tooltip = "ON: a bar backed by one timeframe is painted lighter, two a little stronger, three or more at full color, so stacked signals stand out. OFF: every painted bar at full color.")
 paintFtfcTransitions = input.bool(true, "Highlight Failing 2 Flips", group = grpBarColor, active = barColorMode == "FTFC Candles", tooltip = "When continuity flips while a Failing 2 (Range Reclaim) is live on a monitored timeframe, paint the flip bar with the Range Reclaim color instead of the plain continuity color. A reclaim that flips continuity is the highest-conviction version of the signal - trapped traders from the failed breakout fuel the new direction.")
 
 // -------------------- DISPLAY - BAR NUMBERS --------------------
@@ -3456,6 +3465,180 @@ if barColorMode == "FTFC Candles"
             chartCandleColor := colorFtfcDownBar
         else if paintFtfcConflict
             chartCandleColor := colorFtfcConflictBar
+
+// ----------------------------------------------------------------------------
+// FEATURE BARCOLOR-SIF-1 (2026-11-05): Signals In Force Candles.
+//
+// signalInForceHigh/Low on ProcessingResult are only computed on barstate.islast (or with
+// stops on, from served HTF values that are FINAL period values on historical bars under
+// lookahead_on), so painting history from them would either show nothing or show signals
+// "in force" from the period's open because of where the period eventually closed. Instead,
+// each slot's forming period is rebuilt from chart bars, as paintSlotFailed2 does: running
+// high/low keyed on the served period-open time, the chart close standing in for the period
+// close. C1, C2, C3, the period open and the current-channel exhaustion are all completed or
+// period-stable values under lookahead_on (FIX P0-2), so they are honest as served.
+//
+// The in-force test below mirrors computeSignalState (SECTION 7) term for term: the seven
+// DEBUG-TERMS-1 terms, shouldDrawC1High/Low, the three draw suppressions, the F2 / non-F2
+// split, and the exhaustion gate. It reuses the same helpers (detectFailed2, detectPatterns,
+// isInsideBar, shouldDrawC1High/Low), so the user's signal toggles, filters and Failing 2
+// method all apply. Any change to the in-force block in computeSignalState must be made
+// here too. The FTFC filters read paintSifFtfcUp/Down, continuity graded at this bar's close
+// (the FTFC Candles engine), never the hindsight ftfc_up/ftfc_down.
+//
+// Preview and straddle slots: on history there is no preview. On the live bar this reads the
+// real served period, not the preview-shifted one, so the candle shows what is in force now,
+// not what the next period would look like.
+//
+// Six independent call sites, one per slot, each with its own var state - never a loop.
+paintSlotInForce(bool en, int ccTime, float c1H, float c1L, float c1O, float c1C, float c2H, float c2L, float c2O, float c2C, float ccO, float exhHP, float exhLP, bool fUp, bool fDown) =>
+    var float runH = na
+    var float runL = na
+    var int lastP = na
+    var bool magHighX = false
+    var bool magLowX = false
+    var bool exhHighX = false
+    var bool exhLowX = false
+    var float exhHigh = na
+    var float exhLow = na
+    if not na(ccTime)
+        if na(lastP) or ccTime != lastP
+            runH := high
+            runL := low
+            lastP := ccTime
+            magHighX := false
+            magLowX := false
+            exhHighX := false
+            exhLowX := false
+            exhHigh := exhHP
+            exhLow := exhLP
+        else
+            runH := math.max(runH, high)
+            runL := math.min(runL, low)
+    bool inHigh = false
+    bool inLow = false
+    int dir = 0
+    if en and not na(c1H) and not na(c1L) and not na(c2H) and not na(c2L) and not na(ccO) and not na(runH) and not na(runL)
+        // Crossed flags, latched for the period (computeSignalState, PREVIEW-CROSSED-1 block).
+        if not magHighX and runH >= c2H
+            magHighX := true
+        if not magLowX and runL <= c2L
+            magLowX := true
+        if not na(exhHigh) and not exhHighX and runH >= exhHigh
+            exhHighX := true
+        if not na(exhLow) and not exhLowX and runL <= exhLow
+            exhLowX := true
+        [isHammer, isShooter] = detectPatterns(c1O, c1H, c1L, c1C)
+        isInside = isInsideBar(c1H, c1L, c2H, c2L)
+        [cc_is_2u, cc_is_2d, cc_is_3, is_f2u, is_f2d, _preU, _preD] = detectFailed2(c1H, c1L, ccO, close, runH, runL, failed_2_method)
+        cc_broke_high = runH > c1H
+        cc_broke_low = runL < c1L
+        c1_broke_mag_high = c1H > c2H
+        c1_broke_mag_low = c1L < c2L
+        c1_was_2u = c1_broke_mag_high and not c1_broke_mag_low
+        c1_was_2d = c1_broke_mag_low and not c1_broke_mag_high
+        c2_closed_up = c2C > c2O
+        c2_closed_down = c2C < c2O
+        c1_was_f2d = c1_was_2d and c1C > c2L
+        c1_was_f2u = c1_was_2u and c1C < c2H
+        c1_was_neutral = not c1_was_2u and not c1_was_2d
+        inside_bullish = isInside and c2_closed_up
+        inside_bearish = isInside and c2_closed_down
+        is_hammer_reversal = c1_was_2d or inside_bearish or (c1_was_neutral and not isInside)
+        is_shooter_reversal = c1_was_2u or inside_bullish or (c1_was_neutral and not isInside)
+        is_hammer_momo = c1_was_2u or inside_bullish
+        is_shooter_momo = c1_was_2d or inside_bearish
+        hammer_shows = isHammer and (is_hammer_reversal or (is_hammer_momo and showContinuations))
+        shooter_shows = isShooter and (is_shooter_reversal or (is_shooter_momo and showContinuations))
+        inside_cont_high_passes_momo = not insideContOnlyMomo or isHammer
+        inside_cont_low_passes_momo = not insideContOnlyMomo or isShooter
+        twotwo_cont_high_passes_momo = not twoTwoContOnlyMomo or isHammer
+        twotwo_cont_low_passes_momo = not twoTwoContOnlyMomo or isShooter
+        c1_is_3 = c1H > c2H and c1L < c2L
+        twotwo_rev_high_passes = (not reversalsRequireActionable or isHammer) and (not reversalsRequireC1F2 or c1_was_f2d)
+        twotwo_rev_low_passes = (not reversalsRequireActionable or isShooter) and (not reversalsRequireC1F2 or c1_was_f2u)
+        p3_high_passes_ftfc = not p3RequireFTFC or fUp
+        p3_low_passes_ftfc = not p3RequireFTFC or fDown
+        t_insideRev_h  = isInside and not c2_closed_up and cc_is_2u
+        t_insideCont_h = inside_bullish and showInsideContinuations and inside_cont_high_passes_momo and cc_is_2u
+        t_hamSho_h     = hammer_shows and cc_broke_high
+        t_rev22_h      = showAllReversals and c1_was_2d and cc_is_2u and twotwo_rev_high_passes
+        t_cont22_h     = showContinuations and c1_was_2u and cc_is_2u and twotwo_cont_high_passes_momo
+        t_exp32_h      = showRangeExpansions and c1_is_3 and cc_is_2u
+        t_f2_h         = show_p3_toggle and is_f2d and p3_high_passes_ftfc
+        t_insideRev_l  = isInside and not c2_closed_down and cc_is_2d
+        t_insideCont_l = inside_bearish and showInsideContinuations and inside_cont_low_passes_momo and cc_is_2d
+        t_hamSho_l     = shooter_shows and cc_broke_low
+        t_rev22_l      = showAllReversals and c1_was_2u and cc_is_2d and twotwo_rev_low_passes
+        t_cont22_l     = showContinuations and c1_was_2d and cc_is_2d and twotwo_cont_low_passes_momo
+        t_exp32_l      = showRangeExpansions and c1_is_3 and cc_is_2d
+        t_f2_l         = show_p3_toggle and is_f2u and p3_low_passes_ftfc
+        signal_in_force_high = t_insideRev_h or t_insideCont_h or t_hamSho_h or t_rev22_h or t_cont22_h or t_exp32_h or t_f2_h
+        signal_in_force_low = t_insideRev_l or t_insideCont_l or t_hamSho_l or t_rev22_l or t_cont22_l or t_exp32_l or t_f2_l
+        currently_above_trigger = close > c1H
+        currently_below_trigger = close < c1L
+        three_2u_suppress_low = c1_is_3 and cc_is_2u and not is_f2u
+        three_2d_suppress_high = c1_is_3 and cc_is_2d and not is_f2d
+        inside_breakout_suppress_low = isInside and cc_broke_high and not is_f2u and not cc_is_3
+        inside_breakout_suppress_high = isInside and cc_broke_low and not is_f2d and not cc_is_3
+        twotwo_rev_f2_suppress_high = reversalsRequireC1F2 and c1_was_2d and not c1_was_f2d and not c1_is_3 and not isInside and not is_f2u and not is_f2d
+        twotwo_rev_f2_suppress_low = reversalsRequireC1F2 and c1_was_2u and not c1_was_f2u and not c1_is_3 and not isInside and not is_f2u and not is_f2d
+        [drawHighResult, _hiCont] = shouldDrawC1High(isInside, isHammer, isShooter, cc_is_2u, cc_is_2d, cc_is_3, is_f2u, is_f2d, fUp, fDown, c1_was_2u, c1_was_2d, c1_is_3, c2_closed_up, c2_closed_down)
+        [drawLowResult, _loCont] = shouldDrawC1Low(isInside, isShooter, isHammer, cc_is_2u, cc_is_2d, cc_is_3, is_f2u, is_f2d, fUp, fDown, c1_was_2u, c1_was_2d, c1_is_3, c2_closed_up, c2_closed_down)
+        drawHigh = drawHighResult and not three_2d_suppress_high and not inside_breakout_suppress_high and not twotwo_rev_f2_suppress_high
+        drawLow = drawLowResult and not three_2u_suppress_low and not inside_breakout_suppress_low and not twotwo_rev_f2_suppress_low
+        bool magFallbackHigh = na(exhHigh) and magHighX
+        bool magFallbackLow = na(exhLow) and magLowX
+        exhDisablesHigh = exhDisablesInForce and (exhHighX or magFallbackHigh)
+        exhDisablesLow = exhDisablesInForce and (exhLowX or magFallbackLow)
+        non_f2_in_force_high = signal_in_force_high and not is_f2d and currently_above_trigger
+        f2_in_force_high = show_p3_toggle and is_f2d and drawHigh and p3_high_passes_ftfc
+        non_f2_in_force_low = signal_in_force_low and not is_f2u and currently_below_trigger
+        f2_in_force_low = show_p3_toggle and is_f2u and drawLow and p3_low_passes_ftfc
+        inHigh := (non_f2_in_force_high or f2_in_force_high) and drawHigh and not exhDisablesHigh
+        inLow := (non_f2_in_force_low or f2_in_force_low) and drawLow and not exhDisablesLow
+        // Direction, resolved like getSignalDirection (SECTION 9) so a slot's color always
+        // matches its Lead direction: both sides in force (rare) is settled F2u = bear,
+        // F2d = bull, otherwise by the period's close vs its open.
+        if inHigh and inLow
+            dir := is_f2u ? -1 : is_f2d ? 1 : close > ccO ? 1 : -1
+        else if inHigh
+            dir := 1
+        else if inLow
+            dir := -1
+    dir
+
+if barColorMode == "Signals In Force"
+    // Continuity graded at this bar's close, for the FTFC filters only (see above).
+    [paintSifFtfcUp, paintSifFtfcDown] = calculateFTFC(rEN1, tf1O, close, rEN2, tf2O, close, rEN3, tf3O, close, rEN4, tf4O, close, rEN5, tf5O, close, rEN6, tf6O, close)
+    int sifDir1 = paintSlotInForce(rEN1 and timeframe.in_seconds(rTF1) >= chartTfSeconds, tf1CurrTime, tf1H, tf1L, tf1O_C1, tf1C_C1, tf1MagH, tf1MagL, tf1O_C2, tf1C_C2, tf1O, tf1ExhHP, tf1ExhLP, paintSifFtfcUp, paintSifFtfcDown)
+    int sifDir2 = paintSlotInForce(rEN2 and timeframe.in_seconds(rTF2) >= chartTfSeconds, tf2CurrTime, tf2H, tf2L, tf2O_C1, tf2C_C1, tf2MagH, tf2MagL, tf2O_C2, tf2C_C2, tf2O, tf2ExhHP, tf2ExhLP, paintSifFtfcUp, paintSifFtfcDown)
+    int sifDir3 = paintSlotInForce(rEN3 and timeframe.in_seconds(rTF3) >= chartTfSeconds, tf3CurrTime, tf3H, tf3L, tf3O_C1, tf3C_C1, tf3MagH, tf3MagL, tf3O_C2, tf3C_C2, tf3O, tf3ExhHP, tf3ExhLP, paintSifFtfcUp, paintSifFtfcDown)
+    int sifDir4 = paintSlotInForce(rEN4 and timeframe.in_seconds(rTF4) >= chartTfSeconds, tf4CurrTime, tf4H, tf4L, tf4O_C1, tf4C_C1, tf4MagH, tf4MagL, tf4O_C2, tf4C_C2, tf4O, tf4ExhHP, tf4ExhLP, paintSifFtfcUp, paintSifFtfcDown)
+    int sifDir5 = paintSlotInForce(rEN5 and timeframe.in_seconds(rTF5) >= chartTfSeconds, tf5CurrTime, tf5H, tf5L, tf5O_C1, tf5C_C1, tf5MagH, tf5MagL, tf5O_C2, tf5C_C2, tf5O, tf5ExhHP, tf5ExhLP, paintSifFtfcUp, paintSifFtfcDown)
+    int sifDir6 = paintSlotInForce(rEN6 and timeframe.in_seconds(rTF6) >= chartTfSeconds, tf6CurrTime, tf6H, tf6L, tf6O_C1, tf6C_C1, tf6MagH, tf6MagL, tf6O_C2, tf6C_C2, tf6O, tf6ExhHP, tf6ExhLP, paintSifFtfcUp, paintSifFtfcDown)
+    int sifBull = (sifDir1 == 1 ? 1 : 0) + (sifDir2 == 1 ? 1 : 0) + (sifDir3 == 1 ? 1 : 0) + (sifDir4 == 1 ? 1 : 0) + (sifDir5 == 1 ? 1 : 0) + (sifDir6 == 1 ? 1 : 0)
+    int sifBear = (sifDir1 == -1 ? 1 : 0) + (sifDir2 == -1 ? 1 : 0) + (sifDir3 == -1 ? 1 : 0) + (sifDir4 == -1 ? 1 : 0) + (sifDir5 == -1 ? 1 : 0) + (sifDir6 == -1 ? 1 : 0)
+    // Lead = the largest timeframe with a signal in force. Slot index is timeframe order
+    // (CHART-TF-1 keeps it that way), so scan from slot 6 down, as the Lead Signal filter does.
+    int sifLead = sifDir6 != 0 ? sifDir6 : sifDir5 != 0 ? sifDir5 : sifDir4 != 0 ? sifDir4 : sifDir3 != 0 ? sifDir3 : sifDir2 != 0 ? sifDir2 : sifDir1
+    int sifPaintDir = 0
+    bool sifConflict = false
+    if sifBull > 0 and sifBear > 0 and sifDisagree == "Conflict Color"
+        sifConflict := true
+    else
+        sifPaintDir := sifLead
+    int sifCount = sifPaintDir == 1 ? sifBull : sifPaintDir == -1 ? sifBear : math.max(sifBull, sifBear)
+    // Shade by count: one timeframe light, two stronger, three or more full color.
+    int sifTransp = not sifShadeByCount ? 0 : sifCount <= 1 ? 55 : sifCount == 2 ? 30 : 0
+    if sifCount >= sifMinCount
+        if sifConflict
+            if paintFtfcConflict
+                chartCandleColor := color.new(colorFtfcConflictBar, sifTransp)
+        else if sifPaintDir == 1
+            chartCandleColor := color.new(colorFtfcUpBar, sifTransp)
+        else if sifPaintDir == -1
+            chartCandleColor := color.new(colorFtfcDownBar, sifTransp)
 
 barcolor(chartCandleColor, title = "Strat / FTFC Candles")
 

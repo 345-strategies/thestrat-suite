@@ -136,6 +136,7 @@ v3's bar coloring (`BARCOLOR-1`, `SECTION 14`) is the one surface that touches h
 The two consequences in `SECTION 14`:
 
 - **FTFC Candles re-runs `calculateFTFC`** with the chart bar's own close against the served HTF opens, grading every historical bar exactly as continuity stood at that bar's close. On the live bar the served HTF close *is* the live close, so the candle always agrees with the table's FTFC row.
+- **Signals In Force Candles rebuild each slot's forming period** from chart bars (`paintSlotInForce`): running high/low keyed on the served period-open time, the chart close as the period close, and crossed-target flags latched per period. C1, C2, the period open and the current-channel exhaustion are completed or period-stable under `lookahead_on`, so the in-force test runs on honest inputs at every historical bar. It never reads `signalInForceHigh/Low`, whose served CC values are period-final on history. The FTFC filters inside it use continuity graded at the bar's close, as FTFC Candles does.
 - **`paintSlotFailed2` rebuilds each slot's intra-period range from chart bars** — a running high/low keyed on the served period-open time — because the served CC high/low are final period values on historical bars, the same lookahead leak. `detectFailed2` then grades the honestly-reconstructed range with the same engine the signal path uses.
 
 Strat Candles needs no reconstruction: `detectBarTypeAndFailed` reads only the chart bar and its predecessor, identical live and on reload by definition.
