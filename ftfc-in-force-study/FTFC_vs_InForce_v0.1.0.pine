@@ -1,0 +1,294 @@
+//@version=6
+// TheStrat FTFC vs In Force - v0.1.0 (study)
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
+// A learning study, not part of TheStrat Suite. It puts two questions side by side on every
+// bar, for the Hour, Day, Week and Month:
+//
+//   FTFC (Full Timeframe Continuity): is each timeframe trading above its open, or below it?
+//   Only where price sits against each open. No pattern, no trigger.
+//
+//   Signals In Force (strict): does each timeframe have a Strat signal in force - a reversal,
+//   continuation, Failing 2 or expansion that has triggered and is holding - and do ALL of them
+//   point the same way? A timeframe with nothing in force (an inside bar, a 2 that has not
+//   triggered anything, a signal that lost its trigger) does not contribute, so the bar is
+//   not "all in force". Signal type never matters, only direction.
+//
+// Candles are painted by how the two agree. The pane below shows each timeframe's two states
+// as rows, so you can see which timeframe is holding the other back.
+//
+// No repainting: each timeframe's forming bar is rebuilt from chart bars (running high/low
+// keyed on the served period-open time, chart close as the period close). C1/C2, the period
+// open and period time are completed or period-stable under lookahead_on, so every historical
+// bar is graded as it stood at that bar's close, not as the period finally closed. The in-force
+// test mirrors TheStrat Suite v3.1.1 computeSignalState (FTFC filters, HAM/SHO filters and
+// "Exhaustion Disables In Force" left out).
+
+indicator("TheStrat FTFC vs In Force - v0.1.0", shorttitle = "FTFC vs IF", overlay = false, max_labels_count = 20)
+
+import SpinTrades/TheStratGrammar/1 as sg
+
+if chart.is_heikinashi
+    runtime.error("Heikin Ashi charts are not supported: TheStrat needs real candles. Switch the chart to Candles or Bars.")
+
+// ============================================================================
+// INPUTS
+// ============================================================================
+grpTF = "Timeframes"
+enH = input.bool(true, "Hour", inline = "tf", group = grpTF)
+enD = input.bool(true, "Day", inline = "tf", group = grpTF)
+enW = input.bool(true, "Week", inline = "tf", group = grpTF)
+enM = input.bool(true, "Month", inline = "tf", group = grpTF, tooltip = "Timeframes below the chart's are skipped (the Hour on a daily chart, for example). Use a 1H or lower chart to see all four.")
+
+grpSig = "Signals That Count As In Force"
+showInsideReversals = input.bool(true, "Inside Reversals", group = grpSig, inline = "s1")
+showInsideContinuations = input.bool(true, "Inside Continuations", group = grpSig, inline = "s1")
+showAllReversals = input.bool(true, "2-2 Reversals", group = grpSig, inline = "s2")
+showContinuations = input.bool(true, "2-2 Continuations", group = grpSig, inline = "s2")
+show_p3_toggle = input.bool(true, "Failing 2s", group = grpSig, inline = "s3")
+showRangeExpansions = input.bool(true, "3-2 Expansions", group = grpSig, inline = "s3")
+show3Expansions = input.bool(true, "Outside Bars (3)", group = grpSig, inline = "s4", tooltip = "Same signal families and definitions as TheStrat Suite. All on by default, so 'in force' means any Suite signal is in force. Hammers and shooters always count as reversal/continuation triggers, as in the Suite.")
+enableFailed2Detection = input.bool(true, "Failing 2 Detection", group = grpSig, inline = "f2")
+failed_2_method = input.string("Reclaim", "Method", options = ["Reclaim", "Open", "Reclaim + Open", "Reclaim OR Open"], group = grpSig, inline = "f2")
+logicType = input.string("Broad (Loose)", "Hammer / Shooter", options = ["Broad (Loose)", "Classic", "Pin Bar (Strict)"], group = grpSig)
+
+grpPaint = "Candles"
+paintMode = input.string("Agreement", "Color Candles By", options = ["Agreement", "FTFC Only", "In Force Only", "Off"], group = grpPaint, tooltip = "Agreement: full green/red where FTFC and all-in-force agree; faded green/red where only FTFC is aligned; purple where every timeframe is in force but FTFC is not aligned with it; gray where neither.\n\nFTFC Only / In Force Only: one question at a time, gray otherwise - flip between them to see the difference.")
+colBull = input.color(#4caf50, "Bull / Bear", inline = "c1", group = grpPaint)
+colBear = input.color(#f23645, "", inline = "c1", group = grpPaint)
+colSplit = input.color(#9c27b0, "In Force, no FTFC", inline = "c2", group = grpPaint)
+colNone = input.color(#5d606b, "Neither", inline = "c2", group = grpPaint)
+ftfcOnlyTransp = input.int(70, "FTFC-only Fade", minval = 0, maxval = 95, group = grpPaint, tooltip = "Transparency for bars where FTFC is aligned but not every timeframe has a signal in force.")
+showStats = input.bool(true, "Show Stats Table", group = grpPaint)
+
+// ============================================================================
+// SHARED HELPERS (from TheStrat Suite v3.1.1, trimmed)
+// ============================================================================
+detectPatterns(c1_open, c1_high, c1_low, c1_close) =>
+    [sg.isHammer(c1_open, c1_high, c1_low, c1_close, logicType, false), sg.isShooter(c1_open, c1_high, c1_low, c1_close, logicType, false)]
+
+detectFailed2(c1_high, c1_low, cc_open, cc_close, cc_high, cc_low, method) =>
+    cc_is_3 = cc_high > c1_high and cc_low < c1_low
+    cc_is_2u = cc_high > c1_high and cc_low >= c1_low and not cc_is_3
+    cc_is_2d = cc_low < c1_low and cc_high <= c1_high and not cc_is_3
+    is_f2u = false
+    is_f2d = false
+    if enableFailed2Detection and (cc_is_2u or cc_is_2d) and not cc_is_3
+        cc_inside_c1 = cc_close <= c1_high and cc_close >= c1_low
+        cc_above_open = cc_close > cc_open
+        if method == "Open"
+            is_f2u := cc_is_2u and not cc_above_open
+            is_f2d := cc_is_2d and cc_above_open
+        else if method == "Reclaim"
+            is_f2u := cc_is_2u and cc_inside_c1
+            is_f2d := cc_is_2d and cc_inside_c1
+        else if method == "Reclaim + Open"
+            is_f2u := cc_is_2u and not cc_above_open and cc_inside_c1
+            is_f2d := cc_is_2d and cc_above_open and cc_inside_c1
+        else
+            is_f2u := cc_is_2u and (not cc_above_open or cc_inside_c1)
+            is_f2d := cc_is_2d and (cc_above_open or cc_inside_c1)
+    [cc_is_2u, cc_is_2d, cc_is_3, is_f2u, is_f2d]
+
+// Suite shouldDrawC1Level with every FTFC and HAM/SHO filter off.
+shouldDrawC1Level(bool isBullish, c1_is_inside, c1_is_hammer, c1_is_shooter, cc_is_2u, cc_is_2d, cc_is_3, is_f2u, is_f2d, c1_was_2u, c1_was_2d, c1_is_3, c2_closed_up, c2_closed_down) =>
+    result = false
+    cc_is_inside = not cc_is_2u and not cc_is_2d and not cc_is_3
+    c2_same_dir = isBullish ? c2_closed_up : c2_closed_down
+    c2_opp_dir = isBullish ? c2_closed_down : c2_closed_up
+    momo_pattern = isBullish ? c1_is_hammer : c1_is_shooter
+    cc_in_force = isBullish ? cc_is_2u : cc_is_2d
+    cc_opposite = isBullish ? cc_is_2d : cc_is_2u
+    c1_was_same = isBullish ? c1_was_2u : c1_was_2d
+    c1_was_opp = isBullish ? c1_was_2d : c1_was_2u
+    failed_same = isBullish ? is_f2u : is_f2d
+    failed_opp = isBullish ? is_f2d : is_f2u
+    inside_is_continuation = c1_is_inside and c2_same_dir
+    inside_is_reversal = c1_is_inside and (c2_opp_dir or (not c2_closed_up and not c2_closed_down))
+    if cc_is_3
+        result := show3Expansions
+    else if show_p3_toggle and (failed_same or failed_opp)
+        result := true
+    else if c1_is_inside
+        if inside_is_reversal
+            result := showInsideReversals
+        else if inside_is_continuation
+            result := showInsideContinuations
+        else
+            result := showInsideReversals
+    else if c1_is_3 and (cc_in_force or cc_is_inside) and showRangeExpansions
+        result := true
+    else if momo_pattern and not (c1_is_3 and not showRangeExpansions)
+        is_momo_reversal = c1_was_opp or (c2_opp_dir and not c1_was_same) or (not c1_was_2u and not c1_was_2d and not c2_same_dir)
+        is_momo_cont = c1_was_same or (c2_same_dir and not c1_was_opp)
+        if cc_opposite and c1_was_opp
+            result := false
+        else if is_momo_reversal and not cc_opposite
+            result := true
+        else if is_momo_cont and showContinuations
+            result := true
+    else if c1_was_opp and showAllReversals and not cc_opposite
+        result := true
+    else if c1_was_same and (cc_in_force or cc_is_inside) and showContinuations
+        result := true
+    result
+
+// ============================================================================
+// PER-TIMEFRAME ENGINE
+// ============================================================================
+// One call site per timeframe, each with its own var state - never from a loop.
+// Returns [inForceDir, aboveOpenDir]: +1 bull, -1 bear, 0 none / not eligible.
+evalSlot(bool en, int ccTime, float ccO, float c1H, float c1L, float c1O, float c1C, float c2H, float c2L, float c2O, float c2C) =>
+    var float runH = na
+    var float runL = na
+    var int lastP = na
+    if not na(ccTime)
+        if na(lastP) or ccTime != lastP
+            runH := high
+            runL := low
+            lastP := ccTime
+        else
+            runH := math.max(runH, high)
+            runL := math.min(runL, low)
+    int ifDir = 0
+    int aoDir = 0
+    if en and not na(ccO)
+        // Same convention as the Suite's FTFC: above the open is up, otherwise down.
+        aoDir := close > ccO ? 1 : -1
+    if en and not na(c1H) and not na(c1L) and not na(c2H) and not na(c2L) and not na(ccO) and not na(runH)
+        [isHammer, isShooter] = detectPatterns(c1O, c1H, c1L, c1C)
+        isInside = c1H <= c2H and c1L >= c2L
+        [cc_is_2u, cc_is_2d, cc_is_3, is_f2u, is_f2d] = detectFailed2(c1H, c1L, ccO, close, runH, runL, failed_2_method)
+        cc_broke_high = runH > c1H
+        cc_broke_low = runL < c1L
+        c1_was_2u = c1H > c2H and not (c1L < c2L)
+        c1_was_2d = c1L < c2L and not (c1H > c2H)
+        c1_is_3 = c1H > c2H and c1L < c2L
+        c2_closed_up = c2C > c2O
+        c2_closed_down = c2C < c2O
+        c1_was_neutral = not c1_was_2u and not c1_was_2d
+        inside_bullish = isInside and c2_closed_up
+        inside_bearish = isInside and c2_closed_down
+        hammer_shows = isHammer and ((c1_was_2d or inside_bearish or (c1_was_neutral and not isInside)) or ((c1_was_2u or inside_bullish) and showContinuations))
+        shooter_shows = isShooter and ((c1_was_2u or inside_bullish or (c1_was_neutral and not isInside)) or ((c1_was_2d or inside_bearish) and showContinuations))
+        sig_h = (isInside and not c2_closed_up and cc_is_2u) or (inside_bullish and showInsideContinuations and cc_is_2u) or (hammer_shows and cc_broke_high) or (showAllReversals and c1_was_2d and cc_is_2u) or (showContinuations and c1_was_2u and cc_is_2u) or (showRangeExpansions and c1_is_3 and cc_is_2u)
+        sig_l = (isInside and not c2_closed_down and cc_is_2d) or (inside_bearish and showInsideContinuations and cc_is_2d) or (shooter_shows and cc_broke_low) or (showAllReversals and c1_was_2u and cc_is_2d) or (showContinuations and c1_was_2d and cc_is_2d) or (showRangeExpansions and c1_is_3 and cc_is_2d)
+        drawHigh = shouldDrawC1Level(true, isInside, isHammer, isShooter, cc_is_2u, cc_is_2d, cc_is_3, is_f2u, is_f2d, c1_was_2u, c1_was_2d, c1_is_3, c2_closed_up, c2_closed_down)
+        drawLow = shouldDrawC1Level(false, isInside, isHammer, isShooter, cc_is_2u, cc_is_2d, cc_is_3, is_f2u, is_f2d, c1_was_2u, c1_was_2d, c1_is_3, c2_closed_up, c2_closed_down)
+        drawHigh := drawHigh and not (c1_is_3 and cc_is_2d and not is_f2d) and not (isInside and cc_broke_low and not is_f2d and not cc_is_3)
+        drawLow := drawLow and not (c1_is_3 and cc_is_2u and not is_f2u) and not (isInside and cc_broke_high and not is_f2u and not cc_is_3)
+        inHigh = drawHigh and ((sig_h and not is_f2d and close > c1H) or (show_p3_toggle and is_f2d))
+        inLow = drawLow and ((sig_l and not is_f2u and close < c1L) or (show_p3_toggle and is_f2u))
+        // Both sides (rare): settled as the Suite's Lead does - F2u bear, F2d bull, else close vs open.
+        ifDir := inHigh and inLow ? (is_f2u ? -1 : is_f2d ? 1 : close > ccO ? 1 : -1) : inHigh ? 1 : inLow ? -1 : 0
+    [ifDir, aoDir]
+
+getTF() =>
+    [time, open, high[1], low[1], open[1], close[1], high[2], low[2], open[2], close[2]]
+
+var int chartSec = timeframe.in_seconds(timeframe.period)
+[tHt, tHo, hH1, hL1, hO1, hC1, hH2, hL2, hO2, hC2] = request.security(syminfo.tickerid, "60", getTF(), lookahead = barmerge.lookahead_on)
+[tDt, tDo, dH1, dL1, dO1, dC1, dH2, dL2, dO2, dC2] = request.security(syminfo.tickerid, "D", getTF(), lookahead = barmerge.lookahead_on)
+[tWt, tWo, wH1, wL1, wO1, wC1, wH2, wL2, wO2, wC2] = request.security(syminfo.tickerid, "W", getTF(), lookahead = barmerge.lookahead_on)
+[tMt, tMo, mH1, mL1, mO1, mC1, mH2, mL2, mO2, mC2] = request.security(syminfo.tickerid, "M", getTF(), lookahead = barmerge.lookahead_on)
+
+bool okH = enH and timeframe.in_seconds("60") >= chartSec
+bool okD = enD and timeframe.in_seconds("D") >= chartSec
+bool okW = enW and timeframe.in_seconds("W") >= chartSec
+bool okM = enM and timeframe.in_seconds("M") >= chartSec
+
+[ifH, aoH] = evalSlot(okH, tHt, tHo, hH1, hL1, hO1, hC1, hH2, hL2, hO2, hC2)
+[ifD, aoD] = evalSlot(okD, tDt, tDo, dH1, dL1, dO1, dC1, dH2, dL2, dO2, dC2)
+[ifW, aoW] = evalSlot(okW, tWt, tWo, wH1, wL1, wO1, wC1, wH2, wL2, wO2, wC2)
+[ifM, aoM] = evalSlot(okM, tMt, tMo, mH1, mL1, mO1, mC1, mH2, mL2, mO2, mC2)
+
+// ============================================================================
+// AGREEMENT
+// ============================================================================
+int nOk = (okH and not na(tHo) ? 1 : 0) + (okD and not na(tDo) ? 1 : 0) + (okW and not na(tWo) ? 1 : 0) + (okM and not na(tMo) ? 1 : 0)
+int aoSum = aoH + aoD + aoW + aoM
+int ifSum = ifH + ifD + ifW + ifM
+// FTFC: every timeframe on the same side of its open. All In Force: every timeframe has a
+// signal in force, all the same direction. An inside / not-in-force timeframe scores 0 and
+// breaks it.
+int ftfcDir = nOk > 0 and aoSum == nOk ? 1 : nOk > 0 and aoSum == -nOk ? -1 : 0
+int allIfDir = nOk > 0 and ifSum == nOk ? 1 : nOk > 0 and ifSum == -nOk ? -1 : 0
+
+color candle = na
+if nOk > 0
+    if paintMode == "Agreement"
+        candle := allIfDir != 0 and allIfDir == ftfcDir ? (allIfDir == 1 ? colBull : colBear) : allIfDir != 0 ? colSplit : ftfcDir != 0 ? color.new(ftfcDir == 1 ? colBull : colBear, ftfcOnlyTransp) : colNone
+    else if paintMode == "FTFC Only"
+        candle := ftfcDir == 1 ? colBull : ftfcDir == -1 ? colBear : colNone
+    else if paintMode == "In Force Only"
+        candle := allIfDir == 1 ? colBull : allIfDir == -1 ? colBear : colNone
+barcolor(candle, title = "FTFC vs In Force Candles")
+
+// ============================================================================
+// PANE: one row per timeframe per question, plus the two summary rows
+// ============================================================================
+// Rows (top to bottom): FTFC, ALL IF | M AO, M IF | W AO, W IF | D AO, D IF | H AO, H IF.
+// Columns from histbase to the row value make a bar-by-bar heatmap.
+colOff = color.new(colNone, 60)
+dirCol(int d, bool ok) => not ok ? color(na) : d == 1 ? colBull : d == -1 ? colBear : colOff
+
+plot(14, "FTFC", dirCol(ftfcDir, nOk > 0), style = plot.style_columns, histbase = 13.2)
+plot(13, "All In Force", dirCol(allIfDir, nOk > 0), style = plot.style_columns, histbase = 12.2)
+plot(11, "M Above Open", dirCol(aoM, okM), style = plot.style_columns, histbase = 10.4)
+plot(10.3, "M In Force", dirCol(ifM, okM), style = plot.style_columns, histbase = 9.7)
+plot(9, "W Above Open", dirCol(aoW, okW), style = plot.style_columns, histbase = 8.4)
+plot(8.3, "W In Force", dirCol(ifW, okW), style = plot.style_columns, histbase = 7.7)
+plot(7, "D Above Open", dirCol(aoD, okD), style = plot.style_columns, histbase = 6.4)
+plot(6.3, "D In Force", dirCol(ifD, okD), style = plot.style_columns, histbase = 5.7)
+plot(5, "H Above Open", dirCol(aoH, okH), style = plot.style_columns, histbase = 4.4)
+plot(4.3, "H In Force", dirCol(ifH, okH), style = plot.style_columns, histbase = 3.7)
+
+// Row names at the right edge.
+var label[] rowLabels = array.new<label>()
+if barstate.islast
+    if array.size(rowLabels) == 0
+        names = array.from("FTFC", "ALL IF", "M open", "M IF", "W open", "W IF", "D open", "D IF", "H open", "H IF")
+        ys = array.from(13.6, 12.6, 10.7, 10.0, 8.7, 8.0, 6.7, 6.0, 4.7, 4.0)
+        for i = 0 to array.size(names) - 1
+            array.push(rowLabels, label.new(bar_index + 2, array.get(ys, i), array.get(names, i), style = label.style_none, textcolor = chart.fg_color, size = size.small, textalign = text.align_left))
+    for lb in rowLabels
+        label.set_x(lb, bar_index + 2)
+
+// ============================================================================
+// STATS: how often each state occurs over the loaded history
+// ============================================================================
+var int nBars = 0
+var int nFtfc = 0
+var int nAllIf = 0
+var int nBoth = 0
+var int nFtfcOnly = 0
+var int nIfOnly = 0
+if nOk > 0 and barstate.isconfirmed
+    nBars += 1
+    nFtfc += ftfcDir != 0 ? 1 : 0
+    nAllIf += allIfDir != 0 ? 1 : 0
+    nBoth += allIfDir != 0 and allIfDir == ftfcDir ? 1 : 0
+    nFtfcOnly += ftfcDir != 0 and allIfDir == 0 ? 1 : 0
+    nIfOnly += allIfDir != 0 and allIfDir != ftfcDir ? 1 : 0
+
+pct(int n) => nBars > 0 ? str.tostring(100.0 * n / nBars, "#.#") + "%" : "-"
+
+var table stats = table.new(position.top_left, 2, 7, bgcolor = color.new(#1e222d, 10), border_width = 1)
+if showStats and barstate.islast
+    table.cell(stats, 0, 0, "Closed bars", text_color = chart.fg_color, text_size = size.small, text_halign = text.align_left)
+    table.cell(stats, 1, 0, str.tostring(nBars), text_color = chart.fg_color, text_size = size.small)
+    table.cell(stats, 0, 1, "FTFC aligned", text_color = chart.fg_color, text_size = size.small, text_halign = text.align_left)
+    table.cell(stats, 1, 1, pct(nFtfc), text_color = chart.fg_color, text_size = size.small)
+    table.cell(stats, 0, 2, "All in force", text_color = chart.fg_color, text_size = size.small, text_halign = text.align_left)
+    table.cell(stats, 1, 2, pct(nAllIf), text_color = chart.fg_color, text_size = size.small)
+    table.cell(stats, 0, 3, "Both agree", text_color = chart.fg_color, text_size = size.small, text_halign = text.align_left)
+    table.cell(stats, 1, 3, pct(nBoth), text_color = chart.fg_color, text_size = size.small)
+    table.cell(stats, 0, 4, "FTFC only", text_color = chart.fg_color, text_size = size.small, text_halign = text.align_left)
+    table.cell(stats, 1, 4, pct(nFtfcOnly), text_color = chart.fg_color, text_size = size.small)
+    table.cell(stats, 0, 5, "In force, no FTFC", text_color = chart.fg_color, text_size = size.small, text_halign = text.align_left)
+    table.cell(stats, 1, 5, pct(nIfOnly), text_color = chart.fg_color, text_size = size.small)
+    table.cell(stats, 0, 6, "Timeframes used", text_color = chart.fg_color, text_size = size.small, text_halign = text.align_left)
+    table.cell(stats, 1, 6, str.tostring(nOk), text_color = chart.fg_color, text_size = size.small)
