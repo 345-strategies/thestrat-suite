@@ -1,0 +1,73 @@
+FTFC vs In Force puts two questions from TheStrat methodology (developed by Rob Smith) side by side on every bar, across the Hour, Day, Week and Month, and colors your candles by whether the answers agree.
+
+[b]1. Full Timeframe Continuity (FTFC):[/b] is every timeframe trading on the same side of its open?
+[b]2. All In Force:[/b] does every timeframe have a Strat signal that has triggered and is still holding, all pointing the same way?
+
+The two are often treated as the same thing. They are not. FTFC only asks where price sits against each period's open. In Force asks whether a real setup has actually triggered on each timeframe. This study shows, bar by bar, when they agree, when only one of them is true, and which timeframe is holding the other back.
+
+[b]DEFINITIONS[/b]
+[list]
+[*][b]Candle types:[/b] each candle is compared with the candle before it. 1 (inside) = stays within the prior candle's range. 2u = takes out the prior high only. 2d = takes out the prior low only. 3 (outside) = takes out both.
+[*][b]C2, C1, CC:[/b] on each timeframe, CC is the current (forming) candle, C1 is the last closed candle, C2 is the one before it.
+[*][b]Trigger:[/b] C1's high for a bullish signal, C1's low for a bearish one.
+[*][b]Open:[/b] the opening price of the timeframe's current period (this hour, today, this week, this month).
+[*][b]Above / below open:[/b] price above the period open counts as up; at or below counts as down.
+[*][b]FTFC:[/b] every enabled timeframe up (bullish FTFC) or every one down (bearish FTFC). Anything mixed is not FTFC.
+[*][b]Signal:[/b] one of the setups below, judged on C2, C1 and CC of that timeframe.
+[*][b]In force:[/b] a signal whose CC has broken the trigger and price is still beyond it. If price falls back through the trigger, the signal drops out of force (and can re-enter). A Failing 2 is in force while its failure condition holds.
+[*][b]All In Force:[/b] every enabled timeframe has a signal in force, all in the same direction. Signal type does not matter, only direction. A timeframe with nothing in force (an inside candle, a break with no qualifying setup, or a signal that lost its trigger) breaks it.
+[/list]
+
+[b]SIGNALS THAT COUNT[/b] (each can be switched off)
+[list]
+[*][b]Inside Reversal:[/b] C1 is inside (1) and CC breaks it against C2's direction, e.g. 2d-1-2u (bull) or 2u-1-2d (bear).
+[*][b]Inside Continuation:[/b] C1 is inside and CC breaks it in C2's direction, e.g. 2u-1-2u.
+[*][b]2-2 Reversal:[/b] C1 was a 2 one way and CC breaks C1 the other way, e.g. 2d-2u.
+[*][b]2-2 Continuation:[/b] C1 was a 2 and CC breaks C1 the same way again, e.g. 2u-2u.
+[*][b]3-2 Expansion:[/b] C1 was an outside candle (3) and CC breaks one side of it, e.g. 3-2u.
+[*][b]Hammer / Shooter:[/b] C1 is a hammer (long lower wick, rejected lower prices) and CC breaks its high, or a shooter (long upper wick) and CC breaks its low. Three definitions are available: Broad, Classic and Pin Bar.
+[*][b]Failing 2 (Range Reclaim):[/b] CC broke one side of C1 but failed. F2u = broke the high, failed (bearish). F2d = broke the low, failed (bullish). Detection methods: Reclaim = CC closes back inside C1's range; Open = CC closes back through its own open; Reclaim + Open = both; Reclaim OR Open = either.
+[*][b]Outside Bars (3):[/b] when CC has broken both sides of C1, allows a hammer or shooter signal to stay in force. Off = an outside CC never counts.
+[/list]
+These are the same definitions and rules TheStrat Suite uses, with its FTFC and hammer/shooter filters off.
+
+[b]CANDLE COLORS[/b] (default: Agreement)
+[list]
+[*][b]Bright green / red:[/b] FTFC and All In Force agree, bullish / bearish.
+[*][b]Faded green / red:[/b] FTFC only. Every timeframe is on the same side of its open, but not every timeframe has a signal in force.
+[*][b]Blue / purple:[/b] All In Force only. Every timeframe has a signal in force up (blue) or down (purple), but price is not on the same side of every open.
+[*][b]Hollow gray:[/b] neither. Every filled candle means something is aligned.
+[/list]
+Green and red always mean bull and bear. For the cleanest look, hide the chart's own candles (Chart Settings > Symbol: uncheck Body, Borders and Wick). Other candle modes: Agreement, Solid (paints the chart's own candles, solid gray for neither), Agreement, Outlines (faded body with a full outline for FTFC only, hollow with a colored outline for In Force only), Body = FTFC / Outline = In Force (body filled when FTFC is aligned, outline colored when All In Force), FTFC Only, In Force Only, and Off.
+
+[b]THE PANE (HEATMAP)[/b]
+[list]
+[*][b]Top two rows:[/b] FTFC and ALL IF for each bar. Green = bull, red = bear, dim = not aligned.
+[*][b]One band per timeframe (M, W, D, H):[/b] the top half shows above (green) or below (red) its open; the bottom half shows its signal in force, bull (green), bear (red) or none (dim).
+[*]When a summary row goes dim, the timeframe band that is dim or opposite is the one holding it back.
+[/list]
+
+[b]OPTIONAL LAYERS[/b] (off by default)
+[list]
+[*][b]Score:[/b] columns show the net open count (+1 for each timeframe above its open, -1 for each below; full color only at FTFC). The white step line shows the net in-force count (+1 for each timeframe in force bull, -1 for each in force bear, 0 for none). Line on top of full columns = both agree. Full columns with the line near zero = continuity with nothing triggered.
+[*][b]Cascade Ladder:[/b] a letter (H, D, W, M) on the bar where each timeframe goes in force, green below the bar for bull and red above for bear, stacked by timeframe so you can read the order in which timeframes trigger. First entry per period by default; Every Re-entry shows contested triggers chopping in and out.
+[*][b]Stats Table:[/b] how often FTFC, All In Force and both together occurred over the closed bars loaded on your chart.
+[/list]
+
+[b]HOW TO USE IT[/b]
+Use a 1-hour or lower chart so all four timeframes count; timeframes below the chart's are skipped (the Hour on a daily chart, for example). Each timeframe can be switched off. Scan for where the bright candles start and stop, then use the heatmap to see which timeframe triggered last, or which one dropped out. Faded stretches show continuity without structure behind it; blue and purple stretches show structure that has triggered before price has cleared every open.
+
+[b]DOES IT REPAINT?[/b]
+No. Each timeframe's forming candle is rebuilt from your chart's own candles (its running high and low since the period opened, and the chart candle's close as its price), and C1, C2 and the period open come from completed or period-stable data. Every historical bar is graded as things stood at that bar's close, not as the period finally closed. The live bar updates in real time, as any forming candle does.
+
+[b]KNOWN LIMITATIONS[/b]
+[list]
+[*]History depth depends on your TradingView plan. No artificial limit is set.
+[*]The first period of each timeframe at the left edge of the chart may be partial, because the forming candle is rebuilt only from bars that are loaded.
+[*]Heikin Ashi charts are refused: TheStrat needs real candles.
+[/list]
+
+[b]OPEN SOURCE[/b]
+Published under the Mozilla Public License 2.0 as a companion study to TheStrat Suite. Bar classification and hammer/shooter detection come from the open TheStratGrammar library.
+
+[i]This is a charting and learning tool, not financial advice. Trading involves risk.[/i]
