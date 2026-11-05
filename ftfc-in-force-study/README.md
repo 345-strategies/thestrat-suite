@@ -1,33 +1,55 @@
-# TheStrat FTFC vs In Force (study)
+# TheStrat: Full Timeframe Continuity (FTFC) vs Signals In Force
 
-A learning study, separate from TheStrat Suite. It shows, bar by bar on the Hour, Day, Week and Month, where **Full Timeframe Continuity** and **strict Signals In Force** agree and where they differ.
+**On TradingView (open source):** [TheStrat: Full Timeframe Continuity (FTFC) vs Signals In Force](https://www.tradingview.com/script/1EMdC3R7-TheStrat-Full-Timeframe-Continuity-FTFC-vs-Signals-In-Force/)
 
-- **FTFC**: every timeframe trading on the same side of its open.
-- **All In Force (strict)**: every timeframe has a Suite signal in force (reversal, continuation, Failing 2, expansion), all in the same direction. A timeframe with nothing in force, such as an inside bar, breaks it. Signal type never matters, only direction.
+A companion study to TheStrat Suite. It puts two questions side by side on every bar, across the Hour, Day, Week and Month, and colors your candles by whether the answers agree:
 
-## Layers (v0.3.1)
+1. **Full Timeframe Continuity (FTFC):** is every timeframe trading on the same side of its open?
+2. **All In Force:** does every timeframe have a Strat signal that has triggered and is still holding, all pointing the same way? A timeframe with nothing in force (an inside candle, a break with no qualifying setup, or a signal that lost its trigger) breaks it. Signal type never matters, only direction.
 
-**Candles: Agreement** (default). v0.1.0's distinct colors, with hollow used only for bars where nothing is aligned, so every filled candle means something is happening:
+They are often treated as the same thing. They are not. FTFC only asks where price sits against each period's open; In Force asks whether a real setup has triggered on each timeframe.
+
+## Install
+
+- **From TradingView:** open the listing above and click *Add to favorites*, then add it from Indicators > Favorites.
+- **From source:** open the Pine Editor, paste [`FTFC_vs_InForce_v0.3.1.pine`](FTFC_vs_InForce_v0.3.1.pine), and click *Add to chart*. It imports the published `SpinTrades/TheStratGrammar/1` library.
+
+Use a 1-hour or lower chart so all four timeframes count. For the cleanest look, hide the chart's own candles (Chart Settings > Symbol: uncheck Body, Borders and Wick).
+
+## Reading it
+
+**Candles (default: Agreement)**
 
 | Candle | Meaning |
 |---|---|
-| Bright green / red | FTFC and every timeframe in force agree |
-| Faded green / red | FTFC aligned, but not every timeframe has a signal in force |
-| Blue / purple | Every timeframe in force up / down, but price not on the same side of every open |
+| Bright green / red | FTFC and All In Force agree, bull / bear |
+| Faded green / red | FTFC only: every timeframe on the same side of its open, but not every one has a signal in force |
+| Blue / purple | All In Force only: every timeframe in force up / down, but price not on the same side of every open |
 | Hollow gray | Neither |
 
-Hide the chart's own candles (Chart Settings > Symbol: uncheck Body, Borders, Wick) for the cleanest look. Other candle modes: *Agreement, Solid* (v0.1.0 exactly), *Agreement, Outlines* (v0.3.0), *Body = FTFC, Outline = In Force* (v0.2.0), *FTFC Only*, *In Force Only*.
+Other candle modes: *Agreement, Solid*, *Agreement, Outlines*, *Body = FTFC, Outline = In Force*, *FTFC Only*, *In Force Only*, *Off*.
 
-**Score pane** (off by default; Pane > Show > Score + Heatmap). Columns count how many timeframes are above (+) or below (-) their open, full color only at FTFC. The white step line counts how many have a signal in force. Line sitting on top of full columns = both agree. Full columns with the line near zero = continuity with nothing triggered.
+**Heatmap pane.** Top rows: FTFC and ALL IF per bar. Then one band per timeframe (M, W, D, H): top half above (green) or below (red) its open, bottom half its signal in force (green bull, red bear, dim none). When a summary row goes dim, the dim or opposite band is the timeframe holding it back.
 
-**Heatmap pane.** One band per timeframe: top half above/below its open, bottom half signal in force (dim = none), with FTFC and ALL IF rows on top.
+**Optional layers (off by default).** *Score* (columns = net count of timeframes above minus below their open; white step line = net count in force), *Cascade Ladder* (H/D/W/M letters where each timeframe goes in force, stacked so the trigger order is visible), and a *Stats Table* (how often each state occurred over the loaded history).
 
-**Cascade ladder** (off by default). A letter (H, D, W, M) on the bar where each timeframe goes in force, stacked by timeframe so the order they trigger in is visible.
+Full definitions of every term and signal are in the listing description, kept here as [`TV_DESCRIPTION.txt`](TV_DESCRIPTION.txt).
 
-A small stats table on the price chart (off by default) shows how often FTFC, all in force, and both occur over the loaded history.
+## Repainting
 
-## Notes
+None on closed bars. Each timeframe's forming candle is rebuilt from the chart's own candles (running high/low since the period opened, the chart close as its price), and C1, C2 and the period open come from completed or period-stable data under `lookahead_on`. Every historical bar is graded as things stood at that bar's close.
 
-- No `calc_bars_count` limit, so it uses all the history your TradingView plan loads.
-- Timeframes below the chart's are skipped. Use a 1H or lower chart to see all four.
-- No repainting: each timeframe's forming bar is rebuilt from chart bars, so history is graded as it stood at each bar's close. The in-force test mirrors TheStrat Suite v3.1.1 with the FTFC and HAM/SHO filters off.
+## Maintenance
+
+The in-force test in `evalSlot` mirrors `computeSignalState` in `pine/TheStratSuite_v3.1.1.pine` (FTFC filters, HAM/SHO filters and Exhaustion Disables In Force left out). A change to the Suite's in-force rules should be made here too.
+
+## Versions
+
+| Version | Date | Notes |
+|---|---|---|
+| v0.3.1 | 2026-11-05 | Published. Agreement candles (blue/purple split, hollow for neither), heatmap pane; score, ladder and stats off by default |
+| v0.3.0 | 2026-11-05 | Agreement colors as hollow/outline candles; stats moved to the price chart |
+| v0.2.0 | 2026-11-05 | Two-channel candles, cascade ladder, score pane |
+| v0.1.0 | 2026-11-05 | First version: agreement candle colors and heatmap |
+
+Source: Mozilla Public License 2.0 (see the repository `LICENSE`).
