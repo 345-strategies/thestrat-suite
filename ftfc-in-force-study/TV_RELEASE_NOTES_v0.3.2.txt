@@ -8,4 +8,6 @@ v0.3.2
 
 [b]Optional 15m and 30m timeframes[/b] (off by default). When on, they count toward FTFC and All In Force, get their own heatmap bands, and show on the cascade ladder as ¼ (15m) and ½ (30m). Use a chart at or below the timeframe.
 
+[b]Plot budget.[/b] To stay under TradingView's 64-plot limit with the new rows, the cascade ladder is now drawn as labels (the most recent 500 marks are kept), and the score pane drops its zero line and all-up / all-down dots.
+
 Unchanged by design: a close exactly at the open counts as below it, and a break of the trigger by a single tick counts as a break, matching TheStrat Suite and the TheStratGrammar spec.

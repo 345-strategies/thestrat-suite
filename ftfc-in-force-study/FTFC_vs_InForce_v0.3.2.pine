@@ -51,6 +51,8 @@
 //     gets its open half faded in the heatmap, because both are measured from one opening print.
 //     The stats table counts how often FTFC rested on shared opens.
 //   - Optional 15m and 30m slots, off by default.
+//   - The cascade ladder is drawn with labels (most recent 500 marks) and the score's zero line
+//     and all-up / all-down dots are gone, to stay under TradingView's 64-plot limit.
 //
 // No repainting: each timeframe's forming bar is rebuilt from chart bars (running high/low
 // keyed on the served period-open time, chart close as the period close). C1/C2, the period
@@ -62,7 +64,7 @@
 // computeSignalState only lets a 3 through on the hammer/shooter path, while its timeframe
 // table already treats an enabled 3 expansion as in force.
 
-indicator("TheStrat FTFC vs In Force - v0.3.2", shorttitle = "FTFC vs IF", overlay = false, max_labels_count = 20)
+indicator("TheStrat FTFC vs In Force - v0.3.2", shorttitle = "FTFC vs IF", overlay = false, max_labels_count = 500)
 
 import SpinTrades/TheStratGrammar/1 as sg
 
@@ -94,7 +96,7 @@ logicType = input.string("Broad (Loose)", "Hammer / Shooter", options = ["Broad 
 
 grpPaint = "Chart"
 candleMode = input.string("Agreement", "Candles", options = ["Agreement", "Agreement, Solid", "Agreement, Outlines", "Body = FTFC, Outline = In Force", "FTFC Only", "In Force Only", "Off"], group = grpPaint, tooltip = "Agreement:\n  Bright green/red: FTFC and every timeframe in force agree.\n  Faded green/red: FTFC aligned, but not every timeframe has a signal in force.\n  Blue / Purple: every timeframe in force up / down, but price is not on the same side of every open.\n  Hollow gray: neither - so every filled candle means something is happening.\nFor the cleanest look, hide the chart's own candles (Chart Settings > Symbol: uncheck Body, Borders, Wick).\n\nAgreement, Solid: v0.1.0 style - same colors painted on the chart's own candles, solid gray for neither.\n\nAgreement, Outlines: v0.3.0 - faded body with full outline for FTFC only, hollow with a colored outline for in force without FTFC, hollow gray for neither.\n\nBody = FTFC, Outline = In Force: v0.2.0 - body filled when FTFC is aligned, hollow when not; outline colored when every timeframe is in force, gray when not.\n\nFTFC Only / In Force Only: one question at a time, gray otherwise.")
-showLadder = input.bool(false, "Cascade Ladder", group = grpPaint, inline = "lad", tooltip = "A letter where each timeframe goes in force: green below the bar for bull, red above for bear. Letters stack by timeframe (lowest timeframe nearest the bar, M farthest), so you can read the order timeframes trigger in - lower timeframes going in force first, then the higher ones following, is the cascade. With the optional slots on, ¼ = 15m and ½ = 30m.")
+showLadder = input.bool(false, "Cascade Ladder", group = grpPaint, inline = "lad", tooltip = "A letter where each timeframe goes in force: green below the bar for bull, red above for bear. Letters stack by timeframe (lowest timeframe nearest the bar, M farthest), so you can read the order timeframes trigger in - lower timeframes going in force first, then the higher ones following, is the cascade. With the optional slots on, ¼ = 15m and ½ = 30m. Shows the most recent 500 marks.")
 ladderEvery = input.bool(false, "Every Re-entry", group = grpPaint, inline = "lad", tooltip = "OFF: mark only the first time each timeframe goes in force in each of its periods. ON: mark every time it re-enters, which shows contested triggers chopping in and out.")
 colBull = input.color(#4caf50, "Bull / Bear", inline = "c1", group = grpPaint)
 colBear = input.color(#f23645, "", inline = "c1", group = grpPaint)
@@ -378,23 +380,28 @@ barcolor(candle, title = "Single-Color Candles")
 // ============================================================================
 // CASCADE LADDER (main chart)
 // ============================================================================
-// plotchar text must be const, so one call per timeframe and side (12). location.absolute with
-// an ATR-scaled offset per timeframe keeps letters that fire on the same bar from overlapping:
-// lowest timeframe nearest the bar, then up to M. 15m and 30m are marked with a quarter and a half.
+// Labels, not plotchar: twelve location.absolute plotchar calls pushed the study past
+// TradingView's 64-plot limit once the 15m and 30m slots were added. Each mark is a text label,
+// green below the bar for bull and red above for bear, stacked with an ATR-scaled offset so marks
+// on the same bar never overlap: lowest timeframe nearest the bar, then up to M. 15m and 30m are
+// marked with a quarter and a half. The most recent 500 marks are kept.
 float ladStep = ta.atr(14) * 0.55
-bool lad = showLadder and hasData
-plotchar(lad and up15 ? low - 1 * ladStep : na, "15m in force up", "¼", location.absolute, colBull, size = size.tiny, editable = false, force_overlay = true)
-plotchar(lad and up30 ? low - (k30 + 1) * ladStep : na, "30m in force up", "½", location.absolute, colBull, size = size.tiny, editable = false, force_overlay = true)
-plotchar(lad and upH ? low - (kH + 1) * ladStep : na, "H in force up", "H", location.absolute, colBull, size = size.tiny, editable = false, force_overlay = true)
-plotchar(lad and upD ? low - (kD + 1) * ladStep : na, "D in force up", "D", location.absolute, colBull, size = size.tiny, editable = false, force_overlay = true)
-plotchar(lad and upW ? low - (kW + 1) * ladStep : na, "W in force up", "W", location.absolute, colBull, size = size.tiny, editable = false, force_overlay = true)
-plotchar(lad and upM ? low - (kM + 1) * ladStep : na, "M in force up", "M", location.absolute, colBull, size = size.tiny, editable = false, force_overlay = true)
-plotchar(lad and dn15 ? high + 1 * ladStep : na, "15m in force down", "¼", location.absolute, colBear, size = size.tiny, editable = false, force_overlay = true)
-plotchar(lad and dn30 ? high + (k30 + 1) * ladStep : na, "30m in force down", "½", location.absolute, colBear, size = size.tiny, editable = false, force_overlay = true)
-plotchar(lad and dnH ? high + (kH + 1) * ladStep : na, "H in force down", "H", location.absolute, colBear, size = size.tiny, editable = false, force_overlay = true)
-plotchar(lad and dnD ? high + (kD + 1) * ladStep : na, "D in force down", "D", location.absolute, colBear, size = size.tiny, editable = false, force_overlay = true)
-plotchar(lad and dnW ? high + (kW + 1) * ladStep : na, "W in force down", "W", location.absolute, colBear, size = size.tiny, editable = false, force_overlay = true)
-plotchar(lad and dnM ? high + (kM + 1) * ladStep : na, "M in force down", "M", location.absolute, colBear, size = size.tiny, editable = false, force_overlay = true)
+ladMark(bool cond, int k, bool isUp, string txt) =>
+    if cond
+        label.new(bar_index, isUp ? low - (k + 1) * ladStep : high + (k + 1) * ladStep, txt, style = label.style_none, textcolor = isUp ? colBull : colBear, size = size.tiny, force_overlay = true)
+if showLadder and hasData
+    ladMark(up15, 0, true, "¼")
+    ladMark(up30, k30, true, "½")
+    ladMark(upH, kH, true, "H")
+    ladMark(upD, kD, true, "D")
+    ladMark(upW, kW, true, "W")
+    ladMark(upM, kM, true, "M")
+    ladMark(dn15, 0, false, "¼")
+    ladMark(dn30, k30, false, "½")
+    ladMark(dnH, kH, false, "H")
+    ladMark(dnD, kD, false, "D")
+    ladMark(dnW, kW, false, "W")
+    ladMark(dnM, kM, false, "M")
 
 // ============================================================================
 // PANE
@@ -405,14 +412,12 @@ bool showHeat = hasData and paneView != "Score"
 
 // Score. Columns: how many timeframes are above their open (up) and below it (down), full color
 // only at FTFC. Lines: how many have a signal in force, bull above zero and bear below it. Kept
-// apart so 2 bull + 2 bear in force never reads as zero, the same as nothing in force.
+// apart so 2 bull + 2 bear in force never reads as zero, the same as nothing in force. (The zero
+// line and the all-up / all-down dots were dropped in v0.3.2 to stay under the 64-plot limit.)
 plot(showScore ? aoUp : na, "Above Open Count", color.new(colBull, ftfcDir == 1 ? 0 : 65), style = plot.style_columns)
 plot(showScore ? -aoDn : na, "Below Open Count", color.new(colBear, ftfcDir == -1 ? 0 : 65), style = plot.style_columns)
 plot(showScore ? ifUp : na, "In Force Bull Count", chart.fg_color, linewidth = 3, style = plot.style_stepline)
 plot(showScore ? -ifDn : na, "In Force Bear Count", chart.fg_color, linewidth = 3, style = plot.style_stepline)
-plot(showScore ? 0 : na, "Zero", color.new(colNone, 40))
-plot(showScore ? nOk : na, "All Up", color.new(colNone, 50), style = plot.style_circles, linewidth = 1)
-plot(showScore ? -nOk : na, "All Down", color.new(colNone, 50), style = plot.style_circles, linewidth = 1)
 
 // Heatmap. Columns from histbase to the row value make a bar-by-bar band per row.
 colOff = color.new(colNone, 60)
