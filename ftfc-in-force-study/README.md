@@ -5,18 +5,18 @@ A learning study, separate from TheStrat Suite. It shows, bar by bar on the Hour
 - **FTFC**: every timeframe trading on the same side of its open.
 - **All In Force (strict)**: every timeframe has a Suite signal in force (reversal, continuation, Failing 2, expansion), all in the same direction. A timeframe with nothing in force, such as an inside bar, breaks it. Signal type never matters, only direction.
 
-## Layers (v0.3.0)
+## Layers (v0.3.1)
 
-**Candles: Agreement, Hollow** (default). v0.1.0's agreement colors, drawn as real candles so the body and outline can say different things:
+**Candles: Agreement** (default). v0.1.0's distinct colors, with hollow used only for bars where nothing is aligned, so every filled candle means something is happening:
 
 | Candle | Meaning |
 |---|---|
-| Solid green / red | FTFC and every timeframe in force agree |
-| Faded body, full outline | FTFC aligned, but not every timeframe has a signal in force |
-| Hollow, colored outline | Every timeframe in force, but price not on the same side of every open |
+| Bright green / red | FTFC and every timeframe in force agree |
+| Faded green / red | FTFC aligned, but not every timeframe has a signal in force |
+| Purple | Every timeframe in force, but price not on the same side of every open |
 | Hollow gray | Neither |
 
-Hide the chart's own candles (Chart Settings > Symbol: uncheck Body, Borders, Wick) for the cleanest look. Other candle modes: *Agreement, Solid* (v0.1.0, purple for in force without FTFC), *Body = FTFC, Outline = In Force* (v0.2.0), *FTFC Only*, *In Force Only*.
+Hide the chart's own candles (Chart Settings > Symbol: uncheck Body, Borders, Wick) for the cleanest look. Other candle modes: *Agreement, Solid* (v0.1.0 exactly), *Agreement, Outlines* (v0.3.0), *Body = FTFC, Outline = In Force* (v0.2.0), *FTFC Only*, *In Force Only*.
 
 **Score pane.** Columns count how many timeframes are above (+) or below (-) their open, full color only at FTFC. The white step line counts how many have a signal in force. Line sitting on top of full columns = both agree. Full columns with the line near zero = continuity with nothing triggered.
 

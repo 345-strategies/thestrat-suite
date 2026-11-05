@@ -1,5 +1,5 @@
 //@version=6
-// TheStrat FTFC vs In Force - v0.3.0 (study)
+// TheStrat FTFC vs In Force - v0.3.1 (study)
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -30,10 +30,14 @@
 //   - v0.1.0's single-color candles remain as "Agreement, Solid".
 //
 // v0.3.0: back to v0.1.0's agreement colors, now drawn as real candles so hollow bodies and
-// outlines can carry meaning (Agreement, Hollow): solid = both agree, faded body with a full
+// outlines can carry meaning (now "Agreement, Outlines"): solid = both agree, faded body with a full
 // outline = FTFC only, hollow with a colored outline = in force without FTFC, hollow gray =
 // neither. Legend removed, stats moved onto the price chart, heatmap labeled once per
 // timeframe, cascade ladder off by default.
+//
+// v0.3.1: default candles are v0.1.0's distinct colors again (easier to scan), with hollow used
+// for one job only - bars where neither question is aligned - so every filled candle means
+// something is happening. v0.3.0's outline version stays as "Agreement, Outlines".
 //
 // No repainting: each timeframe's forming bar is rebuilt from chart bars (running high/low
 // keyed on the served period-open time, chart close as the period close). C1/C2, the period
@@ -42,7 +46,7 @@
 // test mirrors TheStrat Suite v3.1.1 computeSignalState (FTFC filters, HAM/SHO filters and
 // "Exhaustion Disables In Force" left out).
 
-indicator("TheStrat FTFC vs In Force - v0.3.0", shorttitle = "FTFC vs IF", overlay = false, max_labels_count = 20)
+indicator("TheStrat FTFC vs In Force - v0.3.1", shorttitle = "FTFC vs IF", overlay = false, max_labels_count = 20)
 
 import SpinTrades/TheStratGrammar/1 as sg
 
@@ -71,12 +75,12 @@ failed_2_method = input.string("Reclaim", "Method", options = ["Reclaim", "Open"
 logicType = input.string("Broad (Loose)", "Hammer / Shooter", options = ["Broad (Loose)", "Classic", "Pin Bar (Strict)"], group = grpSig)
 
 grpPaint = "Chart"
-candleMode = input.string("Agreement, Hollow", "Candles", options = ["Agreement, Hollow", "Agreement, Solid", "Body = FTFC, Outline = In Force", "FTFC Only", "In Force Only", "Off"], group = grpPaint, tooltip = "Agreement, Hollow:\n  Solid green/red: FTFC and every timeframe in force agree.\n  Faded body, full outline: FTFC aligned, but not every timeframe has a signal in force.\n  Hollow, colored outline: every timeframe in force, but price is not on the same side of every open.\n  Hollow gray: neither.\nFor the cleanest look, hide the chart's own candles (Chart Settings > Symbol: uncheck Body, Borders, Wick).\n\nAgreement, Solid: v0.1.0 - paints the chart's own candles: full both agree, faded FTFC only, purple in force only, gray neither.\n\nBody = FTFC, Outline = In Force: v0.2.0 - body filled when FTFC is aligned, hollow when not; outline colored when every timeframe is in force, gray when not.\n\nFTFC Only / In Force Only: one question at a time, gray otherwise.")
+candleMode = input.string("Agreement", "Candles", options = ["Agreement", "Agreement, Solid", "Agreement, Outlines", "Body = FTFC, Outline = In Force", "FTFC Only", "In Force Only", "Off"], group = grpPaint, tooltip = "Agreement:\n  Bright green/red: FTFC and every timeframe in force agree.\n  Faded green/red: FTFC aligned, but not every timeframe has a signal in force.\n  Purple: every timeframe in force, but price is not on the same side of every open.\n  Hollow gray: neither - so every filled candle means something is happening.\nFor the cleanest look, hide the chart's own candles (Chart Settings > Symbol: uncheck Body, Borders, Wick).\n\nAgreement, Solid: v0.1.0 - same colors painted on the chart's own candles, solid gray for neither.\n\nAgreement, Outlines: v0.3.0 - faded body with full outline for FTFC only, hollow with a colored outline for in force without FTFC, hollow gray for neither.\n\nBody = FTFC, Outline = In Force: v0.2.0 - body filled when FTFC is aligned, hollow when not; outline colored when every timeframe is in force, gray when not.\n\nFTFC Only / In Force Only: one question at a time, gray otherwise.")
 showLadder = input.bool(false, "Cascade Ladder", group = grpPaint, inline = "lad", tooltip = "A letter where each timeframe goes in force: green below the bar for bull, red above for bear. Letters stack by timeframe (H nearest the bar, M farthest), so you can read the order timeframes trigger in - lower timeframes going in force first, then the higher ones following, is the cascade.")
 ladderEvery = input.bool(false, "Every Re-entry", group = grpPaint, inline = "lad", tooltip = "OFF: mark only the first time each timeframe goes in force in each of its periods. ON: mark every time it re-enters, which shows contested triggers chopping in and out.")
 colBull = input.color(#4caf50, "Bull / Bear", inline = "c1", group = grpPaint)
 colBear = input.color(#f23645, "", inline = "c1", group = grpPaint)
-colSplit = input.color(#9c27b0, "In Force, no FTFC", inline = "c2", group = grpPaint, tooltip = "Used by Agreement, Solid only. Agreement, Hollow shows this case as a hollow candle with a colored outline.")
+colSplit = input.color(#9c27b0, "In Force, no FTFC", inline = "c2", group = grpPaint, tooltip = "Every timeframe in force, but FTFC not aligned with it (Agreement and Agreement, Solid).")
 colNone = input.color(#5d606b, "Neither", inline = "c2", group = grpPaint)
 ftfcOnlyTransp = input.int(70, "FTFC-only Fade", minval = 0, maxval = 95, group = grpPaint, tooltip = "How faded the body is where FTFC is aligned but not every timeframe has a signal in force (Agreement modes).")
 
@@ -265,12 +269,22 @@ blend(color c, float w) =>
     color bg = chart.bg_color
     color.rgb(color.r(c) * w + color.r(bg) * (1 - w), color.g(c) * w + color.g(bg) * (1 - w), color.b(c) * w + color.b(bg) * (1 - w))
 
-bool hollowMode = candleMode == "Agreement, Hollow"
+bool agreeMode = candleMode == "Agreement"
+bool hollowMode = candleMode == "Agreement, Outlines"
 bool twoChannel = candleMode == "Body = FTFC, Outline = In Force"
-bool drawCandle = (hollowMode or twoChannel) and hasData
+bool drawCandle = (agreeMode or hollowMode or twoChannel) and hasData
 color bodyCol = chart.bg_color
 color lineCol = colNone
-if hollowMode
+if agreeMode
+    // v0.1.0's colors as fills; only "neither" is hollow.
+    if allIfDir != 0 and allIfDir == ftfcDir
+        bodyCol := dirColor(allIfDir)
+    else if allIfDir != 0
+        bodyCol := colSplit
+    else if ftfcDir != 0
+        bodyCol := blend(dirColor(ftfcDir), 1 - ftfcOnlyTransp / 100.0)
+    lineCol := bodyCol == chart.bg_color ? colNone : bodyCol
+else if hollowMode
     if allIfDir != 0 and allIfDir == ftfcDir
         bodyCol := dirColor(allIfDir)
         lineCol := bodyCol
