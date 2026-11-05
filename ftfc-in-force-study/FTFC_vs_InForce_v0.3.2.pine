@@ -1,12 +1,12 @@
 //@version=6
-// TheStrat FTFC vs In Force - v0.3.1 (study)
+// TheStrat FTFC vs In Force - v0.3.2 (study)
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
 // A learning study, not part of TheStrat Suite. It puts two questions side by side on every
-// bar, for the Hour, Day, Week and Month:
+// bar, for the Hour, Day, Week and Month (plus optional 15m and 30m):
 //
 //   FTFC (Full Timeframe Continuity): is each timeframe trading above its open, or below it?
 //   Only where price sits against each open. No pattern, no trigger.
@@ -40,14 +40,31 @@
 // for one job only - bars where neither question is aligned - so every filled candle means
 // something is happening. v0.3.0's outline version stays as "Agreement, Outlines".
 //
+// v0.3.2 (from review feedback on v0.3.1):
+//   - Outside bars: with Outside Bars on, a 3 that closes above C1's high is in force bull and
+//     one that closes below C1's low is in force bear. Before, a 3 only counted through the
+//     hammer/shooter path.
+//   - Score: bull and bear counts are plotted separately, so 2 bull + 2 bear in force no longer
+//     reads the same as nothing in force.
+//   - Shared opens: a timeframe whose period began on the same chart bar as a lower timeframe's
+//     (Monday: Week = Day; first trading day: Month = Day; first hour of the session: Day = Hour)
+//     gets its open half faded in the heatmap, because both are measured from one opening print.
+//     The stats table counts how often FTFC rested on shared opens.
+//   - Optional 15m and 30m slots, off by default.
+//   - The cascade ladder is drawn with labels (most recent 500 marks) and the score's zero line
+//     and all-up / all-down dots are gone, to stay under TradingView's 64-plot limit.
+//
 // No repainting: each timeframe's forming bar is rebuilt from chart bars (running high/low
 // keyed on the served period-open time, chart close as the period close). C1/C2, the period
 // open and period time are completed or period-stable under lookahead_on, so every historical
 // bar is graded as it stood at that bar's close, not as the period finally closed. The in-force
 // test mirrors TheStrat Suite v3.1.1 computeSignalState (FTFC filters, HAM/SHO filters and
-// "Exhaustion Disables In Force" left out).
+// "Exhaustion Disables In Force" left out), with one deliberate difference since v0.3.2: an
+// outside bar (3) is in force toward the side of C1 it closes beyond. The Suite's
+// computeSignalState only lets a 3 through on the hammer/shooter path, while its timeframe
+// table already treats an enabled 3 expansion as in force.
 
-indicator("TheStrat FTFC vs In Force - v0.3.1", shorttitle = "FTFC vs IF", overlay = false, max_labels_count = 20)
+indicator("TheStrat FTFC vs In Force - v0.3.2", shorttitle = "FTFC vs IF", overlay = false, max_labels_count = 500)
 
 import SpinTrades/TheStratGrammar/1 as sg
 
@@ -62,6 +79,8 @@ enH = input.bool(true, "Hour", inline = "tf", group = grpTF)
 enD = input.bool(true, "Day", inline = "tf", group = grpTF)
 enW = input.bool(true, "Week", inline = "tf", group = grpTF)
 enM = input.bool(true, "Month", inline = "tf", group = grpTF, tooltip = "Timeframes below the chart's are skipped (the Hour on a daily chart, for example). Use a 1H or lower chart to see all four.")
+en15 = input.bool(false, "15m", inline = "tf2", group = grpTF)
+en30 = input.bool(false, "30m", inline = "tf2", group = grpTF, tooltip = "Optional intraday slots, off by default. When on, they count toward FTFC and All In Force, so both get stricter (every enabled timeframe must agree), and they get their own heatmap bands and ladder marks (¼ = 15m, ½ = 30m). Skipped on charts above their timeframe. On a 5m chart they show the morning cascade from 15m to 30m to the Hour.")
 
 grpSig = "Signals That Count As In Force"
 showInsideReversals = input.bool(true, "Inside Reversals", group = grpSig, inline = "s1")
@@ -70,14 +89,14 @@ showAllReversals = input.bool(true, "2-2 Reversals", group = grpSig, inline = "s
 showContinuations = input.bool(true, "2-2 Continuations", group = grpSig, inline = "s2")
 show_p3_toggle = input.bool(true, "Failing 2s", group = grpSig, inline = "s3")
 showRangeExpansions = input.bool(true, "3-2 Expansions", group = grpSig, inline = "s3")
-show3Expansions = input.bool(true, "Outside Bars (3)", group = grpSig, inline = "s4", tooltip = "Same signal families and definitions as TheStrat Suite. All on by default, so 'in force' means any Suite signal is in force. Hammers and shooters always count as reversal/continuation triggers, as in the Suite.")
+show3Expansions = input.bool(true, "Outside Bars (3)", group = grpSig, inline = "s4", tooltip = "Same signal families and definitions as TheStrat Suite. All on by default, so 'in force' means any Suite signal is in force. Hammers and shooters always count as reversal/continuation triggers, as in the Suite.\n\nOutside Bars (3): a current bar that has broken both sides of C1 is in force bull when it closes above C1's high and bear when it closes below C1's low. Closed back inside C1 (a failing 3) it is not in force. Off = an outside bar never counts.")
 enableFailed2Detection = input.bool(true, "Failing 2 Detection", group = grpSig, inline = "f2")
 failed_2_method = input.string("Reclaim", "Method", options = ["Reclaim", "Open", "Reclaim + Open", "Reclaim OR Open"], group = grpSig, inline = "f2")
 logicType = input.string("Broad (Loose)", "Hammer / Shooter", options = ["Broad (Loose)", "Classic", "Pin Bar (Strict)"], group = grpSig)
 
 grpPaint = "Chart"
 candleMode = input.string("Agreement", "Candles", options = ["Agreement", "Agreement, Solid", "Agreement, Outlines", "Body = FTFC, Outline = In Force", "FTFC Only", "In Force Only", "Off"], group = grpPaint, tooltip = "Agreement:\n  Bright green/red: FTFC and every timeframe in force agree.\n  Faded green/red: FTFC aligned, but not every timeframe has a signal in force.\n  Blue / Purple: every timeframe in force up / down, but price is not on the same side of every open.\n  Hollow gray: neither - so every filled candle means something is happening.\nFor the cleanest look, hide the chart's own candles (Chart Settings > Symbol: uncheck Body, Borders, Wick).\n\nAgreement, Solid: v0.1.0 style - same colors painted on the chart's own candles, solid gray for neither.\n\nAgreement, Outlines: v0.3.0 - faded body with full outline for FTFC only, hollow with a colored outline for in force without FTFC, hollow gray for neither.\n\nBody = FTFC, Outline = In Force: v0.2.0 - body filled when FTFC is aligned, hollow when not; outline colored when every timeframe is in force, gray when not.\n\nFTFC Only / In Force Only: one question at a time, gray otherwise.")
-showLadder = input.bool(false, "Cascade Ladder", group = grpPaint, inline = "lad", tooltip = "A letter where each timeframe goes in force: green below the bar for bull, red above for bear. Letters stack by timeframe (H nearest the bar, M farthest), so you can read the order timeframes trigger in - lower timeframes going in force first, then the higher ones following, is the cascade.")
+showLadder = input.bool(false, "Cascade Ladder", group = grpPaint, inline = "lad", tooltip = "A letter where each timeframe goes in force: green below the bar for bull, red above for bear. Letters stack by timeframe (lowest timeframe nearest the bar, M farthest), so you can read the order timeframes trigger in - lower timeframes going in force first, then the higher ones following, is the cascade. With the optional slots on, ¼ = 15m and ½ = 30m. Shows the most recent 500 marks.")
 ladderEvery = input.bool(false, "Every Re-entry", group = grpPaint, inline = "lad", tooltip = "OFF: mark only the first time each timeframe goes in force in each of its periods. ON: mark every time it re-enters, which shows contested triggers chopping in and out.")
 colBull = input.color(#4caf50, "Bull / Bear", inline = "c1", group = grpPaint)
 colBear = input.color(#f23645, "", inline = "c1", group = grpPaint)
@@ -87,8 +106,9 @@ colNone = input.color(#5d606b, "Neither", inline = "c2", group = grpPaint)
 ftfcOnlyTransp = input.int(55, "FTFC-only Fade", minval = 0, maxval = 95, group = grpPaint, tooltip = "How faded the body is where FTFC is aligned but not every timeframe has a signal in force (Agreement modes).")
 
 grpPane = "Pane"
-paneView = input.string("Heatmap", "Show", options = ["Heatmap", "Score + Heatmap", "Score"], group = grpPane, tooltip = "Score: columns = how many timeframes are above (+) or below (-) their open; full color when all of them are (FTFC). White step line = how many have a signal in force (+ bull, - bear). Line on top of full columns = both agree. Full columns with the line near zero = continuity, nothing triggered. Line at the edge with short columns = signals in force, price not past every open.\n\nHeatmap: one band per timeframe, top half = above/below its open, bottom half = signal in force (dim = none), plus FTFC and ALL IF rows on top.")
-showStats = input.bool(false, "Stats Table", group = grpPane, tooltip = "A small table on the price chart: how often FTFC, all-in-force, and both together occur over the loaded history.")
+paneView = input.string("Heatmap", "Show", options = ["Heatmap", "Score + Heatmap", "Score"], group = grpPane, tooltip = "Score: green columns above zero = how many timeframes are above their open, red columns below zero = how many are below it; full color only at FTFC. White step lines = how many timeframes have a signal in force, bull above zero and bear below it, counted separately so they never cancel out. Lines at the edge of full columns = both agree. Full columns with the lines at zero = continuity, nothing triggered. Lines on both sides of zero = timeframes in force against each other.\n\nHeatmap: one band per timeframe, top half = above/below its open (faded when it shares its open with a lower timeframe), bottom half = signal in force (gray = none), plus FTFC and ALL IF rows on top.")
+flagShared = input.bool(true, "Fade Shared Opens", group = grpPane, tooltip = "Heatmap: fade the open half of a timeframe whose period began on the same bar as a lower timeframe's period (Monday: Week = Day; first trading day: Month = Day; first hour of the session: Day = Hour). Both are measured from the same opening print, so they count twice toward FTFC without being independent confirmation. It never changes whether FTFC is aligned.")
+showStats = input.bool(false, "Stats Table", group = grpPane, tooltip = "A small table on the price chart: how often FTFC, FTFC resting on shared opens, all-in-force, and both together occur over the loaded history.")
 
 // ============================================================================
 // SHARED HELPERS (from TheStrat Suite v3.1.1, trimmed)
@@ -167,7 +187,8 @@ shouldDrawC1Level(bool isBullish, c1_is_inside, c1_is_hammer, c1_is_shooter, cc_
 // PER-TIMEFRAME ENGINE
 // ============================================================================
 // One call site per timeframe, each with its own var state - never from a loop.
-// Returns [inForceDir, aboveOpenDir, enteredUp, enteredDown]: +1 bull, -1 bear, 0 none.
+// Returns [inForceDir, aboveOpenDir, enteredUp, enteredDown, periodStartBar]: directions are +1
+// bull, -1 bear, 0 none; periodStartBar is the chart bar this timeframe's current period began on.
 evalSlot(bool en, int ccTime, float ccO, float c1H, float c1L, float c1O, float c1C, float c2H, float c2L, float c2O, float c2C) =>
     var float runH = na
     var float runL = na
@@ -175,11 +196,13 @@ evalSlot(bool en, int ccTime, float ccO, float c1H, float c1L, float c1O, float 
     var int prevIf = 0
     var bool markedUp = false
     var bool markedDn = false
+    var int startBar = na
     if not na(ccTime)
         if na(lastP) or ccTime != lastP
             runH := high
             runL := low
             lastP := ccTime
+            startBar := bar_index
             prevIf := 0
             markedUp := false
             markedDn := false
@@ -215,6 +238,11 @@ evalSlot(bool en, int ccTime, float ccO, float c1H, float c1L, float c1O, float 
         drawLow := drawLow and not (c1_is_3 and cc_is_2u and not is_f2u) and not (isInside and cc_broke_high and not is_f2u and not cc_is_3)
         inHigh = drawHigh and ((sig_h and not is_f2d and close > c1H) or (show_p3_toggle and is_f2d))
         inLow = drawLow and ((sig_l and not is_f2u and close < c1L) or (show_p3_toggle and is_f2u))
+        // v0.3.2: an outside bar (3) has broken both sides of C1, so it is in force toward the side
+        // it closes beyond; closed back inside C1 it is not. The Suite's computeSignalState only
+        // lets a 3 through on the hammer/shooter path (its timeframe table counts any 3).
+        inHigh := inHigh or (show3Expansions and cc_is_3 and close > c1H)
+        inLow := inLow or (show3Expansions and cc_is_3 and close < c1L)
         // Both sides (rare): settled as the Suite's Lead does - F2u bear, F2d bull, else close vs open.
         ifDir := inHigh and inLow ? (is_f2u ? -1 : is_f2d ? 1 : close > ccO ? 1 : -1) : inHigh ? 1 : inLow ? -1 : 0
     // Cascade ladder events: the bar this timeframe goes in force (first per period by default).
@@ -225,39 +253,77 @@ evalSlot(bool en, int ccTime, float ccO, float c1H, float c1L, float c1O, float 
     if dnNow
         markedDn := true
     prevIf := ifDir
-    [ifDir, aoDir, upNow, dnNow]
+    [ifDir, aoDir, upNow, dnNow, startBar]
 
 getTF() =>
     [time, open, high[1], low[1], open[1], close[1], high[2], low[2], open[2], close[2]]
 
 var int chartSec = timeframe.in_seconds(timeframe.period)
+[t15t, t15o, c15H1, c15L1, c15O1, c15C1, c15H2, c15L2, c15O2, c15C2] = request.security(syminfo.tickerid, "15", getTF(), lookahead = barmerge.lookahead_on)
+[t30t, t30o, c30H1, c30L1, c30O1, c30C1, c30H2, c30L2, c30O2, c30C2] = request.security(syminfo.tickerid, "30", getTF(), lookahead = barmerge.lookahead_on)
 [tHt, tHo, hH1, hL1, hO1, hC1, hH2, hL2, hO2, hC2] = request.security(syminfo.tickerid, "60", getTF(), lookahead = barmerge.lookahead_on)
 [tDt, tDo, dH1, dL1, dO1, dC1, dH2, dL2, dO2, dC2] = request.security(syminfo.tickerid, "D", getTF(), lookahead = barmerge.lookahead_on)
 [tWt, tWo, wH1, wL1, wO1, wC1, wH2, wL2, wO2, wC2] = request.security(syminfo.tickerid, "W", getTF(), lookahead = barmerge.lookahead_on)
 [tMt, tMo, mH1, mL1, mO1, mC1, mH2, mL2, mO2, mC2] = request.security(syminfo.tickerid, "M", getTF(), lookahead = barmerge.lookahead_on)
 
+bool ok15 = en15 and timeframe.in_seconds("15") >= chartSec
+bool ok30 = en30 and timeframe.in_seconds("30") >= chartSec
 bool okH = enH and timeframe.in_seconds("60") >= chartSec
 bool okD = enD and timeframe.in_seconds("D") >= chartSec
 bool okW = enW and timeframe.in_seconds("W") >= chartSec
 bool okM = enM and timeframe.in_seconds("M") >= chartSec
 
-[ifH, aoH, upH, dnH] = evalSlot(okH, tHt, tHo, hH1, hL1, hO1, hC1, hH2, hL2, hO2, hC2)
-[ifD, aoD, upD, dnD] = evalSlot(okD, tDt, tDo, dH1, dL1, dO1, dC1, dH2, dL2, dO2, dC2)
-[ifW, aoW, upW, dnW] = evalSlot(okW, tWt, tWo, wH1, wL1, wO1, wC1, wH2, wL2, wO2, wC2)
-[ifM, aoM, upM, dnM] = evalSlot(okM, tMt, tMo, mH1, mL1, mO1, mC1, mH2, mL2, mO2, mC2)
+[if15, ao15, up15, dn15, st15] = evalSlot(ok15, t15t, t15o, c15H1, c15L1, c15O1, c15C1, c15H2, c15L2, c15O2, c15C2)
+[if30, ao30, up30, dn30, st30] = evalSlot(ok30, t30t, t30o, c30H1, c30L1, c30O1, c30C1, c30H2, c30L2, c30O2, c30C2)
+[ifH, aoH, upH, dnH, stH] = evalSlot(okH, tHt, tHo, hH1, hL1, hO1, hC1, hH2, hL2, hO2, hC2)
+[ifD, aoD, upD, dnD, stD] = evalSlot(okD, tDt, tDo, dH1, dL1, dO1, dC1, dH2, dL2, dO2, dC2)
+[ifW, aoW, upW, dnW, stW] = evalSlot(okW, tWt, tWo, wH1, wL1, wO1, wC1, wH2, wL2, wO2, wC2)
+[ifM, aoM, upM, dnM, stM] = evalSlot(okM, tMt, tMo, mH1, mL1, mO1, mC1, mH2, mL2, mO2, mC2)
 
 // ============================================================================
 // AGREEMENT
 // ============================================================================
-int nOk = (okH and not na(tHo) ? 1 : 0) + (okD and not na(tDo) ? 1 : 0) + (okW and not na(tWo) ? 1 : 0) + (okM and not na(tMo) ? 1 : 0)
-int aoSum = aoH + aoD + aoW + aoM
-int ifSum = ifH + ifD + ifW + ifM
+bool has15 = ok15 and not na(t15o)
+bool has30 = ok30 and not na(t30o)
+bool hasH = okH and not na(tHo)
+bool hasD = okD and not na(tDo)
+bool hasW = okW and not na(tWo)
+bool hasM = okM and not na(tMo)
+int nOk = (has15 ? 1 : 0) + (has30 ? 1 : 0) + (hasH ? 1 : 0) + (hasD ? 1 : 0) + (hasW ? 1 : 0) + (hasM ? 1 : 0)
+pos(int d) => d == 1 ? 1 : 0
+neg(int d) => d == -1 ? 1 : 0
+// Bull and bear counts kept apart, so 2 bull + 2 bear never nets out to look like nothing.
+int aoUp = pos(ao15) + pos(ao30) + pos(aoH) + pos(aoD) + pos(aoW) + pos(aoM)
+int aoDn = neg(ao15) + neg(ao30) + neg(aoH) + neg(aoD) + neg(aoW) + neg(aoM)
+int ifUp = pos(if15) + pos(if30) + pos(ifH) + pos(ifD) + pos(ifW) + pos(ifM)
+int ifDn = neg(if15) + neg(if30) + neg(ifH) + neg(ifD) + neg(ifW) + neg(ifM)
 // FTFC: every timeframe on the same side of its open. All In Force: every timeframe has a
 // signal in force, all the same direction. An inside / not-in-force timeframe scores 0 and
 // breaks it.
-int ftfcDir = nOk > 0 and aoSum == nOk ? 1 : nOk > 0 and aoSum == -nOk ? -1 : 0
-int allIfDir = nOk > 0 and ifSum == nOk ? 1 : nOk > 0 and ifSum == -nOk ? -1 : 0
+int ftfcDir = nOk > 0 and aoUp == nOk ? 1 : nOk > 0 and aoDn == nOk ? -1 : 0
+int allIfDir = nOk > 0 and ifUp == nOk ? 1 : nOk > 0 and ifDn == nOk ? -1 : 0
 bool hasData = nOk > 0
+
+// Shared opens: a timeframe whose current period began on the same chart bar as a lower
+// timeframe's period is measured from the same opening print (Monday: W = D; first trading day:
+// M = D; first hour of the session: D = H). Display and stats only: it never changes whether
+// FTFC is aligned, only shows how many independent opens it rests on.
+sameStart(bool hasA, int sA, bool hasB, int sB) => hasA and hasB and not na(sA) and sA == sB
+bool sh30 = sameStart(has30, st30, has15, st15)
+bool shH = sameStart(hasH, stH, has15, st15) or sameStart(hasH, stH, has30, st30)
+bool shD = sameStart(hasD, stD, has15, st15) or sameStart(hasD, stD, has30, st30) or sameStart(hasD, stD, hasH, stH)
+bool shW = sameStart(hasW, stW, has15, st15) or sameStart(hasW, stW, has30, st30) or sameStart(hasW, stW, hasH, stH) or sameStart(hasW, stW, hasD, stD)
+bool shM = sameStart(hasM, stM, has15, st15) or sameStart(hasM, stM, has30, st30) or sameStart(hasM, stM, hasH, stH) or sameStart(hasM, stM, hasD, stD) or sameStart(hasM, stM, hasW, stW)
+int nOpens = nOk - ((sh30 ? 1 : 0) + (shH ? 1 : 0) + (shD ? 1 : 0) + (shW ? 1 : 0) + (shM ? 1 : 0))
+
+// Layout: ladder slots and heatmap bands stack from the lowest enabled timeframe up (15m, 30m,
+// then H, D, W, M). Built from inputs only, because a plot's histbase is fixed before the first bar.
+BAND = 1.9
+int k30 = en15 ? 1 : 0
+int kH = (en15 ? 1 : 0) + (en30 ? 1 : 0)
+int kD = kH + 1
+int kW = kH + 2
+int kM = kH + 3
 
 // ============================================================================
 // CANDLES (main chart)
@@ -314,57 +380,81 @@ barcolor(candle, title = "Single-Color Candles")
 // ============================================================================
 // CASCADE LADDER (main chart)
 // ============================================================================
-// plotchar text must be const, so one call per timeframe and side (8). location.absolute with
-// an ATR-scaled offset per timeframe keeps letters that fire on the same bar from overlapping:
-// H nearest the bar, then D, W, M.
+// Labels, not plotchar: twelve location.absolute plotchar calls pushed the study past
+// TradingView's 64-plot limit once the 15m and 30m slots were added. Each mark is a text label,
+// green below the bar for bull and red above for bear, stacked with an ATR-scaled offset so marks
+// on the same bar never overlap: lowest timeframe nearest the bar, then up to M. 15m and 30m are
+// marked with a quarter and a half. The most recent 500 marks are kept.
 float ladStep = ta.atr(14) * 0.55
-bool lad = showLadder and hasData
-plotchar(lad and upH ? low - 1 * ladStep : na, "H in force up", "H", location.absolute, colBull, size = size.tiny, editable = false, force_overlay = true)
-plotchar(lad and upD ? low - 2 * ladStep : na, "D in force up", "D", location.absolute, colBull, size = size.tiny, editable = false, force_overlay = true)
-plotchar(lad and upW ? low - 3 * ladStep : na, "W in force up", "W", location.absolute, colBull, size = size.tiny, editable = false, force_overlay = true)
-plotchar(lad and upM ? low - 4 * ladStep : na, "M in force up", "M", location.absolute, colBull, size = size.tiny, editable = false, force_overlay = true)
-plotchar(lad and dnH ? high + 1 * ladStep : na, "H in force down", "H", location.absolute, colBear, size = size.tiny, editable = false, force_overlay = true)
-plotchar(lad and dnD ? high + 2 * ladStep : na, "D in force down", "D", location.absolute, colBear, size = size.tiny, editable = false, force_overlay = true)
-plotchar(lad and dnW ? high + 3 * ladStep : na, "W in force down", "W", location.absolute, colBear, size = size.tiny, editable = false, force_overlay = true)
-plotchar(lad and dnM ? high + 4 * ladStep : na, "M in force down", "M", location.absolute, colBear, size = size.tiny, editable = false, force_overlay = true)
+ladMark(bool cond, int k, bool isUp, string txt) =>
+    if cond
+        label.new(bar_index, isUp ? low - (k + 1) * ladStep : high + (k + 1) * ladStep, txt, style = label.style_none, textcolor = isUp ? colBull : colBear, size = size.tiny, force_overlay = true)
+if showLadder and hasData
+    ladMark(up15, 0, true, "¼")
+    ladMark(up30, k30, true, "½")
+    ladMark(upH, kH, true, "H")
+    ladMark(upD, kD, true, "D")
+    ladMark(upW, kW, true, "W")
+    ladMark(upM, kM, true, "M")
+    ladMark(dn15, 0, false, "¼")
+    ladMark(dn30, k30, false, "½")
+    ladMark(dnH, kH, false, "H")
+    ladMark(dnD, kD, false, "D")
+    ladMark(dnW, kW, false, "W")
+    ladMark(dnM, kM, false, "M")
 
 // ============================================================================
 // PANE
 // ============================================================================
-// One shared scale: the score lives in -4..+4, the heatmap bands sit above it from 7.8 to 17.8.
+// One shared scale: the score lives in -6..+6 at most, the heatmap bands sit above it from 7.8 up.
 bool showScore = hasData and paneView != "Heatmap"
 bool showHeat = hasData and paneView != "Score"
 
-// Score. Columns: how many timeframes are above (+) / below (-) their open, full color only at
-// FTFC. Line: how many have a signal in force (+ bull, - bear).
-color aoCol = aoSum == 0 ? colNone : color.new(aoSum > 0 ? colBull : colBear, ftfcDir != 0 ? 0 : 65)
-plot(showScore ? aoSum : na, "Above Open Count", aoCol, style = plot.style_columns)
-plot(showScore ? ifSum : na, "In Force Count", chart.fg_color, linewidth = 3, style = plot.style_stepline)
-plot(showScore ? 0 : na, "Zero", color.new(colNone, 40))
-plot(showScore ? nOk : na, "All Up", color.new(colNone, 50), style = plot.style_circles, linewidth = 1)
-plot(showScore ? -nOk : na, "All Down", color.new(colNone, 50), style = plot.style_circles, linewidth = 1)
+// Score. Columns: how many timeframes are above their open (up) and below it (down), full color
+// only at FTFC. Lines: how many have a signal in force, bull above zero and bear below it. Kept
+// apart so 2 bull + 2 bear in force never reads as zero, the same as nothing in force. (The zero
+// line and the all-up / all-down dots were dropped in v0.3.2 to stay under the 64-plot limit.)
+plot(showScore ? aoUp : na, "Above Open Count", color.new(colBull, ftfcDir == 1 ? 0 : 65), style = plot.style_columns)
+plot(showScore ? -aoDn : na, "Below Open Count", color.new(colBear, ftfcDir == -1 ? 0 : 65), style = plot.style_columns)
+plot(showScore ? ifUp : na, "In Force Bull Count", chart.fg_color, linewidth = 3, style = plot.style_stepline)
+plot(showScore ? -ifDn : na, "In Force Bear Count", chart.fg_color, linewidth = 3, style = plot.style_stepline)
 
 // Heatmap. Columns from histbase to the row value make a bar-by-bar band per row.
 colOff = color.new(colNone, 60)
 rowCol(int d, bool ok) => not ok ? color(na) : d == 1 ? colBull : d == -1 ? colBear : colOff
-plot(showHeat ? 17.8 : na, "FTFC row", rowCol(ftfcDir, true), style = plot.style_columns, histbase = 17.0)
-plot(showHeat ? 16.8 : na, "All In Force row", rowCol(allIfDir, true), style = plot.style_columns, histbase = 16.0)
+// Open half of a band: faded when this timeframe shares its open with a lower one.
+openCol(int d, bool ok, bool shared) => flagShared and shared and ok ? color.new(d == 1 ? colBull : colBear, 55) : rowCol(d, ok)
+// Band k (0 = lowest enabled timeframe): open half from 8.5 to 9.1, in-force half from 7.8 to 8.4,
+// shifted up BAND per step. FTFC and ALL IF rows sit above the Month band.
+float topM = 9.1 + BAND * kM
+plot(showHeat ? topM + 3.0 : na, "FTFC row", rowCol(ftfcDir, true), style = plot.style_columns, histbase = 9.1 + BAND * kM + 2.2)
+plot(showHeat ? topM + 2.0 : na, "All In Force row", rowCol(allIfDir, true), style = plot.style_columns, histbase = 9.1 + BAND * kM + 1.2)
 // One band per timeframe: top half = vs its open, bottom half = signal in force.
-plot(showHeat ? 14.8 : na, "M open row", rowCol(aoM, okM), style = plot.style_columns, histbase = 14.2)
-plot(showHeat ? 14.1 : na, "M IF row", rowCol(ifM, okM), style = plot.style_columns, histbase = 13.5)
-plot(showHeat ? 12.9 : na, "W open row", rowCol(aoW, okW), style = plot.style_columns, histbase = 12.3)
-plot(showHeat ? 12.2 : na, "W IF row", rowCol(ifW, okW), style = plot.style_columns, histbase = 11.6)
-plot(showHeat ? 11.0 : na, "D open row", rowCol(aoD, okD), style = plot.style_columns, histbase = 10.4)
-plot(showHeat ? 10.3 : na, "D IF row", rowCol(ifD, okD), style = plot.style_columns, histbase = 9.7)
-plot(showHeat ? 9.1 : na, "H open row", rowCol(aoH, okH), style = plot.style_columns, histbase = 8.5)
-plot(showHeat ? 8.4 : na, "H IF row", rowCol(ifH, okH), style = plot.style_columns, histbase = 7.8)
+plot(showHeat ? 9.1 + BAND * kM : na, "M open row", openCol(aoM, okM, shM), style = plot.style_columns, histbase = 8.5 + BAND * kM)
+plot(showHeat ? 8.4 + BAND * kM : na, "M IF row", rowCol(ifM, okM), style = plot.style_columns, histbase = 7.8 + BAND * kM)
+plot(showHeat ? 9.1 + BAND * kW : na, "W open row", openCol(aoW, okW, shW), style = plot.style_columns, histbase = 8.5 + BAND * kW)
+plot(showHeat ? 8.4 + BAND * kW : na, "W IF row", rowCol(ifW, okW), style = plot.style_columns, histbase = 7.8 + BAND * kW)
+plot(showHeat ? 9.1 + BAND * kD : na, "D open row", openCol(aoD, okD, shD), style = plot.style_columns, histbase = 8.5 + BAND * kD)
+plot(showHeat ? 8.4 + BAND * kD : na, "D IF row", rowCol(ifD, okD), style = plot.style_columns, histbase = 7.8 + BAND * kD)
+plot(showHeat ? 9.1 + BAND * kH : na, "H open row", openCol(aoH, okH, shH), style = plot.style_columns, histbase = 8.5 + BAND * kH)
+plot(showHeat ? 8.4 + BAND * kH : na, "H IF row", rowCol(ifH, okH), style = plot.style_columns, histbase = 7.8 + BAND * kH)
+plot(showHeat and en30 ? 9.1 + BAND * k30 : na, "30m open row", openCol(ao30, ok30, sh30), style = plot.style_columns, histbase = 8.5 + BAND * k30)
+plot(showHeat and en30 ? 8.4 + BAND * k30 : na, "30m IF row", rowCol(if30, ok30), style = plot.style_columns, histbase = 7.8 + BAND * k30)
+plot(showHeat and en15 ? 9.1 : na, "15m open row", rowCol(ao15, ok15), style = plot.style_columns, histbase = 8.5)
+plot(showHeat and en15 ? 8.4 : na, "15m IF row", rowCol(if15, ok15), style = plot.style_columns, histbase = 7.8)
 
 // Row names at the right edge (heatmap only): one per band, so they never overlap.
 var label[] rowLabels = array.new<label>()
 if barstate.islast
     if array.size(rowLabels) == 0
         names = array.from("FTFC", "ALL IF", "M", "W", "D", "H")
-        ys = array.from(17.4, 16.4, 14.15, 12.25, 10.35, 8.45)
+        ys = array.from(topM + 2.6, topM + 1.6, 8.45 + BAND * kM, 8.45 + BAND * kW, 8.45 + BAND * kD, 8.45 + BAND * kH)
+        if en30
+            names.push("30m")
+            ys.push(8.45 + BAND * k30)
+        if en15
+            names.push("15m")
+            ys.push(8.45)
         for i = 0 to array.size(names) - 1
             array.push(rowLabels, label.new(bar_index + 2, array.get(ys, i), array.get(names, i), style = label.style_none, textcolor = chart.fg_color, size = size.small, textalign = text.align_left))
     for lb in rowLabels
@@ -376,6 +466,7 @@ if barstate.islast
 // ============================================================================
 var int nBars = 0
 var int nFtfc = 0
+var int nFtfcShared = 0
 var int nAllIf = 0
 var int nBoth = 0
 var int nFtfcOnly = 0
@@ -383,6 +474,7 @@ var int nIfOnly = 0
 if hasData and barstate.isconfirmed
     nBars += 1
     nFtfc += ftfcDir != 0 ? 1 : 0
+    nFtfcShared += ftfcDir != 0 and nOpens < nOk ? 1 : 0
     nAllIf += allIfDir != 0 ? 1 : 0
     nBoth += allIfDir != 0 and allIfDir == ftfcDir ? 1 : 0
     nFtfcOnly += ftfcDir != 0 and allIfDir == 0 ? 1 : 0
@@ -395,9 +487,10 @@ statCell(table t, int row, string k, string v) =>
     table.cell(t, 1, row, v, text_color = chart.fg_color, text_size = size.small, text_halign = text.align_right)
 
 // On the price chart, out of the pane's way.
-var table stats = table.new(position.bottom_left, 2, 4, bgcolor = color.new(#1e222d, 15), border_width = 0, force_overlay = true)
+var table stats = table.new(position.bottom_left, 2, 5, bgcolor = color.new(#1e222d, 15), border_width = 0, force_overlay = true)
 if showStats and barstate.islast
     statCell(stats, 0, "FTFC", pct(nFtfc))
-    statCell(stats, 1, "All in force", pct(nAllIf))
-    statCell(stats, 2, "Both", pct(nBoth))
-    statCell(stats, 3, "Bars (" + str.tostring(nOk) + " TFs)", str.tostring(nBars))
+    statCell(stats, 1, "FTFC on shared opens", pct(nFtfcShared))
+    statCell(stats, 2, "All in force", pct(nAllIf))
+    statCell(stats, 3, "Both", pct(nBoth))
+    statCell(stats, 4, "Bars (" + str.tostring(nOk) + " TFs)", str.tostring(nBars))

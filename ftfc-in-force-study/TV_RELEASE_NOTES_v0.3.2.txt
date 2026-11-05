@@ -1,0 +1,8 @@
+v0.3.2
+[list]
+[*][b]Outside bars count as in force:[/b] a 3 closing above C1's high is in force bull, below C1's low in force bear. Closing back inside C1 is not in force.
+[*][b]Score split:[/b] bull and bear counts plotted separately, so they no longer cancel out.
+[*][b]Shared opens:[/b] the heatmap fades a timeframe's open when it shares it with a lower timeframe (Monday W = D, first trading day M = D, first hour D = H).
+[*][b]Optional 15m and 30m timeframes[/b], off by default.
+[*]Cascade ladder now drawn as labels (most recent 500) to stay under the plot limit.
+[/list]
