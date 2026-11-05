@@ -35,7 +35,8 @@
 // neither. Legend removed, stats moved onto the price chart, heatmap labeled once per
 // timeframe, cascade ladder off by default.
 //
-// v0.3.1: default candles are v0.1.0's distinct colors again (easier to scan), with hollow used
+// v0.3.1: default candles are v0.1.0's distinct colors again (easier to scan; in force without
+// FTFC is split blue = up, purple = down), with hollow used
 // for one job only - bars where neither question is aligned - so every filled candle means
 // something is happening. v0.3.0's outline version stays as "Agreement, Outlines".
 //
@@ -75,12 +76,13 @@ failed_2_method = input.string("Reclaim", "Method", options = ["Reclaim", "Open"
 logicType = input.string("Broad (Loose)", "Hammer / Shooter", options = ["Broad (Loose)", "Classic", "Pin Bar (Strict)"], group = grpSig)
 
 grpPaint = "Chart"
-candleMode = input.string("Agreement", "Candles", options = ["Agreement", "Agreement, Solid", "Agreement, Outlines", "Body = FTFC, Outline = In Force", "FTFC Only", "In Force Only", "Off"], group = grpPaint, tooltip = "Agreement:\n  Bright green/red: FTFC and every timeframe in force agree.\n  Faded green/red: FTFC aligned, but not every timeframe has a signal in force.\n  Purple: every timeframe in force, but price is not on the same side of every open.\n  Hollow gray: neither - so every filled candle means something is happening.\nFor the cleanest look, hide the chart's own candles (Chart Settings > Symbol: uncheck Body, Borders, Wick).\n\nAgreement, Solid: v0.1.0 - same colors painted on the chart's own candles, solid gray for neither.\n\nAgreement, Outlines: v0.3.0 - faded body with full outline for FTFC only, hollow with a colored outline for in force without FTFC, hollow gray for neither.\n\nBody = FTFC, Outline = In Force: v0.2.0 - body filled when FTFC is aligned, hollow when not; outline colored when every timeframe is in force, gray when not.\n\nFTFC Only / In Force Only: one question at a time, gray otherwise.")
+candleMode = input.string("Agreement", "Candles", options = ["Agreement", "Agreement, Solid", "Agreement, Outlines", "Body = FTFC, Outline = In Force", "FTFC Only", "In Force Only", "Off"], group = grpPaint, tooltip = "Agreement:\n  Bright green/red: FTFC and every timeframe in force agree.\n  Faded green/red: FTFC aligned, but not every timeframe has a signal in force.\n  Blue / Purple: every timeframe in force up / down, but price is not on the same side of every open.\n  Hollow gray: neither - so every filled candle means something is happening.\nFor the cleanest look, hide the chart's own candles (Chart Settings > Symbol: uncheck Body, Borders, Wick).\n\nAgreement, Solid: v0.1.0 style - same colors painted on the chart's own candles, solid gray for neither.\n\nAgreement, Outlines: v0.3.0 - faded body with full outline for FTFC only, hollow with a colored outline for in force without FTFC, hollow gray for neither.\n\nBody = FTFC, Outline = In Force: v0.2.0 - body filled when FTFC is aligned, hollow when not; outline colored when every timeframe is in force, gray when not.\n\nFTFC Only / In Force Only: one question at a time, gray otherwise.")
 showLadder = input.bool(false, "Cascade Ladder", group = grpPaint, inline = "lad", tooltip = "A letter where each timeframe goes in force: green below the bar for bull, red above for bear. Letters stack by timeframe (H nearest the bar, M farthest), so you can read the order timeframes trigger in - lower timeframes going in force first, then the higher ones following, is the cascade.")
 ladderEvery = input.bool(false, "Every Re-entry", group = grpPaint, inline = "lad", tooltip = "OFF: mark only the first time each timeframe goes in force in each of its periods. ON: mark every time it re-enters, which shows contested triggers chopping in and out.")
 colBull = input.color(#4caf50, "Bull / Bear", inline = "c1", group = grpPaint)
 colBear = input.color(#f23645, "", inline = "c1", group = grpPaint)
-colSplit = input.color(#9c27b0, "In Force, no FTFC", inline = "c2", group = grpPaint, tooltip = "Every timeframe in force, but FTFC not aligned with it (Agreement and Agreement, Solid).")
+colSplitUp = input.color(#2962ff, "In Force, no FTFC: Up / Down", inline = "c3", group = grpPaint, tooltip = "Every timeframe has a signal in force, but FTFC is not aligned with it. Blue = all in force up, purple = all in force down, so the direction reads without borrowing green/red (reserved for full agreement). Agreement and Agreement, Solid.")
+colSplitDn = input.color(#9c27b0, "", inline = "c3", group = grpPaint)
 colNone = input.color(#5d606b, "Neither", inline = "c2", group = grpPaint)
 ftfcOnlyTransp = input.int(70, "FTFC-only Fade", minval = 0, maxval = 95, group = grpPaint, tooltip = "How faded the body is where FTFC is aligned but not every timeframe has a signal in force (Agreement modes).")
 
@@ -280,7 +282,7 @@ if agreeMode
     if allIfDir != 0 and allIfDir == ftfcDir
         bodyCol := dirColor(allIfDir)
     else if allIfDir != 0
-        bodyCol := colSplit
+        bodyCol := allIfDir == 1 ? colSplitUp : colSplitDn
     else if ftfcDir != 0
         bodyCol := blend(dirColor(ftfcDir), 1 - ftfcOnlyTransp / 100.0)
     lineCol := bodyCol == chart.bg_color ? colNone : bodyCol
@@ -302,7 +304,7 @@ plotcandle(drawCandle ? open : na, drawCandle ? high : na, drawCandle ? low : na
 color candle = na
 if hasData
     if candleMode == "Agreement, Solid"
-        candle := allIfDir != 0 and allIfDir == ftfcDir ? (allIfDir == 1 ? colBull : colBear) : allIfDir != 0 ? colSplit : ftfcDir != 0 ? color.new(ftfcDir == 1 ? colBull : colBear, ftfcOnlyTransp) : colNone
+        candle := allIfDir != 0 and allIfDir == ftfcDir ? (allIfDir == 1 ? colBull : colBear) : allIfDir != 0 ? (allIfDir == 1 ? colSplitUp : colSplitDn) : ftfcDir != 0 ? color.new(ftfcDir == 1 ? colBull : colBear, ftfcOnlyTransp) : colNone
     else if candleMode == "FTFC Only"
         candle := dirColor(ftfcDir)
     else if candleMode == "In Force Only"

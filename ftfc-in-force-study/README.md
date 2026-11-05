@@ -13,7 +13,7 @@ A learning study, separate from TheStrat Suite. It shows, bar by bar on the Hour
 |---|---|
 | Bright green / red | FTFC and every timeframe in force agree |
 | Faded green / red | FTFC aligned, but not every timeframe has a signal in force |
-| Purple | Every timeframe in force, but price not on the same side of every open |
+| Blue / purple | Every timeframe in force up / down, but price not on the same side of every open |
 | Hollow gray | Neither |
 
 Hide the chart's own candles (Chart Settings > Symbol: uncheck Body, Borders, Wick) for the cleanest look. Other candle modes: *Agreement, Solid* (v0.1.0 exactly), *Agreement, Outlines* (v0.3.0), *Body = FTFC, Outline = In Force* (v0.2.0), *FTFC Only*, *In Force Only*.
