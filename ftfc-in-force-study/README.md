@@ -5,30 +5,26 @@ A learning study, separate from TheStrat Suite. It shows, bar by bar on the Hour
 - **FTFC**: every timeframe trading on the same side of its open.
 - **All In Force (strict)**: every timeframe has a Suite signal in force (reversal, continuation, Failing 2, expansion), all in the same direction. A timeframe with nothing in force, such as an inside bar, breaks it. Signal type never matters, only direction.
 
-## Layers (v0.2.0)
+## Layers (v0.3.0)
 
-Each layer can be switched on or off to compare.
-
-**Two-channel candles** (default). The body answers FTFC, the outline and wick answer All In Force:
+**Candles: Agreement, Hollow** (default). v0.1.0's agreement colors, drawn as real candles so the body and outline can say different things:
 
 | Candle | Meaning |
 |---|---|
-| Filled green/red, matching outline | Both agree |
-| Filled, gray outline | FTFC aligned, but not every timeframe has triggered |
+| Solid green / red | FTFC and every timeframe in force agree |
+| Faded body, full outline | FTFC aligned, but not every timeframe has a signal in force |
 | Hollow, colored outline | Every timeframe in force, but price not on the same side of every open |
-| Hollow, gray outline | Neither |
+| Hollow gray | Neither |
 
-Hide the chart's own candles (Chart Settings > Symbol: uncheck Body, Borders, Wick) for the cleanest look.
+Hide the chart's own candles (Chart Settings > Symbol: uncheck Body, Borders, Wick) for the cleanest look. Other candle modes: *Agreement, Solid* (v0.1.0, purple for in force without FTFC), *Body = FTFC, Outline = In Force* (v0.2.0), *FTFC Only*, *In Force Only*.
 
-**Cascade ladder.** A letter (H, D, W, M) on the bar where each timeframe goes in force: green below for bull, red above for bear, stacked by timeframe so the order they trigger in is visible. First entry per period by default; *Every Re-entry* shows contested triggers chopping in and out.
+**Score pane.** Columns count how many timeframes are above (+) or below (-) their open, full color only at FTFC. The white step line counts how many have a signal in force. Line sitting on top of full columns = both agree. Full columns with the line near zero = continuity with nothing triggered.
 
-**Score pane.** Columns count how many timeframes are above (+) or below (-) their open, full color only at FTFC. The white line counts how many have a signal in force. Tall columns with the line near zero means price is on the right side of the opens but nothing has triggered.
+**Heatmap pane.** One band per timeframe: top half above/below its open, bottom half signal in force (dim = none), with FTFC and ALL IF rows on top.
 
-**Heatmap pane.** Two rows per timeframe (`open` = above/below the period open, `IF` = signal in force) and two summary rows (`FTFC`, `ALL IF`). The dim or opposite row is the timeframe holding the other back.
+**Cascade ladder** (off by default). A letter (H, D, W, M) on the bar where each timeframe goes in force, stacked by timeframe so the order they trigger in is visible.
 
-**Agreement Colors.** The v0.1.0 single color: full green/red both agree, faded FTFC only, purple in force only, gray neither. *FTFC Only* and *In Force Only* show one question at a time.
-
-A stats table counts how often each state occurs over the loaded history, and a legend explains whichever layers are on.
+A small stats table on the price chart shows how often FTFC, all in force, and both occur over the loaded history.
 
 ## Notes
 
