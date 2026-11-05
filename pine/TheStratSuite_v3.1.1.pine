@@ -10,6 +10,12 @@
 // close vs served HTF opens, so painted history is honest - see SECTION 14 for the engine
 // and the lookahead rationale). Inputs live in "Display - Bar Coloring".
 //
+// BARNUM-1 (2026-10-23): Bar Numbers. Each chart candle's Strat number (1, 2u, 2d, 3u, 3d,
+// F2u, F2d) printed beside it, from the same classifier as Strat Candles and the table's CC
+// cell. plotshape, not labels, so the level-label budget is untouched. Tiered emphasis fades
+// plain 2s so 1s, 3s and Failing 2s stand out. Off by default; inputs in "Display - Bar
+// Numbers", engine in SECTION 15.
+//
 // NOTATION-1 (2026-07-21): canonical uppercase F2u/F2d everywhere. The lowercase live-'f'
 // (f2u/f2d for the forming candle) is retired: notation is tense-free; liveness is carried
 // by slot position (last token = forming candle), the '*' potential prefix, and words
@@ -22,6 +28,7 @@
 // Features:
 //   - 6 configurable timeframes with independent settings
 //   - Bar coloring by Strat classification or timeframe continuity (v3)
+//   - Bar numbers (1/2u/2d/3) on chart candles, with tiered emphasis
 //   - Pattern detection: Inside bars, Hammers, Shooters, Failed 2s, Outside bars
 //   - Magnitude and Exhaustion level targets
 //   - Full Timeframe Continuity (FTFC) filtering
@@ -40,6 +47,13 @@ indicator("TheStrat Suite - v3.1.1", shorttitle = "TheStrat Suite", overlay = tr
 // Everything below that used to define classification is now a thin wrapper keeping the
 // original signature, so no call site changed and no behavior changed.
 import SpinTrades/TheStratGrammar/1 as sg
+
+// FIX NO-HA-1 (2026-10-24): refuse Heikin Ashi charts. TheStrat reads traded OHLC; Heikin
+// Ashi candles are averages, so every bar type, trigger and target would be wrong - and
+// because the slots request syminfo.tickerid, the HTF slots inherit Heikin Ashi prices too.
+// Halting here means nothing draws and no alert fires on a chart the Suite cannot read.
+if chart.is_heikinashi
+    runtime.error("Heikin Ashi charts are not supported: TheStrat needs real candles. Switch the chart to Candles or Bars.")
 
 // ============================================================================
 // SECTION 1: HELPER FUNCTIONS
@@ -320,6 +334,17 @@ colorFtfcDownBar = input.color(#f23645, "", inline = "bc_ftfc", group = grpBarCo
 colorFtfcConflictBar = input.color(#808080, "", inline = "bc_ftfc", group = grpBarColor, active = barColorMode == "FTFC Candles")
 paintFtfcConflict = input.bool(true, "Color Conflict Bars", group = grpBarColor, active = barColorMode == "FTFC Candles", tooltip = "OFF: conflicted bars keep the chart's normal candle colors, so only full up/down agreement is painted.")
 paintFtfcTransitions = input.bool(true, "Highlight Failing 2 Flips", group = grpBarColor, active = barColorMode == "FTFC Candles", tooltip = "When continuity flips while a Failing 2 (Range Reclaim) is live on a monitored timeframe, paint the flip bar with the Range Reclaim color instead of the plain continuity color. A reclaim that flips continuity is the highest-conviction version of the signal - trapped traders from the failed breakout fuel the new direction.")
+
+// -------------------- DISPLAY - BAR NUMBERS --------------------
+// FEATURE BARNUM-1 (2026-10-23): per-candle Strat numbers. Engine and rationale in SECTION 15.
+grpBarNum = "Display - Bar Numbers"
+showBarNumbers = input.bool(false, "Show Bar Numbers", group = grpBarNum, tooltip = "Print each chart candle's Strat number (1, 2u, 2d, 3) next to it, classified against the prior candle. Uses the same classification (and Failing 2 Detection Method) as the data table's CC cell and Strat Candles, so numbers, candle paint and table always agree. Chart timeframe only - the data table covers your other timeframes.")
+barNumNotation = input.string("Full", "Notation", options = ["Full", "Classic", "Numbers"], group = grpBarNum, active = showBarNumbers, tooltip = "Full: 1, 2u, 2d, 3u, 3d, F2u, F2d - exactly the data table's notation.\n\nClassic: 1, 2u, 2d, 3. Outside bars drop their close direction and Failing 2s show as their plain 2u/2d.\n\nNumbers: 1, 2, 3. Direction is carried by color alone.")
+barNumEmphasis = input.string("Tiered", "Emphasis", options = ["Tiered", "Uniform", "Key Bars Only"], group = grpBarNum, active = showBarNumbers, tooltip = "Tiered: 1s, 3s and Failing 2s in full color, plain 2s faded - setups start at 1s, 3s and failing 2s, so those stand out while trending 2s recede.\n\nUniform: every number at full strength.\n\nKey Bars Only: plain 2s are hidden. In Classic and Numbers notation a Failing 2 shows as a plain 2, so it is hidden too.")
+barNumPosition = input.string("Below", "Position", options = ["Below", "Above", "Broken Side"], group = grpBarNum, active = showBarNumbers, tooltip = "Below / Above: every number on the same side, reading as one steady row.\n\nBroken Side: the number sits on the side the candle took out - 2u and F2u above, 2d and F2d below. Outside bars follow their close (3u above, 3d below); inside bars sit below.")
+barNumColorMode = input.string("Bar Type Palette", "Color", options = ["Bar Type Palette", "Single Color"], inline = "bn_col", group = grpBarNum, active = showBarNumbers, tooltip = "Bar Type Palette: each number takes its family color from the Style sections (Signal, Inside Bar, Outside Bar, Range Reclaim), the same colors Strat Candles paints. Single Color: one color for every number - useful with Strat Candles on, so color is not shown twice. Emphasis still applies.")
+barNumColor = input.color(#9598a1, "", inline = "bn_col", group = grpBarNum, active = showBarNumbers and barNumColorMode == "Single Color")
+barNumBarsShown = input.int(0, "Bars Shown", minval = 0, group = grpBarNum, active = showBarNumbers, tooltip = "Number only the most recent N candles. 0 = every candle on the chart. The forming candle's number is drawn lighter because it can still change (a 2u can become a 3 or fail into an F2u); it takes full strength when the candle closes.")
 
 // Auto-preview detection: activate whenever the market is not actively trading
 // Equity-like (stocks, ETFs, options, indices, ADRs): outside 9:30 AM - 4:00 PM ET and weekends
@@ -3284,8 +3309,13 @@ getChartBarColor(string barType) =>
         "3d"  => paintOutsideBars ? COLOR_3_LOW : color(na)
         => color(na)
 
+// FEATURE BARNUM-1: one classification per bar shared by Strat Candles and Bar Numbers
+// (SECTION 15), so the two can never disagree and turning both on costs one call, not two.
+string chartBarType = ""
+if barColorMode == "Strat Candles" or showBarNumbers
+    [chartBarTypeNow, _chartBarIsFailed] = detectBarTypeAndFailed(high[1], low[1], high, low, open, close)
+    chartBarType := chartBarTypeNow
 if barColorMode == "Strat Candles"
-    [chartBarType, _chartBarIsFailed] = detectBarTypeAndFailed(high[1], low[1], high, low, open, close)
     chartCandleColor := getChartBarColor(chartBarType)
 
 // FTFC Candles: per-slot Failing 2 state for the flip highlight. The served ccH/ccL are
@@ -3354,3 +3384,77 @@ if barColorMode == "FTFC Candles"
             chartCandleColor := colorFtfcConflictBar
 
 barcolor(chartCandleColor, title = "Strat / FTFC Candles")
+
+// ============================================================================
+// SECTION 15: BAR NUMBERS
+// ============================================================================
+// FEATURE BARNUM-1 (2026-10-23): print each chart candle's Strat number beside it.
+//
+// Rendered with plotshape, not label.new. plotshape draws on every bar of history at no
+// cost to max_labels_count, which the level labels already spend; labels would cap the
+// numbers near the budget and TradingView garbage-collects the OLDEST labels first, which
+// could delete a level label. The price is fixed text size: plotshape's size sizes the
+// (invisible) shape, never the text. plotshape text must be a const string, so there is one
+// call per token, and location is input-qualified, so tokens whose side depends on the bar
+// ("3" in Classic, "2" in Numbers) get an up-side and a down-side call. 11 calls in all.
+//
+// Like Strat Candles (SECTION 14) this runs on every bar - it is history, not islast
+// rendering - and it is repaint-safe for the same reason (repaint-prevention.md Rule 8): it
+// reads only the chart bar's own OHLC and the prior bar's high/low, which evaluate
+// identically live and on reload. The forming bar is drawn lighter until it confirms.
+//
+// Classification is chartBarType from SECTION 14 (detectBarTypeAndFailed, the CC
+// classifier), so numbers, candle paint and the table share one engine and one Failing 2
+// method (the P1-f consistency rule). Booleans, not built strings, keep the per-bar cost
+// to a few string compares (the PERF-FTFC-1 lesson).
+
+bool bnOn = showBarNumbers and chartBarType != ""
+bool bnFull = barNumNotation == "Full"
+bool bnNumbers = barNumNotation == "Numbers"
+bool bnKeyOnly = barNumEmphasis == "Key Bars Only"
+
+bool bnIs1 = chartBarType == "1u" or chartBarType == "1d"
+bool bnIs3u = chartBarType == "3u"
+bool bnIs3d = chartBarType == "3d"
+bool bnIsF2u = chartBarType == "F2u"
+bool bnIsF2d = chartBarType == "F2d"
+// A Failing 2 renders as its plain 2 outside Full notation (as Strat Candles does with F2 paint off).
+bool bnPlain2u = chartBarType == "2u" or (bnIsF2u and not bnFull)
+bool bnPlain2d = chartBarType == "2d" or (bnIsF2d and not bnFull)
+
+// Text color: family color from the Style inputs (or the single color), then emphasis
+// tiering, then lightened on the forming bar.
+color bnPalette = switch chartBarType
+    "1u"  => colorBullishPotential
+    "1d"  => colorBearishPotential
+    "2u"  => colorBullishActive
+    "2d"  => colorBearishActive
+    "F2u" => bnFull ? COLOR_FAILED_2U : colorBullishActive
+    "F2d" => bnFull ? COLOR_FAILED_2D : colorBearishActive
+    "3u"  => COLOR_3_HIGH
+    "3d"  => COLOR_3_LOW
+    => color(na)
+color bnBase = barNumColorMode == "Single Color" ? barNumColor : bnPalette
+float bnTransp = barNumEmphasis == "Tiered" and (bnPlain2u or bnPlain2d) ? 65 : 0
+if barstate.islast and not barstate.isconfirmed
+    bnTransp := bnTransp + (100 - bnTransp) / 2
+color bnTextColor = color.new(bnBase, bnTransp)
+color bnShapeColor = color.new(color.black, 100)
+
+// Placement. Up-side tokens (2u, F2u, 3u) and down-side tokens (2d, F2d, 3d) only split
+// under Broken Side; inside bars sit with the down side.
+string bnLocUp = barNumPosition == "Below" ? location.belowbar : location.abovebar
+string bnLocDown = barNumPosition == "Above" ? location.abovebar : location.belowbar
+int bnShowLast = barNumBarsShown > 0 ? barNumBarsShown : na
+
+plotshape(bnOn and bnIs1, "Bar # 1", shape.circle, bnLocDown, bnShapeColor, text = "1", textcolor = bnTextColor, size = size.tiny, show_last = bnShowLast, display = display.pane, editable = false)
+plotshape(bnOn and not bnNumbers and not bnKeyOnly and bnPlain2u, "Bar # 2u", shape.circle, bnLocUp, bnShapeColor, text = "2u", textcolor = bnTextColor, size = size.tiny, show_last = bnShowLast, display = display.pane, editable = false)
+plotshape(bnOn and not bnNumbers and not bnKeyOnly and bnPlain2d, "Bar # 2d", shape.circle, bnLocDown, bnShapeColor, text = "2d", textcolor = bnTextColor, size = size.tiny, show_last = bnShowLast, display = display.pane, editable = false)
+plotshape(bnOn and bnNumbers and not bnKeyOnly and bnPlain2u, "Bar # 2 (up)", shape.circle, bnLocUp, bnShapeColor, text = "2", textcolor = bnTextColor, size = size.tiny, show_last = bnShowLast, display = display.pane, editable = false)
+plotshape(bnOn and bnNumbers and not bnKeyOnly and bnPlain2d, "Bar # 2 (down)", shape.circle, bnLocDown, bnShapeColor, text = "2", textcolor = bnTextColor, size = size.tiny, show_last = bnShowLast, display = display.pane, editable = false)
+plotshape(bnOn and bnFull and bnIsF2u, "Bar # F2u", shape.circle, bnLocUp, bnShapeColor, text = "F2u", textcolor = bnTextColor, size = size.tiny, show_last = bnShowLast, display = display.pane, editable = false)
+plotshape(bnOn and bnFull and bnIsF2d, "Bar # F2d", shape.circle, bnLocDown, bnShapeColor, text = "F2d", textcolor = bnTextColor, size = size.tiny, show_last = bnShowLast, display = display.pane, editable = false)
+plotshape(bnOn and bnFull and bnIs3u, "Bar # 3u", shape.circle, bnLocUp, bnShapeColor, text = "3u", textcolor = bnTextColor, size = size.tiny, show_last = bnShowLast, display = display.pane, editable = false)
+plotshape(bnOn and bnFull and bnIs3d, "Bar # 3d", shape.circle, bnLocDown, bnShapeColor, text = "3d", textcolor = bnTextColor, size = size.tiny, show_last = bnShowLast, display = display.pane, editable = false)
+plotshape(bnOn and not bnFull and bnIs3u, "Bar # 3 (up)", shape.circle, bnLocUp, bnShapeColor, text = "3", textcolor = bnTextColor, size = size.tiny, show_last = bnShowLast, display = display.pane, editable = false)
+plotshape(bnOn and not bnFull and bnIs3d, "Bar # 3 (down)", shape.circle, bnLocDown, bnShapeColor, text = "3", textcolor = bnTextColor, size = size.tiny, show_last = bnShowLast, display = display.pane, editable = false)

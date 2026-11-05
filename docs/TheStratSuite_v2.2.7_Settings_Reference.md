@@ -27,6 +27,7 @@ Written against `pine/TheStratSuite_v3.1.1.pine`. Where behavior traces to a spe
 - [Display - Data Table](#display---data-table)
 - [Display - Labels](#display---labels)
 - [Display - Bar Coloring](#display---bar-coloring)
+- [Display - Bar Numbers](#display---bar-numbers)
 - [Style - Level Colors](#style---level-colors)
 - [Alerts](#alerts)
 - [Advanced - Exhaustion Behavior](#advanced---exhaustion-behavior)
@@ -304,6 +305,25 @@ New in v3.0.0 (`BARCOLOR-1`). These settings paint the chart candles themselves 
 
 Cross-panel note: what counts as a Failing 2 - for Strat Candles paint and the FTFC flip highlight alike - follows **Advanced - Failing 2 Detection** (the Enable toggle and the Detection Method). With detection disabled there, no candle paints or highlights as an F2 anywhere in the Suite. And because the family colors are read from the Style panels below, changing a Style color also recolors the candles.
 
+## Display - Bar Numbers
+
+Unreleased (`BARNUM-1`). Prints each chart candle's Strat number beside it, classified against the prior candle by the same engine as Strat Candles and the data table's CC cell. Off by default; every control below is greyed out until **Show Bar Numbers** is on. Chart timeframe only: the data table already shows your other timeframes.
+
+- **Show Bar Numbers** (default: off | options: on / off) - Turns the numbers on. They follow **Advanced - Failing 2 Detection** like the rest of the Suite.
+- **Notation** (default: Full | options: Full / Classic / Numbers)
+  - **Full**: `1`, `2u`, `2d`, `3u`, `3d`, `F2u`, `F2d`, the data table's notation.
+  - **Classic**: `1`, `2u`, `2d`, `3`. Outside bars drop their close direction and Failing 2s show as their plain `2u`/`2d`.
+  - **Numbers**: `1`, `2`, `3`. Direction is carried by color alone.
+- **Emphasis** (default: Tiered | options: Tiered / Uniform / Key Bars Only)
+  - **Tiered**: 1s, 3s and Failing 2s in full color, plain 2s faded to about 35% strength. Setups start at 1s, 3s and failing 2s, so those stand out while trending 2s recede.
+  - **Uniform**: every number at full strength.
+  - **Key Bars Only**: plain 2s are hidden. In Classic and Numbers notation a Failing 2 shows as a plain 2, so it is hidden too.
+- **Position** (default: Below | options: Below / Above / Broken Side) - Below and Above put every number on one side, so they read as one steady row. Broken Side puts the number on the side the candle took out: `2u` and `F2u` above, `2d` and `F2d` below, `3u` above and `3d` below by their close, and inside bars below.
+- **Color** (default: Bar Type Palette | options: Bar Type Palette / Single Color, plus a color picker defaulting to #9598a1 gray) - Bar Type Palette takes each family's color from the Style sections, the same mapping Strat Candles uses (see Display - Bar Coloring). Single Color uses one color for every number, which is useful with Strat Candles on so color is not shown twice. Emphasis still applies.
+- **Bars Shown** (default: 0 | 0 or more) - Numbers only the most recent N candles; 0 numbers every candle on the chart.
+
+The forming candle's number is drawn lighter because it can still change: a `2u` can become a `3` or fail into an `F2u`. It takes full strength when the candle closes. Closed candles never change, so history never repaints. Text size is fixed by TradingView: the numbers are drawn with `plotshape`, which keeps them off the label budget the levels use but does not allow resizing text.
+
 ## Style - Level Colors
 
 These inputs set the colors used to draw level lines and labels. There are two panels, one for bullish (high-side) levels and one for bearish (low-side) levels, with matching roles in each. Colors are purely cosmetic; they do not change which signals fire.
@@ -430,6 +450,8 @@ This panel is a troubleshooting aid for inspecting the indicator's signal logic 
 - **Timeframe to Debug** (default: TF1 | options: TF1 / TF2 / TF3 / TF4 / TF5 / TF6) - Selects which timeframe slot the debug panel reports on, where TF1 is the first timeframe in your settings and so on through TF6. Greyed out when Show Debug Panel is off (`FIX MOD-3`).
 
 ## Troubleshooting & FAQ
+
+- **The Suite shows an error saying Heikin Ashi charts are not supported.** That is deliberate (`NO-HA-1`). Heikin Ashi candles are averaged prices, not the traded open, high, low and close TheStrat classifies, so every level would be wrong. Switch the chart type to Candles or Bars.
 
 - **I added the Suite and see almost nothing.** Three checks, in order: (1) Preset - Custom leaves all six timeframe rows disabled until you enable them; start from a built-in preset. (2) Chart timeframe - slots faster than your chart show as dimmed, empty rows and draw nothing; move your chart to Timeframe 1 or lower. (3) Signal toggles - 2-2 Continuations, Failing 2s, and both expansion signals are off by default; out of the box only reversals and inside continuations draw.
 

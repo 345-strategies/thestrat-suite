@@ -56,6 +56,8 @@ Applies to v3.0.0. Settings paths refer to the indicator's settings panel groups
 
 **Bar coloring** (new in v3). Chart candles painted by their Strat classification or by FTFC direction, with optional Failing-2 flip highlighting. History is graded honestly — the deep dive covers how. Off by default. Settings: *Display - Bar Coloring*. Deep dive: [settings-reference](TheStratSuite_v2.2.7_Settings_Reference.md#display---bar-coloring).
 
+**Bar numbers** (unreleased). Each chart candle's Strat number (1, 2u, 2d, 3u, 3d, F2u, F2d) printed beside it, from the same classifier as Strat Candles and the data table. Tiered emphasis fades plain 2s so 1s, 3s and Failing 2s stand out. Off by default. Settings: *Display - Bar Numbers*. Deep dive: [settings-reference](TheStratSuite_v2.2.7_Settings_Reference.md#display---bar-numbers).
+
 **Preview mode.** When the market is closed, the Suite shifts to next period's levels so you can plan before the open — automatic per asset class (equities, futures, crypto), with holiday handling. Settings: *Display - Preview Mode*. Deep dive: [htf-correctness](engineering/htf-correctness.md).
 
 **Alerts.** One consolidated alert covering every enabled timeframe with optional trigger/target/stop prices in the message, plus per-timeframe, direction, potential-setup, Domino, and FTFC-shift alert conditions. Alerts fire on state changes, never on every bar. Settings: *Alerts - Detailed*. Deep dive: [settings-reference](TheStratSuite_v2.2.7_Settings_Reference.md), [repaint-prevention](engineering/repaint-prevention.md).
