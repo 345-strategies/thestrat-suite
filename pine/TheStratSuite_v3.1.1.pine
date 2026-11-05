@@ -413,9 +413,9 @@ colorFtfcDownBar = input.color(#f23645, "", inline = "bc_ftfc", group = grpBarCo
 colorFtfcConflictBar = input.color(#808080, "", inline = "bc_ftfc", group = grpBarColor, active = barColorMode == "FTFC Candles" or barColorMode == "Signals In Force")
 paintFtfcConflict = input.bool(true, "Color Conflict Bars", group = grpBarColor, active = barColorMode == "FTFC Candles" or barColorMode == "Signals In Force", tooltip = "OFF: conflicted bars keep the chart's normal candle colors, so only full up/down agreement is painted. Signals In Force uses this only with Conflict Color, when bull and bear signals are in force on different timeframes at once.")
 // FEATURE BARCOLOR-SIF-1 (2026-11-05): Signals In Force Candles. Engine in SECTION 14.
-sifDisagree = input.string("Lead Timeframe Wins", "When Timeframes Disagree", options = ["Lead Timeframe Wins", "Conflict Color"], group = grpBarColor, active = barColorMode == "Signals In Force", tooltip = "What a bar shows when a bull signal is in force on one timeframe and a bear signal on another.\n\nLead Timeframe Wins: the largest timeframe with a signal in force sets the color - the same timeframe the Lead Signal filter anchors to. Smaller timeframes pointing the other way do not override it.\n\nConflict Color: the bar is painted the Conflict color (or left normal with Color Conflict Bars off).")
-sifMinCount = input.int(1, "Minimum Timeframes In Force", minval = 1, maxval = 6, group = grpBarColor, active = barColorMode == "Signals In Force", tooltip = "Paint only when at least this many timeframes have a signal in force in the painted direction. 1 paints any in-force signal; raise it to show only stacked, multi-timeframe agreement.")
-sifShadeByCount = input.bool(true, "Shade By Count", group = grpBarColor, active = barColorMode == "Signals In Force", tooltip = "ON: a bar backed by one timeframe is painted lighter, two a little stronger, three or more at full color, so stacked signals stand out. OFF: every painted bar at full color.")
+sifDisagree = input.string("All Timeframes", "Paint When", options = ["All Timeframes", "Lead Timeframe Wins", "Conflict Color"], group = grpBarColor, active = barColorMode == "Signals In Force", tooltip = "Which bars get painted.\n\nAll Timeframes: only when every enabled timeframe (at or above the chart's) has a signal in force in the same direction - full in-force alignment. Anything less keeps the chart's normal colors.\n\nThe other two paint whenever any timeframe has a signal in force, and differ when a bull signal is in force on one timeframe and a bear signal on another.\n\nLead Timeframe Wins: the largest timeframe with a signal in force sets the color - the same timeframe the Lead Signal filter anchors to. Smaller timeframes pointing the other way do not override it.\n\nConflict Color: the bar is painted the Conflict color (or left normal with Color Conflict Bars off).")
+sifMinCount = input.int(1, "Minimum Timeframes In Force", minval = 1, maxval = 6, group = grpBarColor, active = barColorMode == "Signals In Force" and sifDisagree != "All Timeframes", tooltip = "Paint only when at least this many timeframes have a signal in force in the painted direction. 1 paints any in-force signal; raise it to show only stacked, multi-timeframe agreement.")
+sifShadeByCount = input.bool(true, "Shade By Count", group = grpBarColor, active = barColorMode == "Signals In Force" and sifDisagree != "All Timeframes", tooltip = "ON: a bar backed by one timeframe is painted lighter, two a little stronger, three or more at full color, so stacked signals stand out. OFF: every painted bar at full color.")
 paintFtfcTransitions = input.bool(true, "Highlight Failing 2 Flips", group = grpBarColor, active = barColorMode == "FTFC Candles", tooltip = "When continuity flips while a Failing 2 (Range Reclaim) is live on a monitored timeframe, paint the flip bar with the Range Reclaim color instead of the plain continuity color. A reclaim that flips continuity is the highest-conviction version of the signal - trapped traders from the failed breakout fuel the new direction.")
 
 // -------------------- DISPLAY - BAR NUMBERS --------------------
@@ -3622,16 +3622,23 @@ if barColorMode == "Signals In Force"
     // Lead = the largest timeframe with a signal in force. Slot index is timeframe order
     // (CHART-TF-1 keeps it that way), so scan from slot 6 down, as the Lead Signal filter does.
     int sifLead = sifDir6 != 0 ? sifDir6 : sifDir5 != 0 ? sifDir5 : sifDir4 != 0 ? sifDir4 : sifDir3 != 0 ? sifDir3 : sifDir2 != 0 ? sifDir2 : sifDir1
+    // All Timeframes: every eligible slot (enabled, at or above the chart timeframe, with
+    // served data - the same eligibility FTFC Candles uses) must be in force the same way.
+    int sifEligible = (rEN1 and timeframe.in_seconds(rTF1) >= chartTfSeconds and not na(tf1O) ? 1 : 0) + (rEN2 and timeframe.in_seconds(rTF2) >= chartTfSeconds and not na(tf2O) ? 1 : 0) + (rEN3 and timeframe.in_seconds(rTF3) >= chartTfSeconds and not na(tf3O) ? 1 : 0) + (rEN4 and timeframe.in_seconds(rTF4) >= chartTfSeconds and not na(tf4O) ? 1 : 0) + (rEN5 and timeframe.in_seconds(rTF5) >= chartTfSeconds and not na(tf5O) ? 1 : 0) + (rEN6 and timeframe.in_seconds(rTF6) >= chartTfSeconds and not na(tf6O) ? 1 : 0)
+    bool sifAllMode = sifDisagree == "All Timeframes"
     int sifPaintDir = 0
     bool sifConflict = false
-    if sifBull > 0 and sifBear > 0 and sifDisagree == "Conflict Color"
+    if sifAllMode
+        sifPaintDir := sifEligible > 0 and sifBull == sifEligible ? 1 : sifEligible > 0 and sifBear == sifEligible ? -1 : 0
+    else if sifBull > 0 and sifBear > 0 and sifDisagree == "Conflict Color"
         sifConflict := true
     else
         sifPaintDir := sifLead
     int sifCount = sifPaintDir == 1 ? sifBull : sifPaintDir == -1 ? sifBear : math.max(sifBull, sifBear)
-    // Shade by count: one timeframe light, two stronger, three or more full color.
-    int sifTransp = not sifShadeByCount ? 0 : sifCount <= 1 ? 55 : sifCount == 2 ? 30 : 0
-    if sifCount >= sifMinCount
+    // Shade by count: one timeframe light, two stronger, three or more full color. Full
+    // alignment is always full color.
+    int sifTransp = sifAllMode or not sifShadeByCount ? 0 : sifCount <= 1 ? 55 : sifCount == 2 ? 30 : 0
+    if sifAllMode or sifCount >= sifMinCount
         if sifConflict
             if paintFtfcConflict
                 chartCandleColor := color.new(colorFtfcConflictBar, sifTransp)
