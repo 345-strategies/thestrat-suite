@@ -1,13 +1,8 @@
 v0.3.2
-
-[b]Outside bars now count as in force.[/b] With Outside Bars (3) on, a current candle that has broken both sides of C1 is in force bull when it closes above C1's high and bear when it closes below C1's low. If it closes back inside C1 (a failing 3), it is not in force. Before, an outside candle only counted through a hammer or shooter setup. This replaces the Outside Bars definition in the description above.
-
-[b]The score shows bull and bear separately.[/b] Green columns above zero count the timeframes above their open; red columns below zero count those below it. Two white step lines count the timeframes in force, bull above zero and bear below it. Two bull and two bear in force no longer read as zero, the same as nothing in force.
-
-[b]Shared opens are faded in the heatmap.[/b] When a timeframe's period began on the same bar as a lower timeframe's (Monday: Week = Day; first trading day: Month = Day; first hour of the session: Day = Hour), both are measured from the same opening print, so FTFC is counting one open twice. That timeframe's open half is faded so you can see it. It never changes whether FTFC is aligned. The stats table adds "FTFC on shared opens". Switch it off with Fade Shared Opens.
-
-[b]Optional 15m and 30m timeframes[/b] (off by default). When on, they count toward FTFC and All In Force, get their own heatmap bands, and show on the cascade ladder as ¼ (15m) and ½ (30m). Use a chart at or below the timeframe.
-
-[b]Plot budget.[/b] To stay under TradingView's 64-plot limit with the new rows, the cascade ladder is now drawn as labels (the most recent 500 marks are kept), and the score pane drops its zero line and all-up / all-down dots.
-
-Unchanged by design: a close exactly at the open counts as below it, and a break of the trigger by a single tick counts as a break, matching TheStrat Suite and the TheStratGrammar spec.
+[list]
+[*][b]Outside bars count as in force:[/b] a 3 closing above C1's high is in force bull, below C1's low in force bear. Closing back inside C1 is not in force.
+[*][b]Score split:[/b] bull and bear counts plotted separately, so they no longer cancel out.
+[*][b]Shared opens:[/b] the heatmap fades a timeframe's open when it shares it with a lower timeframe (Monday W = D, first trading day M = D, first hour D = H).
+[*][b]Optional 15m and 30m timeframes[/b], off by default.
+[*]Cascade ladder now drawn as labels (most recent 500) to stay under the plot limit.
+[/list]
