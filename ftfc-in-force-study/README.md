@@ -24,7 +24,7 @@ Hide the chart's own candles (Chart Settings > Symbol: uncheck Body, Borders, Wi
 
 **Cascade ladder** (off by default). A letter (H, D, W, M) on the bar where each timeframe goes in force, stacked by timeframe so the order they trigger in is visible.
 
-A small stats table on the price chart shows how often FTFC, all in force, and both occur over the loaded history.
+A small stats table on the price chart (off by default) shows how often FTFC, all in force, and both occur over the loaded history.
 
 ## Notes
 

@@ -88,7 +88,7 @@ ftfcOnlyTransp = input.int(55, "FTFC-only Fade", minval = 0, maxval = 95, group 
 
 grpPane = "Pane"
 paneView = input.string("Heatmap", "Show", options = ["Heatmap", "Score + Heatmap", "Score"], group = grpPane, tooltip = "Score: columns = how many timeframes are above (+) or below (-) their open; full color when all of them are (FTFC). White step line = how many have a signal in force (+ bull, - bear). Line on top of full columns = both agree. Full columns with the line near zero = continuity, nothing triggered. Line at the edge with short columns = signals in force, price not past every open.\n\nHeatmap: one band per timeframe, top half = above/below its open, bottom half = signal in force (dim = none), plus FTFC and ALL IF rows on top.")
-showStats = input.bool(true, "Stats Table", group = grpPane, tooltip = "A small table on the price chart: how often FTFC, all-in-force, and both together occur over the loaded history.")
+showStats = input.bool(false, "Stats Table", group = grpPane, tooltip = "A small table on the price chart: how often FTFC, all-in-force, and both together occur over the loaded history.")
 
 // ============================================================================
 // SHARED HELPERS (from TheStrat Suite v3.1.1, trimmed)
