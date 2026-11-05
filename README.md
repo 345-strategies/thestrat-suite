@@ -110,6 +110,13 @@ it to the other side; a session reset re-seeds it at the open, at the gap-fill l
 gap. Forked from the Classic path of my invalidation stop work. Not published on
 TradingView. See `invalidation-stop/README.md`.
 
+### `ftfc-in-force-study/` — FTFC vs Signals In Force (Pine v6)
+
+A companion study that compares Full Timeframe Continuity with strict signals in force across
+the Hour, Day, Week and Month, and colors candles by whether they agree, with a per-timeframe
+heatmap pane. Published open source on TradingView as "TheStrat: Full Timeframe Continuity
+(FTFC) vs Signals In Force". See `ftfc-in-force-study/README.md`.
+
 ### `docs/`
 
 Start at `docs/README.md` (the index). Trader-facing docs live in `docs/concepts/`, engineering docs in `docs/engineering/`. Highlights:
