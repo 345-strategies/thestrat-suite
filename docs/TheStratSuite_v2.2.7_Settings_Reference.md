@@ -89,6 +89,13 @@ This panel controls how the indicator's six timeframe slots are configured. Choo
 
   Note: under any preset, the per-timeframe Open lines are forced off and TF6 is always off, regardless of the disabled manual rows behind them.
 
+- **Include Chart Timeframe** (default: off | plus Width, default 1, and Open, default off) - Unreleased (`CHART-TF-1`). Adds the timeframe you are viewing to the six slots, and the slot follows the chart when you switch timeframes. Works with every preset and with Custom. The chart timeframe gets everything a slot gets: levels, combo labels, a data-table row, FTFC membership and alerts. Width and Open apply to the chart timeframe's own lines.
+  - **Placement.** The slots are re-ordered lowest to highest with the chart timeframe in its place, because the Lead Signal filter, the table and Domino detection all read slot order as timeframe order. Example: TheStrat Classic on a 5m chart becomes 5m, 30m, 1H, D, W, M; on a 4H chart it becomes 30m, 1H, 4H, D, W, M (30m and 1H still show as dimmed rows, as they do today on a 4H chart).
+  - **Already in the set.** If the chart timeframe is one of your enabled timeframes (a Daily chart on TheStrat Classic), nothing changes.
+  - **All six in use.** Something has to give. A slot below the chart timeframe goes first, since it draws nothing on this chart anyway. If none is below, the highest slot is dropped (Custom with 15m through M on a 5m chart becomes 5m, 15m, 30m, 1H, D, W).
+  - **FTFC.** The chart timeframe counts toward FTFC like any other slot, so on a 5m chart FTFC also asks whether the forming 5m candle is above or below its open.
+  - **Not supported** on tick charts; the setting is ignored there.
+
 - **Label Style** (default: TheStrat | options: TheStrat / Universal) - Controls the notation used on chart signal labels. TheStrat shows standard Strat combo notation (for example 2d-1-2u HAM). Universal shows plain-language labels (REV (reversal), CONT (continuation), INS (inside), OUT (outside), EXP (expansion), plus FAILING when a breakout is failing) with a direction arrow and a diamond marker for hammer/shooter confidence. Choose Universal if you are new to TheStrat or prefer a simplified read; switch to TheStrat once the combo notation is second nature. This setting only changes label wording, not which signals fire.
 
 ## Timeframes (Custom)
@@ -452,6 +459,8 @@ This panel is a troubleshooting aid for inspecting the indicator's signal logic 
 ## Troubleshooting & FAQ
 
 - **The Suite shows an error saying Heikin Ashi charts are not supported.** That is deliberate (`NO-HA-1`). Heikin Ashi candles are averaged prices, not the traded open, high, low and close TheStrat classifies, so every level would be wrong. Switch the chart type to Candles or Bars.
+
+- **I liked the old free version that only read the chart's timeframe.** Turn on **Include Chart Timeframe** under Timeframe Preset. Whatever timeframe you are viewing joins your preset's timeframes, so the chart's own levels and combos are always there.
 
 - **I added the Suite and see almost nothing.** Three checks, in order: (1) Preset - Custom leaves all six timeframe rows disabled until you enable them; start from a built-in preset. (2) Chart timeframe - slots faster than your chart show as dimmed, empty rows and draw nothing; move your chart to Timeframe 1 or lower. (3) Signal toggles - 2-2 Continuations, Failing 2s, and both expansion signals are off by default; out of the box only reversals and inside continuations draw.
 

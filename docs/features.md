@@ -8,7 +8,7 @@ Applies to v3.0.0. Settings paths refer to the indicator's settings panel groups
 
 ## Detection
 
-**Six-timeframe engine.** The Suite monitors up to six timeframes at once from a single chart — bar classification, signals, and continuity on each. Presets configure all six in one click: TheStrat Classic, Scalp, Day Trade, Futures/Crypto, Swing Trade, Investing, or Custom for your own set. Settings: *Timeframe Preset*, *Timeframes*. Deep dive: [architecture](engineering/architecture.md), [htf-correctness](engineering/htf-correctness.md).
+**Six-timeframe engine.** The Suite monitors up to six timeframes at once from a single chart — bar classification, signals, and continuity on each. Presets configure all six in one click: TheStrat Classic, Scalp, Day Trade, Futures/Crypto, Swing Trade, Investing, or Custom for your own set. *Include Chart Timeframe* (unreleased) adds whatever timeframe you are viewing to the set and follows the chart as you switch. Settings: *Timeframe Preset*, *Timeframes*. Deep dive: [architecture](engineering/architecture.md), [htf-correctness](engineering/htf-correctness.md).
 
 **Bar classification.** Every candle typed against the prior candle's range: inside (1), directional (2u/2d), outside (3u/3d), with Failing 2s (F2u/F2d) as a modifier. The same classifier feeds the chart, the table, and the alerts, so they can never disagree. Deep dive: [bar-types](concepts/bar-types.md).
 

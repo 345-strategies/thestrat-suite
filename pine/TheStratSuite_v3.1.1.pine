@@ -16,6 +16,10 @@
 // plain 2s so 1s, 3s and Failing 2s stand out. Off by default; inputs in "Display - Bar
 // Numbers", engine in SECTION 15.
 //
+// CHART-TF-1 (2026-11-05): Include Chart Timeframe. The timeframe being viewed joins the six
+// slots, in timeframe order, and follows the chart. Off by default; toggle in "Timeframe Preset",
+// slot resolution right after the preset overrides in SECTION 2.
+//
 // NOTATION-1 (2026-07-21): canonical uppercase F2u/F2d everywhere. The lowercase live-'f'
 // (f2u/f2d for the forming candle) is retired: notation is tense-free; liveness is carried
 // by slot position (last token = forming candle), the '*' potential prefix, and words
@@ -26,7 +30,7 @@
 // (Range Reclaims) with intelligent signal consolidation and extensive customization.
 //
 // Features:
-//   - 6 configurable timeframes with independent settings
+//   - 6 configurable timeframes with independent settings, optionally including the chart's own
 //   - Bar coloring by Strat classification or timeframe continuity (v3)
 //   - Bar numbers (1/2u/2d/3) on chart candles, with tiered emphasis
 //   - Pattern detection: Inside bars, Hammers, Shooters, Failed 2s, Outside bars
@@ -96,6 +100,7 @@ getTimeframeLabel(tf) =>
         "720" => "12H"
         "D" => "D"
         "1d" => "D"
+        "1D" => "D"
         "W" => "W"
         "1W" => "W"
         "M" => "M"
@@ -156,6 +161,11 @@ grpPreset = "Timeframe Preset"
 tfPreset = input.string("TheStrat Classic", "Preset", options = ["Custom", "TheStrat Classic", "Scalp", "Day Trade", "Futures/Crypto", "Swing Trade", "Investing"], group = grpPreset, tooltip = "Select a timeframe preset to auto-configure timeframes and line widths. When set to anything other than Custom, individual Timeframe 1-6 settings are ignored. You must select Custom to use your own timeframe configuration.")
 labelStyleMode = input.string("TheStrat", "Label Style", options = ["TheStrat", "Universal"], group = grpPreset, tooltip = "TheStrat: standard Strat combo notation (e.g. 2d-1-2u HAM). Universal: plain-language labels - REV (reversal), CONT (continuation), INS (inside), OUT (outside), EXP (expansion), plus FAILING when a breakout is failing - with an up/down arrow for direction and a diamond for hammer/shooter confidence. Designed for traders who are new to TheStrat or prefer a simplified view.")
 simpleLabelMode = labelStyleMode == "Universal"
+// FEATURE CHART-TF-1 (2026-11-05): the chart's own timeframe as one of the six slots. Lives in the
+// Preset group, not Timeframes, because it works with every preset as well as Custom.
+includeChartTF = input.bool(false, "Include Chart Timeframe", inline = "ctf", group = grpPreset, tooltip = "Adds the timeframe you are viewing to the six timeframes, so the chart's own candles get levels, combos, a table row and alerts, and the slot follows the chart when you change timeframes. It is placed in order among the others. If the chart timeframe is already one of your timeframes, nothing changes. If all six slots are in use, the chart timeframe replaces a slot below it (those draw nothing on this chart anyway), or else the highest slot. The chart timeframe also counts toward FTFC. Tick charts are not supported.")
+chartTFLineWidth = input.int(1, "Width", minval = 1, maxval = 5, inline = "ctf", group = grpPreset, active = includeChartTF)
+chartTFShowOpen = input.bool(false, "Open", inline = "ctf", group = grpPreset, active = includeChartTF)
 customTFs = tfPreset == "Custom"  // FIX MOD-3: true only when no preset is active; gates the Timeframe rows' `active`
 
 // -------------------- TIMEFRAMES --------------------
@@ -196,33 +206,97 @@ tf6ShowOpen = input.bool(false, "Open", inline = "tf6b", group = grpTFs, active 
 // When preset != Custom, these override the individual TF inputs
 usePreset = tfPreset != "Custom"
 
-rTF1 = usePreset ? (tfPreset == "TheStrat Classic" ? "30"  : tfPreset == "Scalp" ? "5"   : tfPreset == "Day Trade" ? "15"  : tfPreset == "Futures/Crypto" ? "60"  : tfPreset == "Swing Trade" ? "240" : tfPreset == "Investing" ? "W"   : tf1) : tf1
-rTF2 = usePreset ? (tfPreset == "TheStrat Classic" ? "60"  : tfPreset == "Scalp" ? "15"  : tfPreset == "Day Trade" ? "30"  : tfPreset == "Futures/Crypto" ? "240" : tfPreset == "Swing Trade" ? "D"   : tfPreset == "Investing" ? "M"   : tf2) : tf2
-rTF3 = usePreset ? (tfPreset == "TheStrat Classic" ? "D"   : tfPreset == "Scalp" ? "30"  : tfPreset == "Day Trade" ? "60"  : tfPreset == "Futures/Crypto" ? "720" : tfPreset == "Swing Trade" ? "W"   : tfPreset == "Investing" ? "3M"  : tf3) : tf3
-rTF4 = usePreset ? (tfPreset == "TheStrat Classic" ? "W"   : tfPreset == "Scalp" ? "60"  : tfPreset == "Day Trade" ? "240" : tfPreset == "Futures/Crypto" ? "D"   : tfPreset == "Swing Trade" ? "M"   : tfPreset == "Investing" ? "12M" : tf4) : tf4
-rTF5 = usePreset ? (tfPreset == "TheStrat Classic" ? "M"   : tfPreset == "Scalp" ? "60"  : tfPreset == "Day Trade" ? "D"   : tfPreset == "Futures/Crypto" ? "W"   : tfPreset == "Swing Trade" ? "M"   : tfPreset == "Investing" ? "12M" : tf5) : tf5
-rTF6 = usePreset ? (tfPreset == "TheStrat Classic" ? "M"   : tfPreset == "Scalp" ? "60"  : tfPreset == "Day Trade" ? "D"   : tfPreset == "Futures/Crypto" ? "W"   : tfPreset == "Swing Trade" ? "M"   : tfPreset == "Investing" ? "12M" : tf6) : tf6
+pTF1 = usePreset ? (tfPreset == "TheStrat Classic" ? "30"  : tfPreset == "Scalp" ? "5"   : tfPreset == "Day Trade" ? "15"  : tfPreset == "Futures/Crypto" ? "60"  : tfPreset == "Swing Trade" ? "240" : tfPreset == "Investing" ? "W"   : tf1) : tf1
+pTF2 = usePreset ? (tfPreset == "TheStrat Classic" ? "60"  : tfPreset == "Scalp" ? "15"  : tfPreset == "Day Trade" ? "30"  : tfPreset == "Futures/Crypto" ? "240" : tfPreset == "Swing Trade" ? "D"   : tfPreset == "Investing" ? "M"   : tf2) : tf2
+pTF3 = usePreset ? (tfPreset == "TheStrat Classic" ? "D"   : tfPreset == "Scalp" ? "30"  : tfPreset == "Day Trade" ? "60"  : tfPreset == "Futures/Crypto" ? "720" : tfPreset == "Swing Trade" ? "W"   : tfPreset == "Investing" ? "3M"  : tf3) : tf3
+pTF4 = usePreset ? (tfPreset == "TheStrat Classic" ? "W"   : tfPreset == "Scalp" ? "60"  : tfPreset == "Day Trade" ? "240" : tfPreset == "Futures/Crypto" ? "D"   : tfPreset == "Swing Trade" ? "M"   : tfPreset == "Investing" ? "12M" : tf4) : tf4
+pTF5 = usePreset ? (tfPreset == "TheStrat Classic" ? "M"   : tfPreset == "Scalp" ? "60"  : tfPreset == "Day Trade" ? "D"   : tfPreset == "Futures/Crypto" ? "W"   : tfPreset == "Swing Trade" ? "M"   : tfPreset == "Investing" ? "12M" : tf5) : tf5
+pTF6 = usePreset ? (tfPreset == "TheStrat Classic" ? "M"   : tfPreset == "Scalp" ? "60"  : tfPreset == "Day Trade" ? "D"   : tfPreset == "Futures/Crypto" ? "W"   : tfPreset == "Swing Trade" ? "M"   : tfPreset == "Investing" ? "12M" : tf6) : tf6
 
-rEN1 = usePreset ? true  : tf1Enabled
-rEN2 = usePreset ? true  : tf2Enabled
-rEN3 = usePreset ? true  : tf3Enabled
-rEN4 = usePreset ? true  : tf4Enabled
-rEN5 = usePreset ? (tfPreset == "TheStrat Classic" or tfPreset == "Futures/Crypto" or tfPreset == "Day Trade") : tf5Enabled
-rEN6 = usePreset ? false : tf6Enabled
+pEN1 = usePreset ? true  : tf1Enabled
+pEN2 = usePreset ? true  : tf2Enabled
+pEN3 = usePreset ? true  : tf3Enabled
+pEN4 = usePreset ? true  : tf4Enabled
+pEN5 = usePreset ? (tfPreset == "TheStrat Classic" or tfPreset == "Futures/Crypto" or tfPreset == "Day Trade") : tf5Enabled
+pEN6 = usePreset ? false : tf6Enabled
 
-rLW1 = usePreset ? 1 : tf1LineWidth
-rLW2 = usePreset ? (tfPreset == "TheStrat Classic" or tfPreset == "Day Trade" ? 1 : 2) : tf2LineWidth
-rLW3 = usePreset ? (tfPreset == "TheStrat Classic" ? 2 : tfPreset == "Futures/Crypto" ? 2 : tfPreset == "Day Trade" ? 2 : 3) : tf3LineWidth
-rLW4 = usePreset ? (tfPreset == "TheStrat Classic" ? 3 : tfPreset == "Futures/Crypto" ? 3 : tfPreset == "Day Trade" ? 3 : 4) : tf4LineWidth
-rLW5 = usePreset ? 4 : tf5LineWidth
-rLW6 = usePreset ? 4 : tf6LineWidth
+pLW1 = usePreset ? 1 : tf1LineWidth
+pLW2 = usePreset ? (tfPreset == "TheStrat Classic" or tfPreset == "Day Trade" ? 1 : 2) : tf2LineWidth
+pLW3 = usePreset ? (tfPreset == "TheStrat Classic" ? 2 : tfPreset == "Futures/Crypto" ? 2 : tfPreset == "Day Trade" ? 2 : 3) : tf3LineWidth
+pLW4 = usePreset ? (tfPreset == "TheStrat Classic" ? 3 : tfPreset == "Futures/Crypto" ? 3 : tfPreset == "Day Trade" ? 3 : 4) : tf4LineWidth
+pLW5 = usePreset ? 4 : tf5LineWidth
+pLW6 = usePreset ? 4 : tf6LineWidth
 
-rSO1 = usePreset ? false : tf1ShowOpen
-rSO2 = usePreset ? false : tf2ShowOpen
-rSO3 = usePreset ? false : tf3ShowOpen
-rSO4 = usePreset ? false : tf4ShowOpen
-rSO5 = usePreset ? false : tf5ShowOpen
-rSO6 = usePreset ? false : tf6ShowOpen
+pSO1 = usePreset ? false : tf1ShowOpen
+pSO2 = usePreset ? false : tf2ShowOpen
+pSO3 = usePreset ? false : tf3ShowOpen
+pSO4 = usePreset ? false : tf4ShowOpen
+pSO5 = usePreset ? false : tf5ShowOpen
+pSO6 = usePreset ? false : tf6ShowOpen
+
+// FEATURE CHART-TF-1 (2026-11-05): fold the chart's own timeframe into the six slots.
+// The Lead Signal filter, the table and the Domino chain all read slot index as timeframe order
+// (index 5 is the highest), so the chart timeframe cannot just take a fixed slot: it is inserted
+// in order. Every enabled slot gets a rank by timeframe length (ties keep slot order: a lower slot
+// counts with <=, a higher one with <), the chart
+// timeframe is inserted at its rank, and the result is written back to slots 1-6 lowest first.
+// Overflow (six slots already enabled): drop the lowest slot if it is below the chart timeframe,
+// since computeSignalState never draws a lower timeframe on this chart; otherwise the highest
+// slot falls off the end. A chart timeframe that is already enabled changes nothing, and with the
+// toggle off (or a duplicate) the slots are exactly the preset-resolved ones, unsorted Custom
+// configs included. Everything here is simple-qualified ternaries on purpose: request.security
+// needs a simple timeframe, and arrays, loops and user functions would make it series.
+cSec = timeframe.in_seconds(timeframe.period)
+cOK = includeChartTF and not timeframe.isticks and cSec > 0
+
+pSec1 = timeframe.in_seconds(pTF1)
+pSec2 = timeframe.in_seconds(pTF2)
+pSec3 = timeframe.in_seconds(pTF3)
+pSec4 = timeframe.in_seconds(pTF4)
+pSec5 = timeframe.in_seconds(pTF5)
+pSec6 = timeframe.in_seconds(pTF6)
+cDup = (pEN1 and pSec1 == cSec) or (pEN2 and pSec2 == cSec) or (pEN3 and pSec3 == cSec) or (pEN4 and pSec4 == cSec) or (pEN5 and pSec5 == cSec) or (pEN6 and pSec6 == cSec)
+cIns = cOK and not cDup
+cBelow = (pEN1 and pSec1 < cSec ? 1 : 0) + (pEN2 and pSec2 < cSec ? 1 : 0) + (pEN3 and pSec3 < cSec ? 1 : 0) + (pEN4 and pSec4 < cSec ? 1 : 0) + (pEN5 and pSec5 < cSec ? 1 : 0) + (pEN6 and pSec6 < cSec ? 1 : 0)
+cEnCount = (pEN1 ? 1 : 0) + (pEN2 ? 1 : 0) + (pEN3 ? 1 : 0) + (pEN4 ? 1 : 0) + (pEN5 ? 1 : 0) + (pEN6 ? 1 : 0)
+cShift = cIns and cEnCount >= 6 and cBelow > 0 ? 1 : 0
+cPos = cBelow - cShift
+pPos1 = (pEN2 and pSec2 < pSec1 ? 1 : 0) + (pEN3 and pSec3 < pSec1 ? 1 : 0) + (pEN4 and pSec4 < pSec1 ? 1 : 0) + (pEN5 and pSec5 < pSec1 ? 1 : 0) + (pEN6 and pSec6 < pSec1 ? 1 : 0) + (pSec1 > cSec ? 1 : 0) - cShift
+pPos2 = (pEN1 and pSec1 <= pSec2 ? 1 : 0) + (pEN3 and pSec3 < pSec2 ? 1 : 0) + (pEN4 and pSec4 < pSec2 ? 1 : 0) + (pEN5 and pSec5 < pSec2 ? 1 : 0) + (pEN6 and pSec6 < pSec2 ? 1 : 0) + (pSec2 > cSec ? 1 : 0) - cShift
+pPos3 = (pEN1 and pSec1 <= pSec3 ? 1 : 0) + (pEN2 and pSec2 <= pSec3 ? 1 : 0) + (pEN4 and pSec4 < pSec3 ? 1 : 0) + (pEN5 and pSec5 < pSec3 ? 1 : 0) + (pEN6 and pSec6 < pSec3 ? 1 : 0) + (pSec3 > cSec ? 1 : 0) - cShift
+pPos4 = (pEN1 and pSec1 <= pSec4 ? 1 : 0) + (pEN2 and pSec2 <= pSec4 ? 1 : 0) + (pEN3 and pSec3 <= pSec4 ? 1 : 0) + (pEN5 and pSec5 < pSec4 ? 1 : 0) + (pEN6 and pSec6 < pSec4 ? 1 : 0) + (pSec4 > cSec ? 1 : 0) - cShift
+pPos5 = (pEN1 and pSec1 <= pSec5 ? 1 : 0) + (pEN2 and pSec2 <= pSec5 ? 1 : 0) + (pEN3 and pSec3 <= pSec5 ? 1 : 0) + (pEN4 and pSec4 <= pSec5 ? 1 : 0) + (pEN6 and pSec6 < pSec5 ? 1 : 0) + (pSec5 > cSec ? 1 : 0) - cShift
+pPos6 = (pEN1 and pSec1 <= pSec6 ? 1 : 0) + (pEN2 and pSec2 <= pSec6 ? 1 : 0) + (pEN3 and pSec3 <= pSec6 ? 1 : 0) + (pEN4 and pSec4 <= pSec6 ? 1 : 0) + (pEN5 and pSec5 <= pSec6 ? 1 : 0) + (pSec6 > cSec ? 1 : 0) - cShift
+cHit1 = (cIns and cPos == 0) or (pEN1 and pPos1 == 0) or (pEN2 and pPos2 == 0) or (pEN3 and pPos3 == 0) or (pEN4 and pPos4 == 0) or (pEN5 and pPos5 == 0) or (pEN6 and pPos6 == 0)
+cHit2 = (cIns and cPos == 1) or (pEN1 and pPos1 == 1) or (pEN2 and pPos2 == 1) or (pEN3 and pPos3 == 1) or (pEN4 and pPos4 == 1) or (pEN5 and pPos5 == 1) or (pEN6 and pPos6 == 1)
+cHit3 = (cIns and cPos == 2) or (pEN1 and pPos1 == 2) or (pEN2 and pPos2 == 2) or (pEN3 and pPos3 == 2) or (pEN4 and pPos4 == 2) or (pEN5 and pPos5 == 2) or (pEN6 and pPos6 == 2)
+cHit4 = (cIns and cPos == 3) or (pEN1 and pPos1 == 3) or (pEN2 and pPos2 == 3) or (pEN3 and pPos3 == 3) or (pEN4 and pPos4 == 3) or (pEN5 and pPos5 == 3) or (pEN6 and pPos6 == 3)
+cHit5 = (cIns and cPos == 4) or (pEN1 and pPos1 == 4) or (pEN2 and pPos2 == 4) or (pEN3 and pPos3 == 4) or (pEN4 and pPos4 == 4) or (pEN5 and pPos5 == 4) or (pEN6 and pPos6 == 4)
+cHit6 = (cIns and cPos == 5) or (pEN1 and pPos1 == 5) or (pEN2 and pPos2 == 5) or (pEN3 and pPos3 == 5) or (pEN4 and pPos4 == 5) or (pEN5 and pPos5 == 5) or (pEN6 and pPos6 == 5)
+rTF1 = not cIns ? pTF1 : cIns and cPos == 0 ? timeframe.period : pEN1 and pPos1 == 0 ? pTF1 : pEN2 and pPos2 == 0 ? pTF2 : pEN3 and pPos3 == 0 ? pTF3 : pEN4 and pPos4 == 0 ? pTF4 : pEN5 and pPos5 == 0 ? pTF5 : pEN6 and pPos6 == 0 ? pTF6 : pTF1
+rTF2 = not cIns ? pTF2 : cIns and cPos == 1 ? timeframe.period : pEN1 and pPos1 == 1 ? pTF1 : pEN2 and pPos2 == 1 ? pTF2 : pEN3 and pPos3 == 1 ? pTF3 : pEN4 and pPos4 == 1 ? pTF4 : pEN5 and pPos5 == 1 ? pTF5 : pEN6 and pPos6 == 1 ? pTF6 : pTF2
+rTF3 = not cIns ? pTF3 : cIns and cPos == 2 ? timeframe.period : pEN1 and pPos1 == 2 ? pTF1 : pEN2 and pPos2 == 2 ? pTF2 : pEN3 and pPos3 == 2 ? pTF3 : pEN4 and pPos4 == 2 ? pTF4 : pEN5 and pPos5 == 2 ? pTF5 : pEN6 and pPos6 == 2 ? pTF6 : pTF3
+rTF4 = not cIns ? pTF4 : cIns and cPos == 3 ? timeframe.period : pEN1 and pPos1 == 3 ? pTF1 : pEN2 and pPos2 == 3 ? pTF2 : pEN3 and pPos3 == 3 ? pTF3 : pEN4 and pPos4 == 3 ? pTF4 : pEN5 and pPos5 == 3 ? pTF5 : pEN6 and pPos6 == 3 ? pTF6 : pTF4
+rTF5 = not cIns ? pTF5 : cIns and cPos == 4 ? timeframe.period : pEN1 and pPos1 == 4 ? pTF1 : pEN2 and pPos2 == 4 ? pTF2 : pEN3 and pPos3 == 4 ? pTF3 : pEN4 and pPos4 == 4 ? pTF4 : pEN5 and pPos5 == 4 ? pTF5 : pEN6 and pPos6 == 4 ? pTF6 : pTF5
+rTF6 = not cIns ? pTF6 : cIns and cPos == 5 ? timeframe.period : pEN1 and pPos1 == 5 ? pTF1 : pEN2 and pPos2 == 5 ? pTF2 : pEN3 and pPos3 == 5 ? pTF3 : pEN4 and pPos4 == 5 ? pTF4 : pEN5 and pPos5 == 5 ? pTF5 : pEN6 and pPos6 == 5 ? pTF6 : pTF6
+rEN1 = not cIns ? pEN1 : cHit1
+rEN2 = not cIns ? pEN2 : cHit2
+rEN3 = not cIns ? pEN3 : cHit3
+rEN4 = not cIns ? pEN4 : cHit4
+rEN5 = not cIns ? pEN5 : cHit5
+rEN6 = not cIns ? pEN6 : cHit6
+rLW1 = not cIns ? pLW1 : cIns and cPos == 0 ? chartTFLineWidth : pEN1 and pPos1 == 0 ? pLW1 : pEN2 and pPos2 == 0 ? pLW2 : pEN3 and pPos3 == 0 ? pLW3 : pEN4 and pPos4 == 0 ? pLW4 : pEN5 and pPos5 == 0 ? pLW5 : pEN6 and pPos6 == 0 ? pLW6 : pLW1
+rLW2 = not cIns ? pLW2 : cIns and cPos == 1 ? chartTFLineWidth : pEN1 and pPos1 == 1 ? pLW1 : pEN2 and pPos2 == 1 ? pLW2 : pEN3 and pPos3 == 1 ? pLW3 : pEN4 and pPos4 == 1 ? pLW4 : pEN5 and pPos5 == 1 ? pLW5 : pEN6 and pPos6 == 1 ? pLW6 : pLW2
+rLW3 = not cIns ? pLW3 : cIns and cPos == 2 ? chartTFLineWidth : pEN1 and pPos1 == 2 ? pLW1 : pEN2 and pPos2 == 2 ? pLW2 : pEN3 and pPos3 == 2 ? pLW3 : pEN4 and pPos4 == 2 ? pLW4 : pEN5 and pPos5 == 2 ? pLW5 : pEN6 and pPos6 == 2 ? pLW6 : pLW3
+rLW4 = not cIns ? pLW4 : cIns and cPos == 3 ? chartTFLineWidth : pEN1 and pPos1 == 3 ? pLW1 : pEN2 and pPos2 == 3 ? pLW2 : pEN3 and pPos3 == 3 ? pLW3 : pEN4 and pPos4 == 3 ? pLW4 : pEN5 and pPos5 == 3 ? pLW5 : pEN6 and pPos6 == 3 ? pLW6 : pLW4
+rLW5 = not cIns ? pLW5 : cIns and cPos == 4 ? chartTFLineWidth : pEN1 and pPos1 == 4 ? pLW1 : pEN2 and pPos2 == 4 ? pLW2 : pEN3 and pPos3 == 4 ? pLW3 : pEN4 and pPos4 == 4 ? pLW4 : pEN5 and pPos5 == 4 ? pLW5 : pEN6 and pPos6 == 4 ? pLW6 : pLW5
+rLW6 = not cIns ? pLW6 : cIns and cPos == 5 ? chartTFLineWidth : pEN1 and pPos1 == 5 ? pLW1 : pEN2 and pPos2 == 5 ? pLW2 : pEN3 and pPos3 == 5 ? pLW3 : pEN4 and pPos4 == 5 ? pLW4 : pEN5 and pPos5 == 5 ? pLW5 : pEN6 and pPos6 == 5 ? pLW6 : pLW6
+rSO1 = not cIns ? pSO1 : cIns and cPos == 0 ? chartTFShowOpen : pEN1 and pPos1 == 0 ? pSO1 : pEN2 and pPos2 == 0 ? pSO2 : pEN3 and pPos3 == 0 ? pSO3 : pEN4 and pPos4 == 0 ? pSO4 : pEN5 and pPos5 == 0 ? pSO5 : pEN6 and pPos6 == 0 ? pSO6 : pSO1
+rSO2 = not cIns ? pSO2 : cIns and cPos == 1 ? chartTFShowOpen : pEN1 and pPos1 == 1 ? pSO1 : pEN2 and pPos2 == 1 ? pSO2 : pEN3 and pPos3 == 1 ? pSO3 : pEN4 and pPos4 == 1 ? pSO4 : pEN5 and pPos5 == 1 ? pSO5 : pEN6 and pPos6 == 1 ? pSO6 : pSO2
+rSO3 = not cIns ? pSO3 : cIns and cPos == 2 ? chartTFShowOpen : pEN1 and pPos1 == 2 ? pSO1 : pEN2 and pPos2 == 2 ? pSO2 : pEN3 and pPos3 == 2 ? pSO3 : pEN4 and pPos4 == 2 ? pSO4 : pEN5 and pPos5 == 2 ? pSO5 : pEN6 and pPos6 == 2 ? pSO6 : pSO3
+rSO4 = not cIns ? pSO4 : cIns and cPos == 3 ? chartTFShowOpen : pEN1 and pPos1 == 3 ? pSO1 : pEN2 and pPos2 == 3 ? pSO2 : pEN3 and pPos3 == 3 ? pSO3 : pEN4 and pPos4 == 3 ? pSO4 : pEN5 and pPos5 == 3 ? pSO5 : pEN6 and pPos6 == 3 ? pSO6 : pSO4
+rSO5 = not cIns ? pSO5 : cIns and cPos == 4 ? chartTFShowOpen : pEN1 and pPos1 == 4 ? pSO1 : pEN2 and pPos2 == 4 ? pSO2 : pEN3 and pPos3 == 4 ? pSO3 : pEN4 and pPos4 == 4 ? pSO4 : pEN5 and pPos5 == 4 ? pSO5 : pEN6 and pPos6 == 4 ? pSO6 : pSO5
+rSO6 = not cIns ? pSO6 : cIns and cPos == 5 ? chartTFShowOpen : pEN1 and pPos1 == 5 ? pSO1 : pEN2 and pPos2 == 5 ? pSO2 : pEN3 and pPos3 == 5 ? pSO3 : pEN4 and pPos4 == 5 ? pSO4 : pEN5 and pPos5 == 5 ? pSO5 : pEN6 and pPos6 == 5 ? pSO6 : pSO6
 
 // -------------------- SIGNALS --------------------
 grpSigRev = "Signals - Reversals"
