@@ -1,5 +1,5 @@
 //@version=6
-// TheStrat FTFC vs In Force - v0.1.0 (study)
+// TheStrat FTFC vs In Force - v0.2.0 (study)
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -17,8 +17,17 @@
 //   triggered anything, a signal that lost its trigger) does not contribute, so the bar is
 //   not "all in force". Signal type never matters, only direction.
 //
-// Candles are painted by how the two agree. The pane below shows each timeframe's two states
-// as rows, so you can see which timeframe is holding the other back.
+// v0.2.0: the two questions get their own visual channels instead of one blended color, and
+// each layer can be switched on or off to compare:
+//   - Two-channel candles: the BODY answers FTFC (filled = aligned, hollow = not), the
+//     OUTLINE and wick answer All In Force (colored = every timeframe in force, gray = not).
+//   - Cascade ladder: a letter (H, D, W, M) where each timeframe goes in force, stacked by
+//     timeframe away from the bar, so the ORDER timeframes trigger in is visible.
+//   - Score pane: columns count how many timeframes are above (+) / below (-) their open,
+//     the white line counts how many have a signal in force. The gap between them is the
+//     timeframes where price is on the right side of the open but nothing has triggered.
+//   - Heatmap pane: per-timeframe rows, as in v0.1.0.
+//   - v0.1.0's single-color candles remain as "Agreement Colors".
 //
 // No repainting: each timeframe's forming bar is rebuilt from chart bars (running high/low
 // keyed on the served period-open time, chart close as the period close). C1/C2, the period
@@ -27,7 +36,7 @@
 // test mirrors TheStrat Suite v3.1.1 computeSignalState (FTFC filters, HAM/SHO filters and
 // "Exhaustion Disables In Force" left out).
 
-indicator("TheStrat FTFC vs In Force - v0.1.0", shorttitle = "FTFC vs IF", overlay = false, max_labels_count = 20)
+indicator("TheStrat FTFC vs In Force - v0.2.0", shorttitle = "FTFC vs IF", overlay = false, max_labels_count = 20)
 
 import SpinTrades/TheStratGrammar/1 as sg
 
@@ -55,14 +64,20 @@ enableFailed2Detection = input.bool(true, "Failing 2 Detection", group = grpSig,
 failed_2_method = input.string("Reclaim", "Method", options = ["Reclaim", "Open", "Reclaim + Open", "Reclaim OR Open"], group = grpSig, inline = "f2")
 logicType = input.string("Broad (Loose)", "Hammer / Shooter", options = ["Broad (Loose)", "Classic", "Pin Bar (Strict)"], group = grpSig)
 
-grpPaint = "Candles"
-paintMode = input.string("Agreement", "Color Candles By", options = ["Agreement", "FTFC Only", "In Force Only", "Off"], group = grpPaint, tooltip = "Agreement: full green/red where FTFC and all-in-force agree; faded green/red where only FTFC is aligned; purple where every timeframe is in force but FTFC is not aligned with it; gray where neither.\n\nFTFC Only / In Force Only: one question at a time, gray otherwise - flip between them to see the difference.")
+grpPaint = "Chart"
+candleMode = input.string("Body = FTFC, Outline = In Force", "Candles", options = ["Body = FTFC, Outline = In Force", "Agreement Colors", "FTFC Only", "In Force Only", "Off"], group = grpPaint, tooltip = "Body = FTFC, Outline = In Force: two questions, two channels. The body is filled green/red when every timeframe is above/below its open, hollow when not. The outline and wick are green/red when every timeframe has a signal in force that way, gray when not.\n  Filled + matching outline: both agree.\n  Filled + gray outline: continuity, but not every timeframe has triggered.\n  Hollow + colored outline: every timeframe in force, but price is not on the same side of every open.\n  Hollow + gray outline: neither.\nFor the cleanest look, hide the chart's own candles (Chart Settings > Symbol: uncheck Body, Borders, Wick).\n\nAgreement Colors: the v0.1.0 single color - full green/red both agree, faded FTFC only, purple in force only, gray neither.\n\nFTFC Only / In Force Only: one question at a time, gray otherwise.")
+showLadder = input.bool(true, "Cascade Ladder", group = grpPaint, inline = "lad", tooltip = "A letter where each timeframe goes in force: green below the bar for bull, red above for bear. Letters stack by timeframe (H nearest the bar, M farthest), so you can read the order timeframes trigger in - lower timeframes going in force first, then the higher ones following, is the cascade.")
+ladderEvery = input.bool(false, "Every Re-entry", group = grpPaint, inline = "lad", tooltip = "OFF: mark only the first time each timeframe goes in force in each of its periods. ON: mark every time it re-enters, which shows contested triggers chopping in and out.")
 colBull = input.color(#4caf50, "Bull / Bear", inline = "c1", group = grpPaint)
 colBear = input.color(#f23645, "", inline = "c1", group = grpPaint)
-colSplit = input.color(#9c27b0, "In Force, no FTFC", inline = "c2", group = grpPaint)
+colSplit = input.color(#9c27b0, "In Force, no FTFC", inline = "c2", group = grpPaint, tooltip = "Used by Agreement Colors only.")
 colNone = input.color(#5d606b, "Neither", inline = "c2", group = grpPaint)
-ftfcOnlyTransp = input.int(70, "FTFC-only Fade", minval = 0, maxval = 95, group = grpPaint, tooltip = "Transparency for bars where FTFC is aligned but not every timeframe has a signal in force.")
-showStats = input.bool(true, "Show Stats Table", group = grpPaint)
+ftfcOnlyTransp = input.int(70, "FTFC-only Fade", minval = 0, maxval = 95, group = grpPaint, tooltip = "Agreement Colors only: transparency where FTFC is aligned but not every timeframe has a signal in force.")
+
+grpPane = "Pane"
+paneView = input.string("Score + Heatmap", "Show", options = ["Score + Heatmap", "Score", "Heatmap"], group = grpPane, tooltip = "Score: columns = how many timeframes are above (+) or below (-) their open; full color when all of them are (FTFC). White line = how many have a signal in force (+ bull, - bear). Where the columns are tall but the line is near zero, price is on the right side of the opens but nothing has triggered.\n\nHeatmap: one row per timeframe for each question, plus FTFC and ALL IF summary rows. The dim or opposite row is the timeframe holding the other back.")
+showStats = input.bool(true, "Stats Table", group = grpPane, inline = "tb")
+showLegend = input.bool(true, "Legend", group = grpPane, inline = "tb")
 
 // ============================================================================
 // SHARED HELPERS (from TheStrat Suite v3.1.1, trimmed)
@@ -136,20 +151,27 @@ shouldDrawC1Level(bool isBullish, c1_is_inside, c1_is_hammer, c1_is_shooter, cc_
         result := true
     result
 
+
 // ============================================================================
 // PER-TIMEFRAME ENGINE
 // ============================================================================
 // One call site per timeframe, each with its own var state - never from a loop.
-// Returns [inForceDir, aboveOpenDir]: +1 bull, -1 bear, 0 none / not eligible.
+// Returns [inForceDir, aboveOpenDir, enteredUp, enteredDown]: +1 bull, -1 bear, 0 none.
 evalSlot(bool en, int ccTime, float ccO, float c1H, float c1L, float c1O, float c1C, float c2H, float c2L, float c2O, float c2C) =>
     var float runH = na
     var float runL = na
     var int lastP = na
+    var int prevIf = 0
+    var bool markedUp = false
+    var bool markedDn = false
     if not na(ccTime)
         if na(lastP) or ccTime != lastP
             runH := high
             runL := low
             lastP := ccTime
+            prevIf := 0
+            markedUp := false
+            markedDn := false
         else
             runH := math.max(runH, high)
             runL := math.min(runL, low)
@@ -184,7 +206,15 @@ evalSlot(bool en, int ccTime, float ccO, float c1H, float c1L, float c1O, float 
         inLow = drawLow and ((sig_l and not is_f2u and close < c1L) or (show_p3_toggle and is_f2u))
         // Both sides (rare): settled as the Suite's Lead does - F2u bear, F2d bull, else close vs open.
         ifDir := inHigh and inLow ? (is_f2u ? -1 : is_f2d ? 1 : close > ccO ? 1 : -1) : inHigh ? 1 : inLow ? -1 : 0
-    [ifDir, aoDir]
+    // Cascade ladder events: the bar this timeframe goes in force (first per period by default).
+    bool upNow = ifDir == 1 and prevIf != 1 and (ladderEvery or not markedUp)
+    bool dnNow = ifDir == -1 and prevIf != -1 and (ladderEvery or not markedDn)
+    if upNow
+        markedUp := true
+    if dnNow
+        markedDn := true
+    prevIf := ifDir
+    [ifDir, aoDir, upNow, dnNow]
 
 getTF() =>
     [time, open, high[1], low[1], open[1], close[1], high[2], low[2], open[2], close[2]]
@@ -200,10 +230,10 @@ bool okD = enD and timeframe.in_seconds("D") >= chartSec
 bool okW = enW and timeframe.in_seconds("W") >= chartSec
 bool okM = enM and timeframe.in_seconds("M") >= chartSec
 
-[ifH, aoH] = evalSlot(okH, tHt, tHo, hH1, hL1, hO1, hC1, hH2, hL2, hO2, hC2)
-[ifD, aoD] = evalSlot(okD, tDt, tDo, dH1, dL1, dO1, dC1, dH2, dL2, dO2, dC2)
-[ifW, aoW] = evalSlot(okW, tWt, tWo, wH1, wL1, wO1, wC1, wH2, wL2, wO2, wC2)
-[ifM, aoM] = evalSlot(okM, tMt, tMo, mH1, mL1, mO1, mC1, mH2, mL2, mO2, mC2)
+[ifH, aoH, upH, dnH] = evalSlot(okH, tHt, tHo, hH1, hL1, hO1, hC1, hH2, hL2, hO2, hC2)
+[ifD, aoD, upD, dnD] = evalSlot(okD, tDt, tDo, dH1, dL1, dO1, dC1, dH2, dL2, dO2, dC2)
+[ifW, aoW, upW, dnW] = evalSlot(okW, tWt, tWo, wH1, wL1, wO1, wC1, wH2, wL2, wO2, wC2)
+[ifM, aoM, upM, dnM] = evalSlot(okM, tMt, tMo, mH1, mL1, mO1, mC1, mH2, mL2, mO2, mC2)
 
 // ============================================================================
 // AGREEMENT
@@ -216,46 +246,89 @@ int ifSum = ifH + ifD + ifW + ifM
 // breaks it.
 int ftfcDir = nOk > 0 and aoSum == nOk ? 1 : nOk > 0 and aoSum == -nOk ? -1 : 0
 int allIfDir = nOk > 0 and ifSum == nOk ? 1 : nOk > 0 and ifSum == -nOk ? -1 : 0
+bool hasData = nOk > 0
 
+// ============================================================================
+// CANDLES (main chart)
+// ============================================================================
+dirColor(int d) => d == 1 ? colBull : d == -1 ? colBear : colNone
+
+// Two-channel candles, drawn on the price chart from this pane with force_overlay. A hollow
+// body is filled with the chart background so the chart's own candle cannot show through.
+bool twoChannel = candleMode == "Body = FTFC, Outline = In Force" and hasData
+color bodyCol = ftfcDir == 1 ? colBull : ftfcDir == -1 ? colBear : chart.bg_color
+color lineCol = dirColor(allIfDir)
+plotcandle(twoChannel ? open : na, twoChannel ? high : na, twoChannel ? low : na, twoChannel ? close : na, "FTFC / In Force Candles", color = bodyCol, wickcolor = lineCol, bordercolor = lineCol, editable = false, force_overlay = true)
+
+// Single-color modes (v0.1.0) paint the chart's own candles.
 color candle = na
-if nOk > 0
-    if paintMode == "Agreement"
+if hasData
+    if candleMode == "Agreement Colors"
         candle := allIfDir != 0 and allIfDir == ftfcDir ? (allIfDir == 1 ? colBull : colBear) : allIfDir != 0 ? colSplit : ftfcDir != 0 ? color.new(ftfcDir == 1 ? colBull : colBear, ftfcOnlyTransp) : colNone
-    else if paintMode == "FTFC Only"
-        candle := ftfcDir == 1 ? colBull : ftfcDir == -1 ? colBear : colNone
-    else if paintMode == "In Force Only"
-        candle := allIfDir == 1 ? colBull : allIfDir == -1 ? colBear : colNone
-barcolor(candle, title = "FTFC vs In Force Candles")
+    else if candleMode == "FTFC Only"
+        candle := dirColor(ftfcDir)
+    else if candleMode == "In Force Only"
+        candle := dirColor(allIfDir)
+barcolor(candle, title = "Single-Color Candles")
 
 // ============================================================================
-// PANE: one row per timeframe per question, plus the two summary rows
+// CASCADE LADDER (main chart)
 // ============================================================================
-// Rows (top to bottom): FTFC, ALL IF | M AO, M IF | W AO, W IF | D AO, D IF | H AO, H IF.
-// Columns from histbase to the row value make a bar-by-bar heatmap.
+// plotchar text must be const, so one call per timeframe and side (8). location.absolute with
+// an ATR-scaled offset per timeframe keeps letters that fire on the same bar from overlapping:
+// H nearest the bar, then D, W, M.
+float ladStep = ta.atr(14) * 0.55
+bool lad = showLadder and hasData
+plotchar(lad and upH ? low - 1 * ladStep : na, "H in force up", "H", location.absolute, colBull, size = size.tiny, editable = false, force_overlay = true)
+plotchar(lad and upD ? low - 2 * ladStep : na, "D in force up", "D", location.absolute, colBull, size = size.tiny, editable = false, force_overlay = true)
+plotchar(lad and upW ? low - 3 * ladStep : na, "W in force up", "W", location.absolute, colBull, size = size.tiny, editable = false, force_overlay = true)
+plotchar(lad and upM ? low - 4 * ladStep : na, "M in force up", "M", location.absolute, colBull, size = size.tiny, editable = false, force_overlay = true)
+plotchar(lad and dnH ? high + 1 * ladStep : na, "H in force down", "H", location.absolute, colBear, size = size.tiny, editable = false, force_overlay = true)
+plotchar(lad and dnD ? high + 2 * ladStep : na, "D in force down", "D", location.absolute, colBear, size = size.tiny, editable = false, force_overlay = true)
+plotchar(lad and dnW ? high + 3 * ladStep : na, "W in force down", "W", location.absolute, colBear, size = size.tiny, editable = false, force_overlay = true)
+plotchar(lad and dnM ? high + 4 * ladStep : na, "M in force down", "M", location.absolute, colBear, size = size.tiny, editable = false, force_overlay = true)
+
+// ============================================================================
+// PANE
+// ============================================================================
+// One shared scale: the score lives in -4..+4, the heatmap rows sit above it from 6 to 16.
+bool showScore = hasData and paneView != "Heatmap"
+bool showHeat = hasData and paneView != "Score"
+
+// Score. Columns: how many timeframes are above (+) / below (-) their open, full color only at
+// FTFC. Line: how many have a signal in force (+ bull, - bear).
+color aoCol = aoSum == 0 ? colNone : color.new(aoSum > 0 ? colBull : colBear, ftfcDir != 0 ? 0 : 65)
+plot(showScore ? aoSum : na, "Above Open Count", aoCol, style = plot.style_columns)
+plot(showScore ? ifSum : na, "In Force Count", chart.fg_color, linewidth = 2, style = plot.style_stepline)
+plot(showScore ? 0 : na, "Zero", color.new(colNone, 40))
+plot(showScore ? nOk : na, "All Up", color.new(colNone, 50), style = plot.style_circles, linewidth = 1)
+plot(showScore ? -nOk : na, "All Down", color.new(colNone, 50), style = plot.style_circles, linewidth = 1)
+
+// Heatmap. Columns from histbase to the row value make a bar-by-bar band per row.
 colOff = color.new(colNone, 60)
-dirCol(int d, bool ok) => not ok ? color(na) : d == 1 ? colBull : d == -1 ? colBear : colOff
+rowCol(int d, bool ok) => not ok ? color(na) : d == 1 ? colBull : d == -1 ? colBear : colOff
+plot(showHeat ? 16 : na, "FTFC row", rowCol(ftfcDir, true), style = plot.style_columns, histbase = 15.3)
+plot(showHeat ? 15.2 : na, "All In Force row", rowCol(allIfDir, true), style = plot.style_columns, histbase = 14.5)
+plot(showHeat ? 13.6 : na, "M open row", rowCol(aoM, okM), style = plot.style_columns, histbase = 13.1)
+plot(showHeat ? 13.0 : na, "M IF row", rowCol(ifM, okM), style = plot.style_columns, histbase = 12.5)
+plot(showHeat ? 11.9 : na, "W open row", rowCol(aoW, okW), style = plot.style_columns, histbase = 11.4)
+plot(showHeat ? 11.3 : na, "W IF row", rowCol(ifW, okW), style = plot.style_columns, histbase = 10.8)
+plot(showHeat ? 10.2 : na, "D open row", rowCol(aoD, okD), style = plot.style_columns, histbase = 9.7)
+plot(showHeat ? 9.6 : na, "D IF row", rowCol(ifD, okD), style = plot.style_columns, histbase = 9.1)
+plot(showHeat ? 8.5 : na, "H open row", rowCol(aoH, okH), style = plot.style_columns, histbase = 8.0)
+plot(showHeat ? 7.9 : na, "H IF row", rowCol(ifH, okH), style = plot.style_columns, histbase = 7.4)
 
-plot(14, "FTFC", dirCol(ftfcDir, nOk > 0), style = plot.style_columns, histbase = 13.2)
-plot(13, "All In Force", dirCol(allIfDir, nOk > 0), style = plot.style_columns, histbase = 12.2)
-plot(11, "M Above Open", dirCol(aoM, okM), style = plot.style_columns, histbase = 10.4)
-plot(10.3, "M In Force", dirCol(ifM, okM), style = plot.style_columns, histbase = 9.7)
-plot(9, "W Above Open", dirCol(aoW, okW), style = plot.style_columns, histbase = 8.4)
-plot(8.3, "W In Force", dirCol(ifW, okW), style = plot.style_columns, histbase = 7.7)
-plot(7, "D Above Open", dirCol(aoD, okD), style = plot.style_columns, histbase = 6.4)
-plot(6.3, "D In Force", dirCol(ifD, okD), style = plot.style_columns, histbase = 5.7)
-plot(5, "H Above Open", dirCol(aoH, okH), style = plot.style_columns, histbase = 4.4)
-plot(4.3, "H In Force", dirCol(ifH, okH), style = plot.style_columns, histbase = 3.7)
-
-// Row names at the right edge.
+// Row names at the right edge (heatmap only).
 var label[] rowLabels = array.new<label>()
 if barstate.islast
     if array.size(rowLabels) == 0
         names = array.from("FTFC", "ALL IF", "M open", "M IF", "W open", "W IF", "D open", "D IF", "H open", "H IF")
-        ys = array.from(13.6, 12.6, 10.7, 10.0, 8.7, 8.0, 6.7, 6.0, 4.7, 4.0)
+        ys = array.from(15.65, 14.85, 13.35, 12.75, 11.65, 11.05, 9.95, 9.35, 8.25, 7.65)
         for i = 0 to array.size(names) - 1
             array.push(rowLabels, label.new(bar_index + 2, array.get(ys, i), array.get(names, i), style = label.style_none, textcolor = chart.fg_color, size = size.small, textalign = text.align_left))
     for lb in rowLabels
         label.set_x(lb, bar_index + 2)
+        label.set_textcolor(lb, showHeat ? chart.fg_color : color(na))
 
 // ============================================================================
 // STATS: how often each state occurs over the loaded history
@@ -266,7 +339,7 @@ var int nAllIf = 0
 var int nBoth = 0
 var int nFtfcOnly = 0
 var int nIfOnly = 0
-if nOk > 0 and barstate.isconfirmed
+if hasData and barstate.isconfirmed
     nBars += 1
     nFtfc += ftfcDir != 0 ? 1 : 0
     nAllIf += allIfDir != 0 ? 1 : 0
@@ -276,19 +349,24 @@ if nOk > 0 and barstate.isconfirmed
 
 pct(int n) => nBars > 0 ? str.tostring(100.0 * n / nBars, "#.#") + "%" : "-"
 
+statCell(table t, int row, string k, string v) =>
+    table.cell(t, 0, row, k, text_color = chart.fg_color, text_size = size.small, text_halign = text.align_left)
+    table.cell(t, 1, row, v, text_color = chart.fg_color, text_size = size.small)
+
 var table stats = table.new(position.top_left, 2, 7, bgcolor = color.new(#1e222d, 10), border_width = 1)
 if showStats and barstate.islast
-    table.cell(stats, 0, 0, "Closed bars", text_color = chart.fg_color, text_size = size.small, text_halign = text.align_left)
-    table.cell(stats, 1, 0, str.tostring(nBars), text_color = chart.fg_color, text_size = size.small)
-    table.cell(stats, 0, 1, "FTFC aligned", text_color = chart.fg_color, text_size = size.small, text_halign = text.align_left)
-    table.cell(stats, 1, 1, pct(nFtfc), text_color = chart.fg_color, text_size = size.small)
-    table.cell(stats, 0, 2, "All in force", text_color = chart.fg_color, text_size = size.small, text_halign = text.align_left)
-    table.cell(stats, 1, 2, pct(nAllIf), text_color = chart.fg_color, text_size = size.small)
-    table.cell(stats, 0, 3, "Both agree", text_color = chart.fg_color, text_size = size.small, text_halign = text.align_left)
-    table.cell(stats, 1, 3, pct(nBoth), text_color = chart.fg_color, text_size = size.small)
-    table.cell(stats, 0, 4, "FTFC only", text_color = chart.fg_color, text_size = size.small, text_halign = text.align_left)
-    table.cell(stats, 1, 4, pct(nFtfcOnly), text_color = chart.fg_color, text_size = size.small)
-    table.cell(stats, 0, 5, "In force, no FTFC", text_color = chart.fg_color, text_size = size.small, text_halign = text.align_left)
-    table.cell(stats, 1, 5, pct(nIfOnly), text_color = chart.fg_color, text_size = size.small)
-    table.cell(stats, 0, 6, "Timeframes used", text_color = chart.fg_color, text_size = size.small, text_halign = text.align_left)
-    table.cell(stats, 1, 6, str.tostring(nOk), text_color = chart.fg_color, text_size = size.small)
+    statCell(stats, 0, "Closed bars", str.tostring(nBars))
+    statCell(stats, 1, "FTFC aligned", pct(nFtfc))
+    statCell(stats, 2, "All in force", pct(nAllIf))
+    statCell(stats, 3, "Both agree", pct(nBoth))
+    statCell(stats, 4, "FTFC only", pct(nFtfcOnly))
+    statCell(stats, 5, "In force, no FTFC", pct(nIfOnly))
+    statCell(stats, 6, "Timeframes used", str.tostring(nOk))
+
+var table legend = table.new(position.bottom_left, 1, 4, bgcolor = color.new(#1e222d, 10), border_width = 1)
+if showLegend and barstate.islast
+    string candleKey = candleMode == "Body = FTFC, Outline = In Force" ? "Candle body = FTFC (filled aligned, hollow not) | outline = all in force (gray = not)" : candleMode == "Agreement Colors" ? "Candles: full = both agree, faded = FTFC only, purple = in force only, gray = neither" : candleMode == "Off" ? "Candles off" : "Candles: " + candleMode + " (gray = not aligned)"
+    table.cell(legend, 0, 0, candleKey, text_color = chart.fg_color, text_size = size.small, text_halign = text.align_left)
+    table.cell(legend, 0, 1, showScore ? "Columns = TFs above (+) / below (-) open | white line = TFs in force" : "", text_color = chart.fg_color, text_size = size.small, text_halign = text.align_left)
+    table.cell(legend, 0, 2, showHeat ? "Rows: open = vs period open, IF = signal in force, dim = none" : "", text_color = chart.fg_color, text_size = size.small, text_halign = text.align_left)
+    table.cell(legend, 0, 3, showLadder ? "Letters on chart = where each TF went in force (H near bar, M far)" : "", text_color = chart.fg_color, text_size = size.small, text_halign = text.align_left)
