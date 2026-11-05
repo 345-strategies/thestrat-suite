@@ -18,7 +18,7 @@ A learning study, separate from TheStrat Suite. It shows, bar by bar on the Hour
 
 Hide the chart's own candles (Chart Settings > Symbol: uncheck Body, Borders, Wick) for the cleanest look. Other candle modes: *Agreement, Solid* (v0.1.0 exactly), *Agreement, Outlines* (v0.3.0), *Body = FTFC, Outline = In Force* (v0.2.0), *FTFC Only*, *In Force Only*.
 
-**Score pane.** Columns count how many timeframes are above (+) or below (-) their open, full color only at FTFC. The white step line counts how many have a signal in force. Line sitting on top of full columns = both agree. Full columns with the line near zero = continuity with nothing triggered.
+**Score pane** (off by default; Pane > Show > Score + Heatmap). Columns count how many timeframes are above (+) or below (-) their open, full color only at FTFC. The white step line counts how many have a signal in force. Line sitting on top of full columns = both agree. Full columns with the line near zero = continuity with nothing triggered.
 
 **Heatmap pane.** One band per timeframe: top half above/below its open, bottom half signal in force (dim = none), with FTFC and ALL IF rows on top.
 
