@@ -327,7 +327,7 @@ Unreleased (`BARNUM-1`). Prints each chart candle's Strat number beside it, clas
   - **Key Bars Only**: plain 2s are hidden. In Classic and Numbers notation a Failing 2 shows as a plain 2, so it is hidden too.
 - **Position** (default: Below | options: Below / Above / Broken Side) - Below and Above put every number on one side, so they read as one steady row. Broken Side puts the number on the side the candle took out: `2u` and `F2u` above, `2d` and `F2d` below, `3u` above and `3d` below by their close, and inside bars below.
 - **Color** (default: Bar Type Palette | options: Bar Type Palette / Single Color, plus a color picker defaulting to #9598a1 gray) - Bar Type Palette takes each family's color from the Style sections, the same mapping Strat Candles uses (see Display - Bar Coloring). Single Color uses one color for every number, which is useful with Strat Candles on so color is not shown twice. Emphasis still applies.
-- **Bars Shown** (default: 0 | 0 or more) - Numbers only the most recent N candles; 0 numbers every candle on the chart.
+- **Bars Shown** (default: Last 50 | options: Last 10 / Last 20 / Last 50 / Last 100 / Last 250 / All) - How many of the most recent candles get a number. All numbers every candle on the chart.
 
 The forming candle's number is drawn lighter because it can still change: a `2u` can become a `3` or fail into an `F2u`. It takes full strength when the candle closes. Closed candles never change, so history never repaints. Text size is fixed by TradingView: the numbers are drawn with `plotshape`, which keeps them off the label budget the levels use but does not allow resizing text.
 
