@@ -20,6 +20,10 @@
 // closes beyond, in one place (computeSignalState), so the Lead Signal, stops and the data
 // table agree. Closed back inside C1 it is not in force. Needs "Outside Bars (3 Exp)" on.
 //
+// SIG-TOOLTIP-1 (2026-11-06): TradingView shows one tooltip per inline settings row, the last
+// input's. Each signal row's tooltip now sits on its last input (FTFC) and describes the signal;
+// the Inside Reversals row also explains every filter once. Other inputs on the rows carry none.
+//
 // CHART-TF-1 (2026-11-05): Include Chart Timeframe. The timeframe being viewed joins the six
 // slots, in timeframe order, and follows the chart. Off by default; toggle in "Timeframe Preset",
 // slot resolution right after the preset overrides in SECTION 2.
@@ -304,35 +308,35 @@ rSO6 = not cIns ? pSO6 : cIns and cPos == 5 ? chartTFShowOpen : pEN1 and pPos1 =
 
 // -------------------- SIGNALS --------------------
 grpSigRev = "Signals - Reversals"
-showInsideReversals = input.bool(true, "Inside Reversals |", inline = "s_ir", group = grpSigRev, tooltip = "C1 is inside, CC breaks opposite C2's direction (e.g. 2d-1-2u). The bread-and-butter Strat pattern: price consolidated then reversed.")
-insideRevOnlyMomo = input.bool(false, "HAM/SHO", inline = "s_ir", group = grpSigRev, tooltip = "HAM/SHO filter: Require C1 to be a hammer or shooter. These candles tested one side and got rejected, adding conviction that the breakout direction has structural backing.")
-insideRevRequireFTFC = input.bool(false, "FTFC", inline = "s_ir", group = grpSigRev, tooltip = "FTFC filter: Require all monitored timeframes to agree on direction. Removes setups that fight the broader structural alignment, keeping only those swimming with the current.")
+showInsideReversals = input.bool(true, "Inside Reversals |", inline = "s_ir", group = grpSigRev)
+insideRevOnlyMomo = input.bool(false, "HAM/SHO", inline = "s_ir", group = grpSigRev)
+insideRevRequireFTFC = input.bool(false, "FTFC", inline = "s_ir", group = grpSigRev, tooltip = "Inside Reversals: C1 is an inside bar and CC breaks the opposite way from C2 (e.g. 2d-1-2u). Price paused, then reversed. The bread-and-butter Strat setup.\n\nFILTERS (the same on every signal row; check one to hide setups that fail it, leave it unchecked for no filter):\n\nHAM/SHO: C1 must be a hammer for bull setups or a shooter for bear setups - a candle that tested one side and was rejected.\n\nF2 (2-2 Reversals only): C1 must itself be a Failing 2 that the signal reverses (e.g. F2d-2u), so traders trapped in that failed breakout fuel the move.\n\nFTFC: hide setups that fight Full Timeframe Continuity - a bull setup while every enabled timeframe is below its open, or a bear setup while every one is above. Setups with mixed timeframes still show.")
 
-showAllReversals = input.bool(true, "2-2 Reversals |", inline = "s_2r", group = grpSigRev, tooltip = "Direct reversal with no inside bar pause (e.g. 2d-2u). CC immediately breaks opposite C1. Faster signal but less coiled energy than inside reversals.")
-reversalsRequireActionable = input.bool(false, "HAM/SHO", inline = "s_2r", group = grpSigRev, tooltip = "HAM/SHO filter: Require C1 to be a hammer or shooter. These candles tested one side and got rejected, adding conviction that the breakout direction has structural backing.")
-reversalsRequireC1F2 = input.bool(false, "F2", inline = "s_2r", group = grpSigRev, tooltip = "F2 filter: Require C1 to be a Failed 2 itself (e.g. F2d-2u). Adds structural confluence: the prior bar already reversed a failed breakout, so trapped traders from that failure fuel the current move.")
-reversalsRequireFTFC = input.bool(false, "FTFC", inline = "s_2r", group = grpSigRev, tooltip = "FTFC filter: Require all monitored timeframes to agree on direction. Removes setups that fight the broader structural alignment, keeping only those swimming with the current.")
+showAllReversals = input.bool(true, "2-2 Reversals |", inline = "s_2r", group = grpSigRev)
+reversalsRequireActionable = input.bool(false, "HAM/SHO", inline = "s_2r", group = grpSigRev)
+reversalsRequireC1F2 = input.bool(false, "F2", inline = "s_2r", group = grpSigRev)
+reversalsRequireFTFC = input.bool(false, "FTFC", inline = "s_2r", group = grpSigRev, tooltip = "2-2 Reversals: CC breaks the opposite side of C1 with no inside bar between (e.g. 2d-2u). Faster than an inside reversal, with less coiled energy behind it.\n\nFilters: see the Inside Reversals tooltip (top of Signals).")
 
 grpSigCont = "Signals - Continuations"
-showInsideContinuations = input.bool(true, "Inside Continuations |", inline = "s_ic", group = grpSigCont, tooltip = "C1 is inside, CC breaks same direction as C2 (e.g. 2u-1-2u). Price paused to consolidate then continued the prior move. Trend continuation with a pullback.")
-insideContOnlyMomo = input.bool(false, "HAM/SHO", inline = "s_ic", group = grpSigCont, tooltip = "HAM/SHO filter: Require C1 to be a hammer or shooter. These candles tested one side and got rejected, adding conviction that the breakout direction has structural backing.")
-insideContRequireFTFC = input.bool(false, "FTFC", inline = "s_ic", group = grpSigCont, tooltip = "FTFC filter: Require all monitored timeframes to agree on direction. Removes setups that fight the broader structural alignment, keeping only those swimming with the current.")
+showInsideContinuations = input.bool(true, "Inside Continuations |", inline = "s_ic", group = grpSigCont)
+insideContOnlyMomo = input.bool(false, "HAM/SHO", inline = "s_ic", group = grpSigCont)
+insideContRequireFTFC = input.bool(false, "FTFC", inline = "s_ic", group = grpSigCont, tooltip = "Inside Continuations: C1 is an inside bar and CC breaks the same way as C2 (e.g. 2u-1-2u). Price paused, then the prior move continued.\n\nFilters: see the Inside Reversals tooltip (top of Signals).")
 
-showContinuations = input.bool(false, "2-2 Continuations |", inline = "s_2c", group = grpSigCont, tooltip = "Sustained momentum with no pause (e.g. 2u-2u). CC keeps pushing in C1's direction. Can be noisy without filters since any two trending bars qualify.")
-twoTwoContOnlyMomo = input.bool(false, "HAM/SHO", inline = "s_2c", group = grpSigCont, tooltip = "HAM/SHO filter: Require C1 to be a hammer or shooter. These candles tested one side and got rejected, adding conviction that the breakout direction has structural backing.")
-continuationsRequireFTFC = input.bool(false, "FTFC", inline = "s_2c", group = grpSigCont, tooltip = "FTFC filter: Require all monitored timeframes to agree on direction. Removes setups that fight the broader structural alignment, keeping only those swimming with the current.")
+showContinuations = input.bool(false, "2-2 Continuations |", inline = "s_2c", group = grpSigCont)
+twoTwoContOnlyMomo = input.bool(false, "HAM/SHO", inline = "s_2c", group = grpSigCont)
+continuationsRequireFTFC = input.bool(false, "FTFC", inline = "s_2c", group = grpSigCont, tooltip = "2-2 Continuations: CC keeps breaking the same side as C1 with no pause (e.g. 2u-2u). Noisy without a filter, since any two trending bars qualify.\n\nFilters: see the Inside Reversals tooltip (top of Signals).")
 
 grpSigF2 = "Signals - Reclaims"
-show_p3_toggle = input.bool(false, "Failing 2s (Range Reclaims) |", inline = "s_f2", group = grpSigF2, tooltip = "Show Range Reclaim signals where price reverses after breaking out. Also known as Failing 2s, Potential 3, or 1-bar Rev Strat.")
-p3RequireFTFC = input.bool(false, "FTFC", inline = "s_f2", group = grpSigF2, tooltip = "FTFC filter: Require all monitored timeframes to agree on direction. Removes setups that fight the broader structural alignment, keeping only those swimming with the current.")
+show_p3_toggle = input.bool(false, "Failing 2s (Range Reclaims) |", inline = "s_f2", group = grpSigF2)
+p3RequireFTFC = input.bool(false, "FTFC", inline = "s_f2", group = grpSigF2, tooltip = "Failing 2s (Range Reclaims): CC broke one side of C1 and came back, so the signal points the other way - an F2d is bull, an F2u is bear. Also called Potential 3s or 1-bar Rev Strats. What counts as failing is set in Advanced - Failing 2 Detection Method.\n\nFilters: see the Inside Reversals tooltip (top of Signals).")
 
 grpSigExp = "Signals - Expansions"
-showRangeExpansions = input.bool(false, "3-2 Expansions |", inline = "s_3e", group = grpSigExp, tooltip = "C1 was a 3-bar (outside bar), CC commits to one direction (e.g. 3u-2u). After C1 took both sides, CC resolves the indecision. Often powerful when the 3-bar shook out weak hands.")
-rangeExpOnlyMomo = input.bool(false, "HAM/SHO", inline = "s_3e", group = grpSigExp, tooltip = "HAM/SHO filter: Require C1 to be a hammer or shooter. A 3-bar that also formed a hammer/shooter tested and rejected one side despite the range expansion, adding directional conviction.")
-rangeExpansionsRequireFTFC = input.bool(false, "FTFC", inline = "s_3e", group = grpSigExp, tooltip = "FTFC filter: Require all monitored timeframes to agree on direction. Removes setups that fight the broader structural alignment, keeping only those swimming with the current.")
+showRangeExpansions = input.bool(false, "3-2 Expansions |", inline = "s_3e", group = grpSigExp)
+rangeExpOnlyMomo = input.bool(false, "HAM/SHO", inline = "s_3e", group = grpSigExp)
+rangeExpansionsRequireFTFC = input.bool(false, "FTFC", inline = "s_3e", group = grpSigExp, tooltip = "3-2 Expansions: C1 is an outside bar (3) and CC commits to one side (e.g. 3-2u). C1 took both sides; CC resolves the indecision, often after shaking out weak hands.\n\nFilters: see the Inside Reversals tooltip (top of Signals).")
 
-show3Expansions = input.bool(false, "Outside Bars (3 Exp) |", inline = "s_ob", group = grpSigExp, tooltip = "CC itself is a 3-bar, engulfing C1's entire range. Represents range expansion and volatility. Its color follows close vs open (3u = bullish, 3d = bearish). It is in force bull while price is above C1's high and bear while below C1's low; back inside C1 it is contested and not in force.")
-threeExpRequireFTFC = input.bool(false, "FTFC", inline = "s_ob", group = grpSigExp, tooltip = "FTFC filter: Require all monitored timeframes to agree on direction. Removes setups that fight the broader structural alignment, keeping only those swimming with the current.")
+show3Expansions = input.bool(false, "Outside Bars (3 Exp) |", inline = "s_ob", group = grpSigExp)
+threeExpRequireFTFC = input.bool(false, "FTFC", inline = "s_ob", group = grpSigExp, tooltip = "Outside Bars (3 Exp): CC itself is a 3, engulfing C1's whole range. Its color follows close vs open (3u bull, 3d bear). In force bull while price is above C1's high and bear while below C1's low; back inside C1 it is contested and not in force.\n\nFilters: see the Inside Reversals tooltip (top of Signals).")
 
 // -------------------- FILTERS --------------------
 grpHammerShooter = "Filters - Hammer/Shooter Detection"
@@ -422,7 +426,7 @@ barNumEmphasis = input.string("Tiered", "Emphasis", options = ["Tiered", "Unifor
 barNumPosition = input.string("Below", "Position", options = ["Below", "Above", "Broken Side"], group = grpBarNum, active = showBarNumbers, tooltip = "Below / Above: every number on the same side, reading as one steady row.\n\nBroken Side: the number sits on the side the candle took out - 2u and F2u above, 2d and F2d below. Outside bars follow their close (3u above, 3d below); inside bars sit below.")
 barNumColorMode = input.string("Bar Type Palette", "Color", options = ["Bar Type Palette", "Single Color"], inline = "bn_col", group = grpBarNum, active = showBarNumbers, tooltip = "Bar Type Palette: each number takes its family color from the Style sections (Signal, Inside Bar, Outside Bar, Range Reclaim), the same colors Strat Candles paints. Single Color: one color for every number - useful with Strat Candles on, so color is not shown twice. Emphasis still applies.")
 barNumColor = input.color(#9598a1, "", inline = "bn_col", group = grpBarNum, active = showBarNumbers and barNumColorMode == "Single Color")
-barNumBarsShown = input.int(0, "Bars Shown", minval = 0, group = grpBarNum, active = showBarNumbers, tooltip = "Number only the most recent N candles. 0 = every candle on the chart. The forming candle's number is drawn lighter because it can still change (a 2u can become a 3 or fail into an F2u); it takes full strength when the candle closes.")
+barNumBarsShown = input.string("Last 50", "Bars Shown", options = ["Last 10", "Last 20", "Last 50", "Last 100", "Last 250", "All"], group = grpBarNum, active = showBarNumbers, tooltip = "How many of the most recent candles get a number. Last 50 keeps the numbers on the part of the chart you are reading without crowding older history; All numbers every candle on the chart. The forming candle's number is drawn lighter because it can still change (a 2u can become a 3 or fail into an F2u); it takes full strength when the candle closes.")  // FIX BARNUM-SHOWN-1: named choices, no 0 = all
 
 // Auto-preview detection: activate whenever the market is not actively trading
 // Equity-like (stocks, ETFs, options, indices, ADRs): outside 9:30 AM - 4:00 PM ET and weekends
@@ -3536,7 +3540,10 @@ color bnShapeColor = color.new(color.black, 100)
 // under Broken Side; inside bars sit with the down side.
 string bnLocUp = barNumPosition == "Below" ? location.belowbar : location.abovebar
 string bnLocDown = barNumPosition == "Above" ? location.abovebar : location.belowbar
-int bnShowLast = barNumBarsShown > 0 ? barNumBarsShown : na
+// FIX BARNUM-SHOWN-1 (2026-11-06): Bars Shown is a dropdown of named counts, default Last 50,
+// instead of an integer where 0 meant every candle. show_last needs an input-qualified int, which
+// this ternary chain of input-derived values still is.
+int bnShowLast = barNumBarsShown == "Last 10" ? 10 : barNumBarsShown == "Last 20" ? 20 : barNumBarsShown == "Last 50" ? 50 : barNumBarsShown == "Last 100" ? 100 : barNumBarsShown == "Last 250" ? 250 : na
 
 plotshape(bnOn and bnIs1, "Bar # 1", shape.circle, bnLocDown, bnShapeColor, text = "1", textcolor = bnTextColor, size = size.tiny, show_last = bnShowLast, display = display.pane, editable = false)
 plotshape(bnOn and not bnNumbers and not bnKeyOnly and bnPlain2u, "Bar # 2u", shape.circle, bnLocUp, bnShapeColor, text = "2u", textcolor = bnTextColor, size = size.tiny, show_last = bnShowLast, display = display.pane, editable = false)
