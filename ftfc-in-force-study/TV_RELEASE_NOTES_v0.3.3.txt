@@ -1,3 +1,9 @@
+v0.3.3
+[list]
+[*][b]Ladder Size:[/b] the cascade ladder letters (¼, ½, H, D, W, M) can now be Tiny, Small, Normal, Large or Huge. The gap between stacked letters grows with the size, and a Spacing setting fine-tunes it.
+[*][b]Alerts:[/b] get an alert when a timeframe goes in force, the same events the ladder marks. Pick timeframes and Bull / Bear in the new Alerts group, then Create Alert > this study > "Any alert() function call". Optional alert when FTFC and every timeframe in force agree. Fires on bar close by default.
+[/list]
+
 v0.3.2
 [list]
 [*][b]Outside bars count as in force:[/b] a 3 closing above C1's high is in force bull, below C1's low in force bear. Closing back inside C1 is not in force.

@@ -1,5 +1,5 @@
 //@version=6
-// TheStrat FTFC vs In Force - v0.3.2 (study)
+// TheStrat FTFC vs In Force - v0.3.3 (study)
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -54,6 +54,13 @@
 //   - The cascade ladder is drawn with labels (most recent 500 marks) and the score's zero line
 //     and all-up / all-down dots are gone, to stay under TradingView's 64-plot limit.
 //
+// v0.3.3 (from a TradingView user request):
+//   - Ladder Size: the cascade ladder letters (¼, ½, H, D, W, M) can be Tiny up to Huge, and the
+//     stacking gap grows with the size so bigger letters do not overlap. A Spacing multiplier
+//     fine-tunes the gap for the chart's zoom.
+//   - Alerts: one "Any alert() function call" alert fires when a chosen timeframe goes in force,
+//     the same events the ladder marks. Pick the timeframes and directions in the Alerts group.
+//
 // No repainting: each timeframe's forming bar is rebuilt from chart bars (running high/low
 // keyed on the served period-open time, chart close as the period close). C1/C2, the period
 // open and period time are completed or period-stable under lookahead_on, so every historical
@@ -64,7 +71,7 @@
 // computeSignalState only lets a 3 through on the hammer/shooter path, while its timeframe
 // table already treats an enabled 3 expansion as in force.
 
-indicator("TheStrat FTFC vs In Force - v0.3.2", shorttitle = "FTFC vs IF", overlay = false, max_labels_count = 500)
+indicator("TheStrat FTFC vs In Force - v0.3.3", shorttitle = "FTFC vs IF", overlay = false, max_labels_count = 500)
 
 import SpinTrades/TheStratGrammar/1 as sg
 
@@ -97,7 +104,9 @@ logicType = input.string("Broad (Loose)", "Hammer / Shooter", options = ["Broad 
 grpPaint = "Chart"
 candleMode = input.string("Agreement", "Candles", options = ["Agreement", "Agreement, Solid", "Agreement, Outlines", "Body = FTFC, Outline = In Force", "FTFC Only", "In Force Only", "Off"], group = grpPaint, tooltip = "Agreement:\n  Bright green/red: FTFC and every timeframe in force agree.\n  Faded green/red: FTFC aligned, but not every timeframe has a signal in force.\n  Blue / Purple: every timeframe in force up / down, but price is not on the same side of every open.\n  Hollow gray: neither - so every filled candle means something is happening.\nFor the cleanest look, hide the chart's own candles (Chart Settings > Symbol: uncheck Body, Borders, Wick).\n\nAgreement, Solid: v0.1.0 style - same colors painted on the chart's own candles, solid gray for neither.\n\nAgreement, Outlines: v0.3.0 - faded body with full outline for FTFC only, hollow with a colored outline for in force without FTFC, hollow gray for neither.\n\nBody = FTFC, Outline = In Force: v0.2.0 - body filled when FTFC is aligned, hollow when not; outline colored when every timeframe is in force, gray when not.\n\nFTFC Only / In Force Only: one question at a time, gray otherwise.")
 showLadder = input.bool(false, "Cascade Ladder", group = grpPaint, inline = "lad", tooltip = "A letter where each timeframe goes in force: green below the bar for bull, red above for bear. Letters stack by timeframe (lowest timeframe nearest the bar, M farthest), so you can read the order timeframes trigger in - lower timeframes going in force first, then the higher ones following, is the cascade. With the optional slots on, ¼ = 15m and ½ = 30m. Shows the most recent 500 marks.")
-ladderEvery = input.bool(false, "Every Re-entry", group = grpPaint, inline = "lad", tooltip = "OFF: mark only the first time each timeframe goes in force in each of its periods. ON: mark every time it re-enters, which shows contested triggers chopping in and out.")
+ladderEvery = input.bool(false, "Every Re-entry", group = grpPaint, inline = "lad", tooltip = "OFF: mark only the first time each timeframe goes in force in each of its periods. ON: mark every time it re-enters, which shows contested triggers chopping in and out. Also sets which events the alerts fire on.")
+ladderSize = input.string("Tiny", "Ladder Size", options = ["Tiny", "Small", "Normal", "Large", "Huge"], group = grpPaint, inline = "lsz")
+ladderSpacing = input.float(1.0, "Spacing", minval = 0.2, maxval = 5.0, step = 0.1, group = grpPaint, inline = "lsz", tooltip = "Ladder Size: how big the ladder letters are (¼, ½, H, D, W, M). The gap between stacked letters grows with the size.\n\nSpacing: multiplies that gap. Raise it if letters on the same bar overlap (zoomed out, or on a quiet chart), lower it if they sit too far from the bar.")
 colBull = input.color(#4caf50, "Bull / Bear", inline = "c1", group = grpPaint)
 colBear = input.color(#f23645, "", inline = "c1", group = grpPaint)
 colSplitUp = input.color(#2962ff, "In Force, no FTFC: Up / Down", inline = "c3", group = grpPaint, tooltip = "Every timeframe has a signal in force, but FTFC is not aligned with it. Blue = all in force up, purple = all in force down, so the direction reads without borrowing green/red (reserved for full agreement). Agreement and Agreement, Solid.")
@@ -109,6 +118,18 @@ grpPane = "Pane"
 paneView = input.string("Heatmap", "Show", options = ["Heatmap", "Score + Heatmap", "Score"], group = grpPane, tooltip = "Score: green columns above zero = how many timeframes are above their open, red columns below zero = how many are below it; full color only at FTFC. White step lines = how many timeframes have a signal in force, bull above zero and bear below it, counted separately so they never cancel out. Lines at the edge of full columns = both agree. Full columns with the lines at zero = continuity, nothing triggered. Lines on both sides of zero = timeframes in force against each other.\n\nHeatmap: one band per timeframe, top half = above/below its open (faded when it shares its open with a lower timeframe), bottom half = signal in force (gray = none), plus FTFC and ALL IF rows on top.")
 flagShared = input.bool(true, "Fade Shared Opens", group = grpPane, tooltip = "Heatmap: fade the open half of a timeframe whose period began on the same bar as a lower timeframe's period (Monday: Week = Day; first trading day: Month = Day; first hour of the session: Day = Hour). Both are measured from the same opening print, so they count twice toward FTFC without being independent confirmation. It never changes whether FTFC is aligned.")
 showStats = input.bool(false, "Stats Table", group = grpPane, tooltip = "A small table on the price chart: how often FTFC, FTFC resting on shared opens, all-in-force, and both together occur over the loaded history.")
+
+grpAlert = "Alerts"
+alH = input.bool(true, "Hour", inline = "al1", group = grpAlert)
+alD = input.bool(true, "Day", inline = "al1", group = grpAlert)
+alW = input.bool(true, "Week", inline = "al1", group = grpAlert)
+alM = input.bool(true, "Month", inline = "al1", group = grpAlert, tooltip = "Which timeframes send an alert when they go in force. Only timeframes switched on in the Timeframes group (and not below the chart's timeframe) can fire.\n\nTo use: add the study to the chart, then Create Alert > Condition: this study > 'Any alert() function call'. One alert covers every timeframe and direction picked here; the message names the symbol, chart timeframe, and which timeframes went in force and which way.")
+al15 = input.bool(true, "15m", inline = "al2", group = grpAlert)
+al30 = input.bool(true, "30m", inline = "al2", group = grpAlert)
+alBull = input.bool(true, "Bull", inline = "al3", group = grpAlert)
+alBear = input.bool(true, "Bear", inline = "al3", group = grpAlert)
+alFull = input.bool(false, "Full Agreement", inline = "al3", group = grpAlert, tooltip = "Bull / Bear: which directions alert.\n\nFull Agreement: also alert when the candle turns bright green or red - FTFC and every timeframe in force agree - after a bar that did not.")
+alWhen = input.string("Bar Close", "Fire On", options = ["Bar Close", "Intrabar"], group = grpAlert, tooltip = "Bar Close (recommended): fires once the chart bar closes with the timeframe in force, matching what the ladder shows on history.\n\nIntrabar: fires the first time it happens inside the bar, once per bar. Faster, but price can fall back out of force before the bar closes, so the alert may not match the closed bar.")
 
 // ============================================================================
 // SHARED HELPERS (from TheStrat Suite v3.1.1, trimmed)
@@ -385,10 +406,24 @@ barcolor(candle, title = "Single-Color Candles")
 // green below the bar for bull and red above for bear, stacked with an ATR-scaled offset so marks
 // on the same bar never overlap: lowest timeframe nearest the bar, then up to M. 15m and 30m are
 // marked with a quarter and a half. The most recent 500 marks are kept.
-float ladStep = ta.atr(14) * 0.55
+// v0.3.3: the letter size is a user setting, and the stacking gap grows with it (Tiny keeps
+// v0.3.2's 0.55 ATR), times the Spacing multiplier.
+string ladSz = switch ladderSize
+    "Small" => size.small
+    "Normal" => size.normal
+    "Large" => size.large
+    "Huge" => size.huge
+    => size.tiny
+float ladScale = switch ladderSize
+    "Small" => 0.8
+    "Normal" => 1.1
+    "Large" => 1.6
+    "Huge" => 2.4
+    => 0.55
+float ladStep = ta.atr(14) * ladScale * ladderSpacing
 ladMark(bool cond, int k, bool isUp, string txt) =>
     if cond
-        label.new(bar_index, isUp ? low - (k + 1) * ladStep : high + (k + 1) * ladStep, txt, style = label.style_none, textcolor = isUp ? colBull : colBear, size = size.tiny, force_overlay = true)
+        label.new(bar_index, isUp ? low - (k + 1) * ladStep : high + (k + 1) * ladStep, txt, style = label.style_none, textcolor = isUp ? colBull : colBear, size = ladSz, force_overlay = true)
 if showLadder and hasData
     ladMark(up15, 0, true, "¼")
     ladMark(up30, k30, true, "½")
@@ -402,6 +437,43 @@ if showLadder and hasData
     ladMark(dnD, kD, false, "D")
     ladMark(dnW, kW, false, "W")
     ladMark(dnM, kM, false, "M")
+
+// ============================================================================
+// ALERTS
+// ============================================================================
+// v0.3.3: one alert() call for the same events the ladder marks (first entry per period, or
+// every re-entry with Every Re-entry on). Works whether or not the ladder is shown. Several
+// timeframes going in force on the same bar are sent as one message.
+alertTf(string acc, bool cond, bool pick, string name) => cond and pick ? (acc == "" ? name : acc + ", " + name) : acc
+string alUpTxt = ""
+string alDnTxt = ""
+if hasData
+    if alBull
+        alUpTxt := alertTf(alUpTxt, up15, al15, "15m")
+        alUpTxt := alertTf(alUpTxt, up30, al30, "30m")
+        alUpTxt := alertTf(alUpTxt, upH, alH, "H")
+        alUpTxt := alertTf(alUpTxt, upD, alD, "D")
+        alUpTxt := alertTf(alUpTxt, upW, alW, "W")
+        alUpTxt := alertTf(alUpTxt, upM, alM, "M")
+    if alBear
+        alDnTxt := alertTf(alDnTxt, dn15, al15, "15m")
+        alDnTxt := alertTf(alDnTxt, dn30, al30, "30m")
+        alDnTxt := alertTf(alDnTxt, dnH, alH, "H")
+        alDnTxt := alertTf(alDnTxt, dnD, alD, "D")
+        alDnTxt := alertTf(alDnTxt, dnW, alW, "W")
+        alDnTxt := alertTf(alDnTxt, dnM, alM, "M")
+// Full agreement (bright candle in Agreement mode): FTFC and every timeframe in force agree.
+int agreeDir = hasData and allIfDir != 0 and allIfDir == ftfcDir ? allIfDir : 0
+bool agreeNow = alFull and agreeDir != 0 and agreeDir != agreeDir[1] and ((agreeDir == 1 and alBull) or (agreeDir == -1 and alBear))
+string alMsg = ""
+if alUpTxt != ""
+    alMsg := "In force BULL: " + alUpTxt
+if alDnTxt != ""
+    alMsg := (alMsg == "" ? "" : alMsg + " | ") + "In force BEAR: " + alDnTxt
+if agreeNow
+    alMsg := (alMsg == "" ? "" : alMsg + " | ") + (agreeDir == 1 ? "Full agreement BULL" : "Full agreement BEAR") + " (FTFC + all in force, " + str.tostring(nOk) + " TFs)"
+if alMsg != ""
+    alert(syminfo.ticker + " " + timeframe.period + " FTFC vs IF | " + alMsg + " | close " + str.tostring(close, format.mintick), alWhen == "Bar Close" ? alert.freq_once_per_bar_close : alert.freq_once_per_bar)
 
 // ============================================================================
 // PANE

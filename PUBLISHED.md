@@ -15,7 +15,7 @@ never auto-upgrade, so when a library updates, sweep the repo for old
 
 | Script | Version | Published | Listing | Source |
 |---|---|---|---|---|
-| TheStrat: Full Timeframe Continuity (FTFC) vs Signals In Force | v0.3.1 | 2026-11-05 | https://www.tradingview.com/script/1EMdC3R7-TheStrat-Full-Timeframe-Continuity-FTFC-vs-Signals-In-Force/ | `ftfc-in-force-study/FTFC_vs_InForce_v0.3.1.pine` as of commit `489a577` (replaced by v0.3.2 in the repo, not yet published), description `ftfc-in-force-study/TV_DESCRIPTION.txt` |
+| TheStrat: Full Timeframe Continuity (FTFC) vs Signals In Force | v0.3.1 | 2026-11-05 | https://www.tradingview.com/script/1EMdC3R7-TheStrat-Full-Timeframe-Continuity-FTFC-vs-Signals-In-Force/ | `ftfc-in-force-study/FTFC_vs_InForce_v0.3.1.pine` as of commit `489a577` (replaced by v0.3.3 in the repo, not yet published), description `ftfc-in-force-study/TV_DESCRIPTION.txt` |
 
 ## Notes
 
