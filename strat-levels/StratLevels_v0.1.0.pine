@@ -35,9 +35,12 @@
 // open time, which never change once the period has started). Each timeframe's forming bar is
 // rebuilt from chart bars - a running high/low keyed on the served period-open time, the chart
 // close as its price - so every historical bar is graded as things stood at that bar's close,
-// exactly as the study and the Suite's FTFC bar colouring do. Daily ATR and the expected range
-// are completed-day values ([1]). The trail moves only on served [1] values at entry-timeframe
-// closes.
+// exactly as the study and the Suite's FTFC bar colouring do. One exception, last bar only: a
+// period that began before the first loaded chart bar (a W or M on a 1m chart) cannot be rebuilt,
+// so the readouts take the served period-to-date high/low there, which on the last bar is the
+// true range so far; such a period is never graded on history and the alignment run skips it
+// (see trackRun / liveRun). Daily ATR and the expected range are completed-day values ([1]).
+// The trail moves only on served [1] values at entry-timeframe closes.
 //
 // Reused rather than rewritten:
 //   - Bar classification from the TheStratGrammar library (sg.structureOf, sg.isFailed,
@@ -83,9 +86,9 @@ failed_2_method = input.string("Reclaim", "Method", options = ["Reclaim", "Open"
 logicType = input.string("Broad (Loose)", "Hammer / Shooter", options = ["Broad (Loose)", "Classic", "Pin Bar (Strict)"], group = grpSig)
 
 grpLv = "Flip Levels"
-showLines = input.bool(true, "Draw Flip Levels", group = grpLv, tooltip = "C1 high and C1 low for each enabled timeframe, dashed: the prices the forming bar must take to change its Strat state (take the high: 2u, or 3 if the low is already taken), or close back inside (F). A side that has already been taken is drawn in the Suite's Crossed colour; it still matters, because a close back inside it is the failing flip. Where two timeframes share a price, the higher timeframe's line is kept and the labels are joined.")
+showLines = input.bool(true, "Draw Flip Levels", group = grpLv, tooltip = "C1 high and C1 low for each enabled timeframe, dashed: the prices the forming bar must break to change its Strat state (break the high: 2u, or 3 if the low is already broken), or close back inside (F, a failing 2). Once both sides are broken the bar is a 3 and stays one; neither line changes its type again. A side that has already been taken is drawn in the Suite's Crossed colour; it still matters, because a close back inside it is the failing flip. Where two timeframes share a price, the higher timeframe's line is kept and the labels are joined.")
 showOpenLines = input.bool(true, "Include Open (AO) Level", group = grpLv, tooltip = "The forming bar's open, dotted. Price on the other side of it flips that timeframe's above-open side, which is what FTFC counts.")
-showNotes = input.bool(true, "Flip Notes in Labels", group = grpLv, tooltip = "Adds what crossing the level does: 'take = 2u', 'take = 3', 'back inside = F' (a close back inside the C1 range is the failing flip under the Reclaim method), 'reclaim' (price is back inside and would have to retake the level), and for the open 'above = AO up' / 'below = AO down'.")
+showNotes = input.bool(true, "Flip Notes in Labels", group = grpLv, tooltip = "Adds what crossing the level does to the forming bar: 'break = 2u', 'break = 3', 'back inside = F' (a close back inside the C1 range is the failing flip; shown as plain 'back inside' under the Open and Reclaim + Open methods, where a close inside is not enough), 'reclaim' (price is back inside and would have to retake the level), '3, locked' (both sides broken: a 3 never becomes anything else, and there is no failing 3), and for the open 'above = AO up' / 'below = AO down'. These describe the bar's state, not a trade.")
 showPriceInLabel = input.bool(false, "Show Price in Label", group = grpLv)
 labelOffsetBars = input.int(8, "Label Offset (bars)", minval = 1, maxval = 50, group = grpLv, tooltip = "How many chart bars past the last bar the lines extend and the labels sit.")
 labelTextSize = input.string("Small", "Label Text Size", options = ["Tiny", "Small", "Normal", "Large"], group = grpLv)
@@ -95,7 +98,7 @@ labelBackgroundTransparency = input.int(20, "Transparency", minval = 0, maxval =
 grpTM = "Trade Management"
 tmSide = input.string("Off", "Side", options = ["Off", "Long", "Short"], group = grpTM, tooltip = "Draws the C1 trailing stop for a position you are managing. Off draws nothing. This line describes a position you already chose; it does not choose one.")
 tmTF = input.timeframe("15", "Entry TF", group = grpTM, tooltip = "The timeframe the trail steps on. Must be the chart timeframe or higher.")
-tmEntryTime = input.time(0, "Entry Time", group = grpTM, tooltip = "When the position was entered. The trail starts on the first chart bar that closes after this time, at the opposite extreme of C1 (the entry-timeframe bar before the one containing the entry). At each entry-timeframe close it moves to the just-closed bar's opposite extreme (its low for a long, its high for a short) if that is tighter, and never loosens. It ends on the bar price trades at or through it. Left at its default, nothing draws.")
+tmEntryTime = input.time(0, "Entry Time", group = grpTM, tooltip = "When the position was entered. The trail starts on the first chart bar that closes after this time, at the opposite extreme of C1 (the entry-timeframe bar before the one containing the entry). At each entry-timeframe close it moves to the just-closed bar's opposite extreme (its low for a long, its high for a short) if that is tighter, and never loosens. It ends on the bar price trades at or through it. Left at its default, nothing draws. If the entry is earlier than the first loaded chart bar, the moves before that bar are missing and the table says so.")
 tmColor = input.color(#ffffff, "Line", inline = "tml", group = grpTM)
 tmWidth = input.int(2, "Width", minval = 1, maxval = 5, inline = "tml", group = grpTM)
 tmShowX = input.bool(true, "Mark Where Price Crossed the Line (X)", group = grpTM)
@@ -346,19 +349,32 @@ shouldDrawC1Level(bool isBullish, c1_is_inside, c1_is_hammer, c1_is_shooter, cc_
 // Running high/low of one timeframe's forming bar, rebuilt from chart bars and keyed on the
 // served period-open time (period-stable under lookahead_on). One call site per timeframe, each
 // with its own var state - never from a loop (the Suite's P0-1 shared-buffer lesson).
+// partial = this is the first period seen and the chart's data starts after that period opened
+// (a W or M period on a 1m chart, typically): its rebuilt high/low miss everything before the
+// first loaded bar, so its state cannot be graded honestly from chart bars.
 trackRun(int pT) =>
     var float runH = na
     var float runL = na
     var int lastP = na
+    var bool partial = false
     if not na(pT)
         if na(lastP) or pT != lastP
+            partial := na(lastP) and time > pT
             runH := high
             runL := low
             lastP := pT
         else
             runH := math.max(runH, high)
             runL := math.min(runL, low)
-    [runH, runL]
+    [runH, runL, partial]
+
+// Last bar only: a partial period takes the served period-to-date high/low, which on the last
+// bar is the true range so far (live on a realtime bar, final on a closed market). Every other
+// bar keeps the rebuilt values, so history is untouched; the alignment run skips partial
+// periods entirely (SECTION 5), so this repair never feeds a stored state.
+liveRun(float runH, float runL, bool partial, float srvH, float srvL) =>
+    bool fix = partial and barstate.islast and not na(srvH) and not na(srvL)
+    [fix ? srvH : runH, fix ? srvL : runL]
 
 // Study evalSlot with the cascade-ladder state removed; the running high/low comes in from
 // trackRun. Returns [inForceDir, aboveOpenDir]: +1 bull, -1 bear, 0 none.
@@ -396,10 +412,14 @@ evalSlot(bool en, float ccO, float runH, float runL, float c1H, float c1L, float
         ifDir := inHigh and inLow ? (is_f2u ? -1 : is_f2d ? 1 : close > ccO ? 1 : -1) : inHigh ? 1 : inLow ? -1 : 0
     [ifDir, aoDir]
 
-// Multi-timeframe fetch: the study's getTF plus C1's open time (where a level line starts).
-// time and open are period-stable; [1] and [2] are completed bars.
+// Multi-timeframe fetch: the study's getTF plus C1's open time (where a level line starts) and
+// the forming period's high/low so far. time and open are period-stable; [1] and [2] are
+// completed bars. The last two (high, low) are NOT period-stable under lookahead_on: on a
+// historical bar they are the period's final values. They are read only on the last bar, and
+// only for a period that began before the first loaded chart bar (liveRun below), where the
+// served value is the true period-to-date range as of now and the rebuilt one is too short.
 getTF() =>
-    [time, open, high[1], low[1], open[1], close[1], high[2], low[2], open[2], close[2], time[1]]
+    [time, open, high[1], low[1], open[1], close[1], high[2], low[2], open[2], close[2], time[1], high, low]
 
 // Completed-day statistics for the units and the expected range.
 getDayStats(simple int aLen, simple int rLen) =>
@@ -408,11 +428,11 @@ getDayStats(simple int aLen, simple int rLen) =>
 var int chartSec = timeframe.in_seconds(timeframe.period)
 string chartLbl = getTimeframeLabel(timeframe.period)
 
-[tHt, tHo, hH1, hL1, hO1, hC1, hH2, hL2, hO2, hC2, tH1] = request.security(syminfo.tickerid, "60", getTF(), lookahead = barmerge.lookahead_on)
-[t4t, t4o, q4H1, q4L1, q4O1, q4C1, q4H2, q4L2, q4O2, q4C2, t41] = request.security(syminfo.tickerid, "240", getTF(), lookahead = barmerge.lookahead_on)
-[tDt, tDo, dH1, dL1, dO1, dC1, dH2, dL2, dO2, dC2, tD1] = request.security(syminfo.tickerid, "D", getTF(), lookahead = barmerge.lookahead_on)
-[tWt, tWo, wH1, wL1, wO1, wC1, wH2, wL2, wO2, wC2, tW1] = request.security(syminfo.tickerid, "W", getTF(), lookahead = barmerge.lookahead_on)
-[tMt, tMo, mH1, mL1, mO1, mC1, mH2, mL2, mO2, mC2, tM1] = request.security(syminfo.tickerid, "M", getTF(), lookahead = barmerge.lookahead_on)
+[tHt, tHo, hH1, hL1, hO1, hC1, hH2, hL2, hO2, hC2, tH1, hHs, hLs] = request.security(syminfo.tickerid, "60", getTF(), lookahead = barmerge.lookahead_on)
+[t4t, t4o, q4H1, q4L1, q4O1, q4C1, q4H2, q4L2, q4O2, q4C2, t41, q4Hs, q4Ls] = request.security(syminfo.tickerid, "240", getTF(), lookahead = barmerge.lookahead_on)
+[tDt, tDo, dH1, dL1, dO1, dC1, dH2, dL2, dO2, dC2, tD1, dHs, dLs] = request.security(syminfo.tickerid, "D", getTF(), lookahead = barmerge.lookahead_on)
+[tWt, tWo, wH1, wL1, wO1, wC1, wH2, wL2, wO2, wC2, tW1, wHs, wLs] = request.security(syminfo.tickerid, "W", getTF(), lookahead = barmerge.lookahead_on)
+[tMt, tMo, mH1, mL1, mO1, mC1, mH2, mL2, mO2, mC2, tM1, mHs, mLs] = request.security(syminfo.tickerid, "M", getTF(), lookahead = barmerge.lookahead_on)
 [dAtr, dExpRange] = request.security(syminfo.tickerid, "D", getDayStats(atrLen, rangeLen), lookahead = barmerge.lookahead_on)
 // Entry timeframe for the trail: period-open time and the just-completed bar's extremes.
 [tEt, eH1, eL1] = request.security(syminfo.tickerid, tmTF, [time, high[1], low[1]], lookahead = barmerge.lookahead_on)
@@ -428,15 +448,20 @@ bool okM = enM and timeframe.in_seconds("M") >= chartSec
 // Forming-bar running high/low per timeframe. The chart timeframe's forming bar is the chart
 // bar itself. The D tracker also serves the session range in SECTION 6, so it runs whether or
 // not the D row is enabled.
-[hRunH, hRunL] = trackRun(tHt)
-[q4RunH, q4RunL] = trackRun(t4t)
-[dRunH, dRunL] = trackRun(tDt)
-[wRunH, wRunL] = trackRun(tWt)
-[mRunH, mRunL] = trackRun(tMt)
+[hRunH0, hRunL0, hPart] = trackRun(tHt)
+[q4RunH0, q4RunL0, q4Part] = trackRun(t4t)
+[dRunH0, dRunL0, dPart] = trackRun(tDt)
+[wRunH0, wRunL0, wPart] = trackRun(tWt)
+[mRunH0, mRunL0, mPart] = trackRun(tMt)
+[hRunH, hRunL] = liveRun(hRunH0, hRunL0, hPart, hHs, hLs)
+[q4RunH, q4RunL] = liveRun(q4RunH0, q4RunL0, q4Part, q4Hs, q4Ls)
+[dRunH, dRunL] = liveRun(dRunH0, dRunL0, dPart, dHs, dLs)
+[wRunH, wRunL] = liveRun(wRunH0, wRunL0, wPart, wHs, wLs)
+[mRunH, mRunL] = liveRun(mRunH0, mRunL0, mPart, mHs, mLs)
 
 [ifC, aoC] = evalSlot(okC, open, high, low, high[1], low[1], open[1], close[1], high[2], low[2], open[2], close[2])
 [ifH, aoH] = evalSlot(okH, tHo, hRunH, hRunL, hH1, hL1, hO1, hC1, hH2, hL2, hO2, hC2)
-[if4, ao4] = evalSlot(ok4H, t4o, q4RunH, q4RunL, q4H1, q4L1, q4O1, q4C1, q4H2, q4L2, q4O2, q4C2)
+[if4H, ao4H] = evalSlot(ok4H, t4o, q4RunH, q4RunL, q4H1, q4L1, q4O1, q4C1, q4H2, q4L2, q4O2, q4C2)
 [ifD, aoD] = evalSlot(okD, tDo, dRunH, dRunL, dH1, dL1, dO1, dC1, dH2, dL2, dO2, dC2)
 [ifW, aoW] = evalSlot(okW, tWo, wRunH, wRunL, wH1, wL1, wO1, wC1, wH2, wL2, wO2, wC2)
 [ifM, aoM] = evalSlot(okM, tMo, mRunH, mRunL, mH1, mL1, mO1, mC1, mH2, mL2, mO2, mC2)
@@ -450,9 +475,9 @@ bool hasData = nOk > 0
 // hasData guard is required.
 [ftfcUp, ftfcDown] = calculateFTFC(okH, tHo, close, ok4H, t4o, close, okD, tDo, close, okW, tWo, close, okM, tMo, close, false, float(na), float(na))
 int ftfcDir = hasData and ftfcUp ? 1 : hasData and ftfcDown ? -1 : 0
-int ifSum = ifH + if4 + ifD + ifW + ifM
-int nIfUp = (ifH == 1 ? 1 : 0) + (if4 == 1 ? 1 : 0) + (ifD == 1 ? 1 : 0) + (ifW == 1 ? 1 : 0) + (ifM == 1 ? 1 : 0)
-int nIfDn = (ifH == -1 ? 1 : 0) + (if4 == -1 ? 1 : 0) + (ifD == -1 ? 1 : 0) + (ifW == -1 ? 1 : 0) + (ifM == -1 ? 1 : 0)
+int ifSum = ifH + if4H + ifD + ifW + ifM
+int nIfUp = (ifH == 1 ? 1 : 0) + (if4H == 1 ? 1 : 0) + (ifD == 1 ? 1 : 0) + (ifW == 1 ? 1 : 0) + (ifM == 1 ? 1 : 0)
+int nIfDn = (ifH == -1 ? 1 : 0) + (if4H == -1 ? 1 : 0) + (ifD == -1 ? 1 : 0) + (ifW == -1 ? 1 : 0) + (ifM == -1 ? 1 : 0)
 // All In Force: every timeframe has a signal in force, all the same direction (the study's rule).
 int allIfDir = hasData and ifSum == nOk ? 1 : hasData and ifSum == -nOk ? -1 : 0
 
@@ -463,21 +488,30 @@ int allIfDir = hasData and ifSum == nOk ? 1 : hasData and ifSum == -nOk ? -1 : 0
 // (blue/purple), 3/-3 FTFC only (faded), 0 neither. Graded at each chart bar's close from the
 // honest per-bar state above, so the age and start price of a run never depend on the future.
 // On the live bar the run state is recomputed each tick and commits at the bar's close.
+// A set timeframe still in a period that began before the loaded chart data (trackRun's partial)
+// is graded from a truncated range on every historical bar, so the run is not tracked until
+// that period ends. On a 1m chart this can mean the M row never qualifies: the Run row says so.
+bool anyPartial = (okH and hPart) or (ok4H and q4Part) or (okD and dPart) or (okW and wPart) or (okM and mPart)
+bool runReady = hasData and not anyPartial
 int runCode = allIfDir != 0 and allIfDir == ftfcDir ? allIfDir : allIfDir != 0 ? 2 * allIfDir : ftfcDir != 0 ? 3 * ftfcDir : 0
 var int runCls = na
 var int runStartBar = na
 var float runStartPx = na
-if hasData
+if runReady
     if na(runCls) or runCode != runCls
         runCls := runCode
         runStartBar := bar_index
         runStartPx := close
-int runAge = hasData and not na(runStartBar) ? bar_index - runStartBar : na
-float runExt = hasData and not na(runStartPx) and not na(dAtr) and dAtr > 0 ? (close - runStartPx) / dAtr : na
-// A run already in progress when the served data begins is counted from the first bar with
-// data, so on that first run the age is a lower bound.
+else
+    runCls := na
+    runStartBar := na
+    runStartPx := na
+int runAge = runReady and not na(runStartBar) ? bar_index - runStartBar : na
+float runExt = runReady and not na(runStartPx) and not na(dAtr) and dAtr > 0 ? (close - runStartPx) / dAtr : na
+// A run already in progress when gradable data begins is counted from the first gradable bar,
+// so on that first run the age is a lower bound.
 var int firstDataBar = na
-if hasData and na(firstDataBar)
+if runReady and na(firstDataBar)
     firstDataBar := bar_index
 bool runTruncated = not na(runStartBar) and not na(firstDataBar) and runStartBar == firstDataBar
 
@@ -530,12 +564,17 @@ var bool tmStopped = false
 var int tmLastP = na
 var int tmHitTime = na
 var float tmHitPx = na
+var bool tmLate = false
+var int firstBarTime = time
 bool tmCrossNow = false
 float tmPlot = na
 if tmOn and tmTfOk and tmEntryTime > 0 and not tmStopped and not na(tEt) and not na(eH1) and not na(eL1)
     if not tmStarted
         if not na(time_close) and time_close > tmEntryTime
             tmStarted := true
+            // Entry before the first loaded bar: C1 and the moves before that bar are not on the
+            // chart, so this trail can be looser than the real one.
+            tmLate := tmEntryTime < firstBarTime
             trail := tmLong ? eL1 : eH1
             tmLastP := tEt
     else if tEt != tmLastP
@@ -629,8 +668,11 @@ addSlotLevels(LevelSet s, string tl, int w, int t0, float c1H, float c1L, float 
     if not na(c1H) and not na(c1L) and not na(runH) and not na(runL) and not na(t0)
         bool hiTaken = runH > c1H
         bool loTaken = runL < c1L
-        string hiNote = not hiTaken ? (loTaken ? "take = 3" : "take = 2u") : close > c1H ? "back inside = F" : "reclaim"
-        string loNote = not loTaken ? (hiTaken ? "take = 3" : "take = 2d") : close < c1L ? "back inside = F" : "reclaim"
+        // A close back inside makes an F only where the method accepts a reclaim on its own.
+        // Both sides broken is a 3: locked, and there is no failing 3, so neither line flips it.
+        string fBack = enableFailed2Detection and (failed_2_method == "Reclaim" or failed_2_method == "Reclaim OR Open") ? "back inside = F" : "back inside"
+        string hiNote = not hiTaken ? (loTaken ? "break = 3" : "break = 2u") : loTaken ? "3, locked" : close > c1H ? fBack : "reclaim"
+        string loNote = not loTaken ? (hiTaken ? "break = 3" : "break = 2d") : hiTaken ? "3, locked" : close < c1L ? fBack : "reclaim"
         array.push(s.prices, c1H)
         array.push(s.texts, tl + " C1H" + (showNotes ? " " + hiNote : ""))
         array.push(s.colors, hiTaken ? COLOR_HIT_HIGH : COLOR_TRIGGER_HIGH)
@@ -797,7 +839,7 @@ if barstate.islast and showTable and not na(tbl)
         slotRow(tbl, row, "D", aoD, ifD, dH1, dL1, tDo, dRunH, dRunL, dAtr, sz)
         row += 1
     if ok4H
-        slotRow(tbl, row, "4H", ao4, if4, q4H1, q4L1, t4o, q4RunH, q4RunL, dAtr, sz)
+        slotRow(tbl, row, "4H", ao4H, if4H, q4H1, q4L1, t4o, q4RunH, q4RunL, dAtr, sz)
         row += 1
     if okH
         slotRow(tbl, row, "1H", aoH, ifH, hH1, hL1, tHo, hRunH, hRunL, dAtr, sz)
@@ -816,8 +858,9 @@ if barstate.islast and showTable and not na(tbl)
     row += 1
 
     // Alignment age and extension: context readout, not a signal.
-    string runTxt = not hasData or na(runCls) ? "-" : runName(runCls) + ", " + (runTruncated ? ">=" : "") + str.tostring(runAge) + " bars, " + fmtSigned(runExt) + " dATR"
-    summaryRow(tbl, row, "Run", runTxt, not hasData or na(runCls) ? color.gray : readableOn(runColor(runCls), COLOR_BG_BLACK), sz)
+    string partTxt = str.trim((okH and hPart ? "1H " : "") + (ok4H and q4Part ? "4H " : "") + (okD and dPart ? "D " : "") + (okW and wPart ? "W " : "") + (okM and mPart ? "M" : ""))
+    string runTxt = anyPartial ? "n/a: the " + partTxt + " period began before the loaded chart data" : not runReady or na(runCls) ? "-" : runName(runCls) + ", " + (runTruncated ? ">=" : "") + str.tostring(runAge) + " bars, " + fmtSigned(runExt) + " dATR"
+    summaryRow(tbl, row, "Run", runTxt, not runReady or na(runCls) ? color.gray : readableOn(runColor(runCls), COLOR_BG_BLACK), sz)
     row += 1
 
     // Range used: context readout, not a signal.
@@ -832,7 +875,7 @@ if barstate.islast and showTable and not na(tbl)
 
     // Trade-management line.
     string tmHead = tmTfLbl + " " + tmSide + ": "
-    string tmTxt = not tmOn ? "off" : not tmTfOk ? tmHead + "entry TF is below the chart TF" : tmEntryTime <= 0 ? tmHead + "set Entry Time" : not tmStarted ? tmHead + "waiting for entry time" : tmStopped ? tmHead + "crossed at " + str.tostring(tmHitPx, format.mintick) + ", " + fmtPtEt(tmHitTime) : tmHead + str.tostring(trail, format.mintick) + " (" + (na(dAtr) or dAtr <= 0 ? "-" : fmtSigned((trail - close) / dAtr)) + " dATR)"
+    string tmTxt = not tmOn ? "off" : not tmTfOk ? tmHead + "entry TF is below the chart TF" : tmEntryTime <= 0 ? tmHead + "set Entry Time" : not tmStarted ? tmHead + "waiting for entry time" : tmStopped ? tmHead + "crossed at " + str.tostring(tmHitPx, format.mintick) + ", " + fmtPtEt(tmHitTime) : tmHead + str.tostring(trail, format.mintick) + " (" + (na(dAtr) or dAtr <= 0 ? "-" : fmtSigned((trail - close) / dAtr)) + " dATR)" + (tmLate ? ", entry before loaded data: may be looser than the real trail" : "")
     summaryRow(tbl, row, "C1 trail", tmTxt, tmOn ? color.white : color.gray, sz)
     row += 1
 
