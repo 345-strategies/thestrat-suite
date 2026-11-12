@@ -1,0 +1,13 @@
+Metadata-Version: 2.4
+Name: thestrat-replay
+Version: 0.1.0
+Summary: Minute-by-minute TheStrat Suite state for replaying a trading day
+Author: Nate King
+License: MPL-2.0
+Requires-Python: >=3.10
+Requires-Dist: thestrat-grammar
+Provides-Extra: dev
+Requires-Dist: pytest>=7; extra == "dev"
+Provides-Extra: parquet
+Requires-Dist: pandas; extra == "parquet"
+Requires-Dist: pyarrow; extra == "parquet"
