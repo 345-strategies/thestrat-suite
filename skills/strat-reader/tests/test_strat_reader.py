@@ -119,3 +119,28 @@ def test_recorded_blind_run_passes():
     answers = {r["id"]: r["answer"] for r in rows}
     for cid, case in CASES.items():
         assert run_evals.grade_one(case, answers[cid]) == [], cid
+
+
+# --- watchlist mode ----------------------------------------------------------
+
+def test_watchlist_live_matches_screener():
+    """The packed watchlist run agrees with the Setup Screener captures for the same session."""
+    rows = {r["ticker"]: r for r in decode.decode_watchlist(fx("live_watchlist_3")["plots"])}
+    spy, nvda = rows["SPY"], rows["NVDA"]
+    scr_spy, scr_nvda = dec("live_spy_1D"), dec("live_nvda_1D")
+    # Daily focus candles
+    assert spy["D"]["combo"] == "1-2u-3u" and (scr_spy["focus"]["c2"], scr_spy["focus"]["c1"], scr_spy["focus"]["cc"]) == ("1", "2u", "3u")
+    assert nvda["D"]["combo"] == "2d-2u-2d" and (scr_nvda["focus"]["c2"], scr_nvda["focus"]["c1"]) == ("2d", "2u")
+    # Weekly and monthly structure and above-open agree with the screener's slots
+    for row, scr in ((spy, scr_spy), (nvda, scr_nvda)):
+        for t in ("W", "M"):
+            s = tf(scr, t)
+            assert row[t]["structure"] == s["cc"].replace("3u", "3").replace("3d", "3"), (row["ticker"], t)
+            assert row[t]["above_open"] == s["above_open"], (row["ticker"], t)
+
+
+def test_watchlist_group_codes():
+    g = decode._group(31021)
+    assert g["cc"] == "F2d" and g["c1"] == "2u" and g["c2"] == "1" and not g["above_open"] and g["holding"] == 0
+    assert decode._group(10143)["cc"] == "1u"
+    assert decode._group(30123)["holding"] == -1

@@ -22,7 +22,14 @@ From the user's own TradingView account. The connector runs the script "under th
 | Explain what must happen next from the bar-type rules | Say whether a setup will work. The states are descriptions, not a tested edge |
 | | Place orders. Read-only |
 
-Cost: each script run returns about 10k tokens, because the script's settings come back with every call. A 10-symbol watchlist is about 100k tokens.
+Cost, measured 2026-11-13:
+
+| Mode | What it returns | Tokens |
+|---|---|---|
+| Setup Screener, one symbol | Full Suite read: signals, Lead, magnitude, nearest setup, 6 slots | about 5k per symbol (37 settings and 64 plot names come back each call) |
+| Watchlist template (`pine/watchlist_template.pine`, run as `code`) | D/W/M bar states, combos, failing 2s, FTFC D+W+M | about 1.5k for up to 21 symbols in one call, input and output together |
+
+The skill scans with the watchlist template and uses the screener only for the few symbols worth a deep read. The template ran 21 symbols (63 requests) in one call, and its D/W/M reads matched the screener's on SPY, QQQ and NVDA.
 
 The published Suite (v3.1.1) and the FTFC vs In Force study do **not** run through the connector: both fail on a color input ("Invalid value #FFFFFF"), and neither exposes its states as plots. The Setup Screener does both, which is why the skill uses it.
 

@@ -21,7 +21,7 @@ You read TheStrat state for the user by running **TheStrat Setup Screener** (the
 | `return_bars` | `1`. The screener plots only the last bar; history is `na` by design. |
 | `inputs` | `{"in_32": false, "in_35": false, "in_36": false}` (no chart card or tags; they do nothing here). Add slot changes only when the user asks for other timeframes. |
 
-Each call returns about 10k tokens (the script's settings come back every time). Keep a watchlist to 10 or so symbols per answer unless the user asks for more, and say so when you trim it.
+Each screener call returns about 5k tokens (the script's 37 settings and 64 plot names come back every time). Use it for a deep read of one to three symbols. For more than three, use Watchlist mode first.
 
 ## Reading the result
 
@@ -45,6 +45,14 @@ Plots come back numbered; `metainfo.plots` names each one. If you can run code, 
 
 **Slots** are, in order, `30m, 1H, D, W, M, Q` unless you changed them. A slot smaller than the screen returns `null`: it is not counted in FTFC and you must not describe it. To read the 30m or 1H, run the screen on `30m`.
 
+## Watchlist mode (four or more symbols)
+
+Run `pine/watchlist_template.pine` from this skill's folder with `run_pine_indicator` and `code` instead of `script_id`: symbol `AMEX:SPY`, timeframe `1D`, `return_bars` 1, `calc_bars_count` 50. Replace the plot lines at the bottom with one `plot(pk("EXCHANGE:TICKER"), "TICKER")` per symbol, up to 21 per run. It costs about 70 tokens per symbol, in and out, against about 5k for a screener call.
+
+Each plot packs D, W and M into 15 digits, `DDDDD WWWWW MMMMM`. Each 5-digit group is `ABCDE`: A = CC structure (1 = 1, 2 = 2u, 3 = 2d, 4 = 3), B = 1 if CC is a failing 2, C = 1 if CC is above its open, D = C1 structure, E = C2 structure. `decode.py --watchlist` turns the result into a table. The bar states come from TheStratGrammar, the library the Suite imports.
+
+It reads D, W and M bar states, combos, failing 2s and FTFC across those three. It does not compute the Suite's signals, Lead, magnitude or nearest setup: for those, run the screener on the few symbols that matter. A 2u or 2d that is "held" (still beyond C1) is structure only, not the Suite's "signal in force", so say "holding", not "in force", from this mode. One invalid symbol fails the whole run (the error names it): fix or drop it and run again.
+
 ## Timeframes
 
 - "today", "the daily", no timeframe named: screen `1D`. Slots D, W, M, Q are read; 30m and 1H are not.
@@ -62,7 +70,7 @@ Lead with structure, in this order (the Suite's read order):
 
 Use the user's TheStrat words (2u, F2d, in force, FTFC, magnitude). Green/red means bullish/bearish, never good/bad. Give times in Pacific with Eastern in parentheses.
 
-For a watchlist, run each symbol, then answer with a short table (symbol, focus CC and state, FTFC, Lead) followed by the few that match what the user asked for.
+For a watchlist, run Watchlist mode, answer with a short table (symbol, M, W, D, FTFC D+W+M), then name the few that match what the user asked for. Offer a screener read for any of them.
 
 ## Lines you do not cross
 

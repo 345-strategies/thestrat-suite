@@ -199,6 +199,60 @@ def readout(d: dict, symbol: str = "") -> str:
     return "\n".join(lines)
 
 
+# --- Watchlist mode (pine/watchlist_template.pine) ---------------------------
+
+WL_STRUCT = {1: "1", 2: "2u", 3: "2d", 4: "3"}
+
+
+def _group(n: int) -> dict | None:
+    """One 5-digit ABCDE group -> a candle read. See the template's header."""
+    if n <= 0:
+        return None
+    a, b, c, d, e = (n // 10000) % 10, (n // 1000) % 10, (n // 100) % 10, (n // 10) % 10, n % 10
+    st = WL_STRUCT.get(a)
+    if st is None:
+        return None
+    above = c == 1
+    if st == "1":
+        cc = "1u" if above else "1d"
+    elif st == "3":
+        cc = "3u" if above else "3d"
+    else:
+        cc = ("F" if b else "") + st
+    c1, c2 = WL_STRUCT.get(d, "?"), WL_STRUCT.get(e, "?")
+    holding = 1 if (st == "2u" and not b) else -1 if (st == "2d" and not b) else 0
+    return {"cc": cc, "structure": st, "failed": bool(b), "above_open": above,
+            "c1": c1, "c2": c2, "combo": f"{c2}-{c1}-{cc}", "holding": holding}
+
+
+def decode_watchlist(result: dict) -> list[dict]:
+    """Packed watchlist plots -> one row per ticker with D, W and M reads."""
+    rows = []
+    for ticker, v in by_title(result).items():
+        n = _int(v)
+        if n is None:
+            rows.append({"ticker": ticker, "error": "no data"})
+            continue
+        d, w, m = _group(n // 10**10), _group((n // 10**5) % 10**5), _group(n % 10**5)
+        tfs = {"D": d, "W": w, "M": m}
+        signs = [t["above_open"] for t in tfs.values() if t]
+        ftfc = "up" if signs and all(signs) else "down" if signs and not any(signs) else "conflict"
+        rows.append({"ticker": ticker, **tfs, "ftfc_dwm": ftfc})
+    return rows
+
+
+def watchlist_readout(rows: list[dict]) -> str:
+    out = ["ticker | M | W | D (combo C2-C1-CC, > above open, < below) | FTFC D+W+M"]
+    for r in rows:
+        if "error" in r:
+            out.append(f"{r['ticker']} | {r['error']}")
+            continue
+        cell = lambda t: "?" if not t else f"{t['combo']} {'>' if t['above_open'] else '<'}" + (" held" if t["holding"] else "")
+        out.append(f"{r['ticker']} | {cell(r['M'])} | {cell(r['W'])} | {cell(r['D'])} | {r['ftfc_dwm']}")
+    out.append("held = a 2u or 2d still beyond C1 (structure only; the Suite's signal-in-force also depends on which signal types are on). F2 = failing 2. Every CC is still forming.")
+    return "\n".join(out)
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("path", help="run_pine_indicator result JSON, or - for stdin")
@@ -206,9 +260,14 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--slots", default=",".join(DEFAULT_SLOTS), help="slot timeframes in settings order")
     ap.add_argument("--symbol", default="")
     ap.add_argument("--json", action="store_true", help="print the decoded dict instead of the readout")
+    ap.add_argument("--watchlist", action="store_true", help="the result is from pine/watchlist_template.pine")
     a = ap.parse_args(argv)
     raw = sys.stdin.read() if a.path == "-" else open(a.path, encoding="utf-8").read()
     result = json.loads(raw)
+    if a.watchlist:
+        rows = decode_watchlist(result)
+        print(json.dumps(rows, indent=2) if a.json else watchlist_readout(rows))
+        return 0
     d = decode(result, a.screen, a.slots.split(","))
     print(json.dumps(d, indent=2) if a.json else readout(d, a.symbol or result.get("symbol", "")))
     return 0
