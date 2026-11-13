@@ -1,0 +1,406 @@
+{
+ "_note": "Raw run_pine_indicator result, AMEX:SPY 1D, 2026-11-13 10:52 PT (13:52 ET), session open. last_values (closed bar) is empty; the forming bar is values[-1]. inputs and warnings trimmed.",
+ "symbol": "AMEX:SPY",
+ "timeframe": "1D",
+ "last_bar_forming": true,
+ "metainfo": {
+  "plots": [
+   {
+    "id": "plot_0",
+    "title": "State"
+   },
+   {
+    "id": "plot_1",
+    "title": "Pattern"
+   },
+   {
+    "id": "plot_2",
+    "title": "C2"
+   },
+   {
+    "id": "plot_3",
+    "title": "C1"
+   },
+   {
+    "id": "plot_4",
+    "title": "CC"
+   },
+   {
+    "id": "plot_5",
+    "title": "CT"
+   },
+   {
+    "id": "plot_6",
+    "title": "C1 Shape"
+   },
+   {
+    "id": "plot_7",
+    "title": "FTFC"
+   },
+   {
+    "id": "plot_8",
+    "title": "FTFC Score"
+   },
+   {
+    "id": "plot_9",
+    "title": "Lead Direction"
+   },
+   {
+    "id": "plot_10",
+    "title": "Lead Pattern"
+   },
+   {
+    "id": "plot_11",
+    "title": "Lead TF (min)"
+   },
+   {
+    "id": "plot_12",
+    "title": "Lead Magnitude R"
+   },
+   {
+    "id": "plot_13",
+    "title": "Nearest Setup %"
+   },
+   {
+    "id": "plot_14",
+    "title": "Nearest Setup TF (min)"
+   },
+   {
+    "id": "plot_15",
+    "title": "Domino"
+   },
+   {
+    "id": "plot_16",
+    "title": "Net In Force"
+   },
+   {
+    "id": "plot_17",
+    "title": "C1 Color"
+   },
+   {
+    "id": "plot_18",
+    "title": "S1 State"
+   },
+   {
+    "id": "plot_19",
+    "title": "S2 State"
+   },
+   {
+    "id": "plot_20",
+    "title": "S3 State"
+   },
+   {
+    "id": "plot_21",
+    "title": "S4 State"
+   },
+   {
+    "id": "plot_22",
+    "title": "S5 State"
+   },
+   {
+    "id": "plot_23",
+    "title": "S6 State"
+   },
+   {
+    "id": "plot_24",
+    "title": "S1 Type"
+   },
+   {
+    "id": "plot_25",
+    "title": "S2 Type"
+   },
+   {
+    "id": "plot_26",
+    "title": "S3 Type"
+   },
+   {
+    "id": "plot_27",
+    "title": "S4 Type"
+   },
+   {
+    "id": "plot_28",
+    "title": "S5 Type"
+   },
+   {
+    "id": "plot_29",
+    "title": "S6 Type"
+   },
+   {
+    "id": "plot_30",
+    "title": "S1 Above Open"
+   },
+   {
+    "id": "plot_31",
+    "title": "S2 Above Open"
+   },
+   {
+    "id": "plot_32",
+    "title": "S3 Above Open"
+   },
+   {
+    "id": "plot_33",
+    "title": "S4 Above Open"
+   },
+   {
+    "id": "plot_34",
+    "title": "S5 Above Open"
+   },
+   {
+    "id": "plot_35",
+    "title": "S6 Above Open"
+   },
+   {
+    "id": "plot_36",
+    "title": "In force"
+   },
+   {
+    "id": "plot_37",
+    "title": "C2: 1"
+   },
+   {
+    "id": "plot_38",
+    "title": "C2: 2U"
+   },
+   {
+    "id": "plot_39",
+    "title": "C2: 2D"
+   },
+   {
+    "id": "plot_40",
+    "title": "C2: 3"
+   },
+   {
+    "id": "plot_41",
+    "title": "C1: 1"
+   },
+   {
+    "id": "plot_42",
+    "title": "C1: 2U"
+   },
+   {
+    "id": "plot_43",
+    "title": "C1: 2D"
+   },
+   {
+    "id": "plot_44",
+    "title": "C1: 3"
+   },
+   {
+    "id": "plot_45",
+    "title": "CC: 1"
+   },
+   {
+    "id": "plot_46",
+    "title": "CC: 2U"
+   },
+   {
+    "id": "plot_47",
+    "title": "CC: 2D"
+   },
+   {
+    "id": "plot_48",
+    "title": "CC: 3"
+   },
+   {
+    "id": "plot_49",
+    "title": "CC: 2U red"
+   },
+   {
+    "id": "plot_50",
+    "title": "CC: 2D green"
+   },
+   {
+    "id": "plot_51",
+    "title": "CC: hammer"
+   },
+   {
+    "id": "plot_52",
+    "title": "CC: shooter"
+   },
+   {
+    "id": "plot_53",
+    "title": "CC: F2D"
+   },
+   {
+    "id": "plot_54",
+    "title": "CC: F2U"
+   },
+   {
+    "id": "plot_55",
+    "title": "C1: green"
+   },
+   {
+    "id": "plot_56",
+    "title": "C1: red"
+   },
+   {
+    "id": "plot_57",
+    "title": "C1: hammer"
+   },
+   {
+    "id": "plot_58",
+    "title": "C1: shooter"
+   },
+   {
+    "id": "plot_59",
+    "title": "FTFC Up (state)"
+   },
+   {
+    "id": "plot_60",
+    "title": "FTFC Down (state)"
+   },
+   {
+    "id": "plot_61",
+    "title": "Bullish Signal In Force (any slot)"
+   },
+   {
+    "id": "plot_62",
+    "title": "Bearish Signal In Force (any slot)"
+   },
+   {
+    "id": "plot_63",
+    "title": "Domino (state)"
+   }
+  ]
+ },
+ "last_values": {
+  "plots": {
+   "plot_0": null,
+   "plot_1": null,
+   "plot_2": null,
+   "plot_3": null,
+   "plot_4": null,
+   "plot_5": null,
+   "plot_6": null,
+   "plot_7": null,
+   "plot_8": null,
+   "plot_9": null,
+   "plot_10": null,
+   "plot_11": null,
+   "plot_12": null,
+   "plot_13": null,
+   "plot_14": null,
+   "plot_15": null,
+   "plot_16": null,
+   "plot_17": null,
+   "plot_18": null,
+   "plot_19": null,
+   "plot_20": null,
+   "plot_21": null,
+   "plot_22": null,
+   "plot_23": null,
+   "plot_24": null,
+   "plot_25": null,
+   "plot_26": null,
+   "plot_27": null,
+   "plot_28": null,
+   "plot_29": null,
+   "plot_30": null,
+   "plot_31": null,
+   "plot_32": null,
+   "plot_33": null,
+   "plot_34": null,
+   "plot_35": null,
+   "plot_36": 0,
+   "plot_37": 0,
+   "plot_38": 0,
+   "plot_39": 0,
+   "plot_40": 0,
+   "plot_41": 0,
+   "plot_42": 0,
+   "plot_43": 0,
+   "plot_44": 0,
+   "plot_45": 0,
+   "plot_46": 0,
+   "plot_47": 0,
+   "plot_48": 0,
+   "plot_49": 0,
+   "plot_50": 0,
+   "plot_51": 0,
+   "plot_52": 0,
+   "plot_53": 0,
+   "plot_54": 0,
+   "plot_55": 0,
+   "plot_56": 0,
+   "plot_57": 0,
+   "plot_58": 0,
+   "plot_59": 0,
+   "plot_60": 0,
+   "plot_61": 0,
+   "plot_62": 0,
+   "plot_63": 0
+  },
+  "t": 1794493800
+ },
+ "values": [
+  {
+   "plots": {
+    "plot_0": 0,
+    "plot_1": 0,
+    "plot_10": 0,
+    "plot_11": null,
+    "plot_12": null,
+    "plot_13": null,
+    "plot_14": null,
+    "plot_15": 0,
+    "plot_16": 0,
+    "plot_17": 1,
+    "plot_18": null,
+    "plot_19": null,
+    "plot_2": 2,
+    "plot_20": 0,
+    "plot_21": 0,
+    "plot_22": 0,
+    "plot_23": 0,
+    "plot_24": null,
+    "plot_25": null,
+    "plot_26": -2,
+    "plot_27": 1,
+    "plot_28": -2,
+    "plot_29": 2,
+    "plot_3": 3,
+    "plot_30": null,
+    "plot_31": null,
+    "plot_32": -1,
+    "plot_33": 1,
+    "plot_34": -1,
+    "plot_35": -1,
+    "plot_36": 0,
+    "plot_37": 0,
+    "plot_38": 1,
+    "plot_39": 0,
+    "plot_4": -2,
+    "plot_40": 0,
+    "plot_41": 0,
+    "plot_42": 0,
+    "plot_43": 0,
+    "plot_44": 1,
+    "plot_45": 0,
+    "plot_46": 0,
+    "plot_47": 1,
+    "plot_48": 0,
+    "plot_49": 0,
+    "plot_5": 0,
+    "plot_50": 0,
+    "plot_51": 0,
+    "plot_52": 0,
+    "plot_53": 0,
+    "plot_54": 0,
+    "plot_55": 1,
+    "plot_56": 0,
+    "plot_57": 0,
+    "plot_58": 1,
+    "plot_59": 0,
+    "plot_6": -1,
+    "plot_60": 0,
+    "plot_61": 0,
+    "plot_62": 0,
+    "plot_63": 0,
+    "plot_7": 0,
+    "plot_8": -2,
+    "plot_9": 0
+   },
+   "t": 1794580200
+  }
+ ]
+}

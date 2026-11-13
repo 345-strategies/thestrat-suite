@@ -1,0 +1,38 @@
+//@version=6
+indicator("TheStrat Setup Screener watchlist", overlay = true)
+import SpinTrades/TheStratGrammar/1 as g
+
+// TheStrat Setup Screener watchlist template. Run through TradingView's run_pine_indicator
+// with `code`, symbol AMEX:SPY (any liquid chart), timeframe 1D, return_bars 1,
+// calc_bars_count 50. Edit only the plot lines at the bottom: one per symbol,
+// up to 21 (63 requests, 3 per symbol). One invalid symbol fails the whole run.
+//
+// Each plot packs D, W and M into one number: DDDDD WWWWW MMMMM (15 digits).
+// Each 5-digit group is ABCDE:
+//   A = CC structure   1 = 1, 2 = 2u, 3 = 2d, 4 = 3
+//   B = CC failed      1 = failing 2 (Reclaim: broke C1, closed back inside)
+//   C = CC above open  1 = above, 0 = at or below (a doji counts below)
+//   D = C1 structure   same digits as A
+//   E = C2 structure   same digits as A
+// Last bar only: the forming candle on each timeframe (lookahead_on is safe
+// here because only the last bar is read; history would repaint).
+sc(string s) =>
+    s == "1" ? 1 : s == "2u" ? 2 : s == "2d" ? 3 : s == "3" ? 4 : 0
+
+enc() =>
+    st = g.structureOf(high[1], low[1], high, low)
+    f = g.isFailed(high[1], low[1], open, close, st, "Reclaim")
+    c1 = g.structureOf(high[2], low[2], high[1], low[1])
+    c2 = g.structureOf(high[3], low[3], high[2], low[2])
+    st == "" ? na : sc(st) * 10000 + (f ? 1000 : 0) + (g.aboveOpen(open, close) ? 100 : 0) + sc(c1) * 10 + sc(c2)
+
+get(string sym, string tf) =>
+    request.security(sym, tf, enc(), lookahead = barmerge.lookahead_on)
+
+pk(string s) =>
+    get(s, "D") * 10000000000 + get(s, "W") * 100000 + get(s, "M")
+
+// SYMBOLS (title = ticker)
+plot(pk("AMEX:SPY"), "SPY")
+plot(pk("NASDAQ:QQQ"), "QQQ")
+plot(pk("AMEX:IWM"), "IWM")
