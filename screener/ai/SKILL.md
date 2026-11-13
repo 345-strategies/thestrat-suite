@@ -27,7 +27,7 @@ Each screener call returns about 5k tokens (the script's 37 settings and 64 plot
 
 ## Reading the result
 
-Plots come back numbered; `metainfo.plots` names each one. If you can run code, pipe the result through `decode.py` in this folder (`python3 decode.py result.json --screen 1D`) and read its text. Otherwise map titles yourself with this table. Every column follows one sign rule: **positive = bullish, negative = bearish, 0 = none or conflict.**
+Plots come back numbered; `metainfo.plots` names each one. **Read the newest row of `values`, not `last_values`.** `last_values` is the last closed bar; while the market is open the newest bar is still forming (`last_bar_forming: true`), and the screener plots only that bar, so `last_values` is all null. The same applies to Watchlist mode. If you can run code, pipe the result through `decode.py` in this folder (`python3 decode.py result.json --screen 1D`) and read its text. Otherwise map titles yourself with this table. Every column follows one sign rule: **positive = bullish, negative = bearish, 0 = none or conflict.**
 
 | Title | Values |
 |---|---|

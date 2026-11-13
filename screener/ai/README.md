@@ -65,5 +65,6 @@ Model runs so far:
 | Date | Model | Result | File |
 |---|---|---|---|
 | 2026-11-13 | Claude (a fresh agent given only `SKILL.md` and the readouts, no sight of the grader) | 14/14 after one grader fix: the 30m case's pattern was too strict for a correct answer | `evals/runs/2026-11-13_claude_blind.jsonl` |
+| 2026-11-13 | Codex (OpenAI), from a written brief, with TradingView's connector in Codex | 14/14 offline. `run_pine_indicator` was available in Codex, and all four live calls succeeded. Reported by Nate; answers not yet committed | |
 
-No other model has been run yet. That needs an API key for each provider, or a paste of the 14 prompts (`run_evals.py show`) into each app.
+Codex's live run found a real bug: `decode.py` read `last_values`, which is the last *closed* bar. While the session is open the screener's only plotted bar is still forming, so that read came back empty. The decoder now reads the newest row of `values` (fixture `raw_spy_1D_forming.json`, tests added), and `SKILL.md` says the same for a model reading by hand. Claude's earlier live captures were taken when the newest bar happened to be readable, which is why this was missed.

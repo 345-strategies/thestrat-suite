@@ -144,3 +144,25 @@ def test_watchlist_group_codes():
     assert g["cc"] == "F2d" and g["c1"] == "2u" and g["c2"] == "1" and not g["above_open"] and g["holding"] == 0
     assert decode._group(10143)["cc"] == "1u"
     assert decode._group(30123)["holding"] == -1
+
+
+# --- forming bar (found by the Codex run, 2026-11-13) -----------------------
+
+def test_reads_forming_bar_not_last_closed():
+    """During the session last_values (closed bar) is all null; the read must come from values[-1]."""
+    raw = fx("raw_spy_1D_forming")
+    assert raw["last_bar_forming"] and raw["last_values"]["plots"]["plot_4"] is None
+    d = decode.decode(raw, "1D")
+    f = d["focus"]
+    assert (f["c2"], f["c1"], f["cc"]) == ("2u", "3u", "2d")
+    assert d["counted_timeframes"] == ["Q", "M", "W", "D"]
+    assert tf(d, "W")["cc"] == "1" and tf(d, "W")["above_open"]
+    assert d["ftfc"] == "conflict" and d["ftfc_score"] == -2
+    assert "C1: shooter" in f["filters"]
+
+
+def test_columns_layout_reads_newest():
+    raw = fx("raw_spy_1D_forming")
+    row = raw["values"][0]["plots"]
+    cols = dict(raw, values={"t": [1, 2], "plots": {k: [None, v] for k, v in row.items()}})
+    assert decode.decode(cols, "1D") == decode.decode(raw, "1D")

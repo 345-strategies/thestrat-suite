@@ -58,11 +58,27 @@ def by_title(result: dict) -> dict[str, Any]:
     Accepts the raw tool result, or a dict that is already {title: value}
     (the fixture format), so tests and the live tool share one path.
     """
-    if "metainfo" not in result and "last_values" not in result:
+    if "metainfo" not in result and "last_values" not in result and "values" not in result:
         return dict(result)
     names = {p["id"]: p["title"] for p in result.get("metainfo", {}).get("plots", [])}
-    values = (result.get("last_values") or {}).get("plots") or {}
+    values = newest_bar(result)
     return {names.get(k, k): v for k, v in values.items()}
+
+
+def newest_bar(result: dict) -> dict[str, Any]:
+    """Plot values of the newest bar the tool returned, forming or not.
+
+    `last_values` is the last CLOSED bar. While a session is open the newest
+    bar is still forming, and the screener plots only that bar (history is
+    na), so `last_values` comes back empty. The forming bar is the last row
+    of `values`. Handles both the rows and the columns layout.
+    """
+    vals = result.get("values")
+    if isinstance(vals, list) and vals:
+        return vals[-1].get("plots") or {}
+    if isinstance(vals, dict) and vals.get("plots"):
+        return {k: (col[-1] if col else None) for k, col in vals["plots"].items()}
+    return (result.get("last_values") or {}).get("plots") or {}
 
 
 def candle(code: Any) -> str | None:
