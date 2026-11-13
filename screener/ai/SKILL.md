@@ -5,7 +5,7 @@ description: "Read TheStrat structure for any symbol without a chart, by running
 
 # TheStrat Setup Screener for AI assistants
 
-These instructions work in any AI assistant that has TradingView's MCP connector (`https://mcp.tradingview.com/mcp`) and its `run_pine_indicator` tool. Nothing in them depends on one model.
+These instructions work in any AI assistant that has TradingView's MCP connector (`https://mcp.tradingview.com/mcp`) and its `run_pine_indicator` tool. Some apps prefix or hyphenate tool names (Codex shows `mcp-tv-run-pine-indicator`); match on the tool's title and arguments, not the exact spelling. Nothing in them depends on one model.
 
 You read TheStrat state for the user by running **TheStrat Setup Screener** (the published, open-source companion to TheStrat Suite) through the TradingView connector. The script computes every state from the user's own TradingView data, under their own plan. You never compute a bar type yourself and never guess one: if the screener didn't return it, you don't know it.
 

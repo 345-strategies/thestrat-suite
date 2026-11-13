@@ -12,7 +12,7 @@ From the user's own TradingView account. The connector runs the script "under th
 
 - A TradingView plan that includes MCP access (Essential or above; trials and free accounts are excluded, per third-party setup guides as of 2026-11).
 - An AI app that can add TradingView's connector, `https://mcp.tradingview.com/mcp`. It is a standard MCP server (streamable HTTP with OAuth), so it is not tied to one AI company. Setup guides name Claude, ChatGPT and Codex; any client that supports remote MCP with OAuth should work.
-- The connector's `run_pine_indicator` tool. This is the one requirement to check: we confirmed it in Claude on 2026-11-13, and some guides written earlier in the beta list no Pine tools at all, so the tool set may differ by app or by rollout. If your app's connector has no `run_pine_indicator`, this can't work there yet.
+- The connector's Pine tool, `run_pine_indicator` (Codex lists it as `mcp-tv-run-pine-indicator`; same tool). This is the one requirement to check: we confirmed it in Claude and Codex on 2026-11-13, and some guides written earlier in the beta list no Pine tools at all, so the tool set may differ by app or by rollout. If your app's connector has no Pine tool, this can't work there yet.
 - `SKILL.md` given to the assistant as its instructions. It is plain Markdown:
   - Claude: add the folder as a skill.
   - Apps that read `SKILL.md` or `AGENTS.md` (Codex and other coding agents): put it where the app looks for them.
@@ -58,13 +58,13 @@ python3 screener/ai/evals/run_evals.py run --provider openai --model gpt-5 --out
 
 ## Status
 
-Prototype on a branch. Not yet tried in a real conversation with the connector outside this build session.
+Prototype on a branch. Tested live through the connector in Claude and in Codex (OpenAI) on 2026-11-13. Not yet used day to day by a trader.
 
 Model runs so far:
 
 | Date | Model | Result | File |
 |---|---|---|---|
 | 2026-11-13 | Claude (a fresh agent given only `SKILL.md` and the readouts, no sight of the grader) | 14/14 after one grader fix: the 30m case's pattern was too strict for a correct answer | `evals/runs/2026-11-13_claude_blind.jsonl` |
-| 2026-11-13 | Codex (OpenAI), from a written brief, with TradingView's connector in Codex | 14/14 offline. `run_pine_indicator` was available in Codex, and all four live calls succeeded. Reported by Nate; answers not yet committed | |
+| 2026-11-13 | Codex (OpenAI), from a written brief, with TradingView's connector in Codex | 14/14 offline, answers saved before grading and not revised. The Pine tool was available in Codex and all four live calls succeeded (SPY 1D, QQQ 30m, NVDA 30m, a 10-symbol watchlist); it declined the short and the order | `evals/runs/2026-11-13_codex.jsonl` |
 
 Codex's live run found a real bug: `decode.py` read `last_values`, which is the last *closed* bar. While the session is open the screener's only plotted bar is still forming, so that read came back empty. The decoder now reads the newest row of `values` (fixture `raw_spy_1D_forming.json`, tests added), and `SKILL.md` says the same for a model reading by hand. Claude's earlier live captures were taken when the newest bar happened to be readable, which is why this was missed.
