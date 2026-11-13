@@ -111,3 +111,11 @@ def test_grader_fails_an_invented_30m_state():
 def test_grader_passes_correct_30m_refusal():
     good = "The 30m isn't counted on a daily screen. I'd need to run the screener on the 30m to read it."
     assert run_evals.grade_one(CASES["spy-30m-not-counted"], good) == []
+
+
+def test_recorded_blind_run_passes():
+    """The 2026-11-13 run (a fresh Claude that saw only SKILL.md and the readouts)."""
+    rows = [json.loads(l) for l in (ROOT / "evals" / "runs" / "2026-11-13_claude_blind.jsonl").read_text().splitlines() if l.strip()]
+    answers = {r["id"]: r["answer"] for r in rows}
+    for cid, case in CASES.items():
+        assert run_evals.grade_one(case, answers[cid]) == [], cid

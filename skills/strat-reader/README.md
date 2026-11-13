@@ -43,4 +43,6 @@ python3 skills/strat-reader/evals/run_evals.py show   # what the model sees per 
 
 ## Status
 
-Prototype on a branch. Not yet run against a model end to end, and not yet tried in a real Claude conversation with the connector.
+Prototype on a branch. Not yet tried in a real Claude conversation with the connector.
+
+First model run (2026-11-13, `evals/runs/2026-11-13_claude_blind.jsonl`): a fresh Claude given only `SKILL.md` and the decoded readouts, with no sight of the grader, passed 13 of 14 cases. The one miss was the grader being too strict: the answer correctly said the 30m isn't computed on a daily screen, in words the pattern didn't list. The pattern was widened, and the run now passes 14 of 14. Reading the answers by hand, the reads were accurate and stayed inside the guardrails. This was a Claude model in a Claude Code session, not a call through the API runner.
