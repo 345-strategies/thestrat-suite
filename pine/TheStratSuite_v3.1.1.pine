@@ -315,7 +315,7 @@ insideRevRequireFTFC = input.bool(false, "FTFC", inline = "s_ir", group = grpSig
 showAllReversals = input.bool(true, "2-2 Reversals |", inline = "s_2r", group = grpSigRev)
 reversalsRequireActionable = input.bool(false, "HAM/SHO", inline = "s_2r", group = grpSigRev)
 reversalsRequireC1F2 = input.bool(false, "F2", inline = "s_2r", group = grpSigRev)
-reversalsRequireFTFC = input.bool(false, "FTFC", inline = "s_2r", group = grpSigRev, tooltip = "2-2 Reversals: CC breaks the opposite side of C1 with no inside bar between (e.g. 2d-2u). Faster than an inside reversal, with less coiled energy behind it.\n\nFilters: see the Inside Reversals tooltip (top of Signals).")
+reversalsRequireFTFC = input.bool(false, "FTFC", inline = "s_2r", group = grpSigRev, tooltip = "2-2 Reversals: CC breaks the opposite side of C1 with no inside bar between (e.g. 2d-2u). Faster than an inside reversal, with less coiled energy behind it. When C2 is an inside bar this is the 1-2-2 RevStrat, labeled 1-2d-2u.\n\nFilters: see the Inside Reversals tooltip (top of Signals).")
 
 grpSigCont = "Signals - Continuations"
 showInsideContinuations = input.bool(true, "Inside Continuations |", inline = "s_ic", group = grpSigCont)
@@ -2178,6 +2178,11 @@ collectTimeframeLabels(TimeframeData data, ProcessingResult r) =>
                     if r.c2Num == "3"
                         comboStrHigh := "*3" + c1TypeF2 + "2u"
                         comboStrLow := "*3" + c1TypeF2 + "2d"
+                    // FEATURE REVSTRAT-122-1 (2026-11-13): an inside C2 names the 1-2-2 RevStrat
+                    // the same way a C2 3 names the 3-2-2, so a pending 1-2d waiting on CC reads *1-2d-2u.
+                    else if r.c2Num == "1"
+                        comboStrHigh := "*1" + c1TypeF2 + "2u"
+                        comboStrLow := "*1" + c1TypeF2 + "2d"
                     else
                         comboStrHigh := "*" + c1TypeF2 + "2u"
                         comboStrLow := "*" + c1TypeF2 + "2d"
@@ -2189,7 +2194,11 @@ collectTimeframeLabels(TimeframeData data, ProcessingResult r) =>
                 else if r.isF2d
                     baseCCType := "2d"
                 string defaultCombo = ""
-                string c2Prefix = (r.c2Num == "3" and is22Pattern) ? "3" : ""
+                // FEATURE REVSTRAT-122-1: C2 inside (1) leads the combo like C2 3 does, so a 1-2-2
+                // RevStrat labels 1-2d-2u instead of 2d-2u. Labels only: signal logic, levels and
+                // inputs are unchanged (the 2-2 Reversals row already trades it). F2 labels below
+                // keep their C1-prior-only form.
+                string c2Prefix = is22Pattern and (r.c2Num == "3" or r.c2Num == "1") ? r.c2Num : ""
                 if is22Pattern
                     defaultCombo := c2Prefix + c1TypeF2 + baseCCType
                 else if is32Pattern
@@ -3122,7 +3131,9 @@ buildAlertLabel(ProcessingResult r, bool isBullish, TimeframeData data, Processi
             else if c1IsInside
                 combo := c2NumF2a + c1NumF2a + r.ccType
             else
-                combo := c1TypeF2a + r.ccType
+                // FEATURE REVSTRAT-122-1: alert text matches the chart label (1-2d-2u, 3-2d-2u)
+                string c2PrefixA = (r.c2Num == "3" or r.c2Num == "1") and r.c1Num == "2" ? r.c2Num : ""
+                combo := c2PrefixA + c1TypeF2a + r.ccType
         string side = showHighLowInLabel ? (isBullish ? " H" : " L") : ""
         string emoji = isBullish ? " 🟢" : " 🔴"
         result := r.tfLabel + " " + formatCombo(combo) + patternSuffix + side + emoji
