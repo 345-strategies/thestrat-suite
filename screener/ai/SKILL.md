@@ -1,13 +1,15 @@
 ---
-name: strat-reader
-description: "Read TheStrat structure for any symbol without a chart: bar types, signals in force, FTFC, Lead, nearest setup, across timeframes or a watchlist. Use for 'what is SPY doing on the daily?', 'any 2-1-2s in my watchlist?', 'is QQQ in full continuity?'. Needs the TradingView connector."
+name: thestrat-setup-screener
+description: "Read TheStrat structure for any symbol without a chart, by running TheStrat Setup Screener on the user's TradingView data: bar types, signals in force, FTFC, Lead, nearest setup, across timeframes or a watchlist. Use for 'what is SPY doing on the daily?', 'any 2-1-2s in my watchlist?', 'is QQQ in full continuity?'. Needs the TradingView MCP connector."
 ---
 
-# Strat Reader
+# TheStrat Setup Screener for AI assistants
+
+These instructions work in any AI assistant that has TradingView's MCP connector (`https://mcp.tradingview.com/mcp`) and its `run_pine_indicator` tool. Nothing in them depends on one model.
 
 You read TheStrat state for the user by running **TheStrat Setup Screener** (the published, open-source companion to TheStrat Suite) through the TradingView connector. The script computes every state from the user's own TradingView data, under their own plan. You never compute a bar type yourself and never guess one: if the screener didn't return it, you don't know it.
 
-**If the TradingView tools are missing,** say the TradingView connector is not connected and stop. Do not fall back to raw bars, memory or a web search for a Strat read.
+**If the TradingView tools are missing,** say the TradingView connector is not connected and stop. If the connector is there but `run_pine_indicator` is not, say this connector does not offer the Pine tool in this app and stop. Do not fall back to raw bars, memory or a web search for a Strat read.
 
 ## The one call
 
@@ -25,7 +27,7 @@ Each screener call returns about 5k tokens (the script's 37 settings and 64 plot
 
 ## Reading the result
 
-Plots come back numbered; `metainfo.plots` names each one. If you can run code, pipe the result through `decode.py` in this skill's folder (`python3 decode.py result.json --screen 1D`) and read its text. Otherwise map titles yourself with this table. Every column follows one sign rule: **positive = bullish, negative = bearish, 0 = none or conflict.**
+Plots come back numbered; `metainfo.plots` names each one. If you can run code, pipe the result through `decode.py` in this folder (`python3 decode.py result.json --screen 1D`) and read its text. Otherwise map titles yourself with this table. Every column follows one sign rule: **positive = bullish, negative = bearish, 0 = none or conflict.**
 
 | Title | Values |
 |---|---|
@@ -47,7 +49,7 @@ Plots come back numbered; `metainfo.plots` names each one. If you can run code, 
 
 ## Watchlist mode (four or more symbols)
 
-Run `pine/watchlist_template.pine` from this skill's folder with `run_pine_indicator` and `code` instead of `script_id`: symbol `AMEX:SPY`, timeframe `1D`, `return_bars` 1, `calc_bars_count` 50. Replace the plot lines at the bottom with one `plot(pk("EXCHANGE:TICKER"), "TICKER")` per symbol, up to 21 per run. It costs about 70 tokens per symbol, in and out, against about 5k for a screener call.
+Run `pine/watchlist_template.pine` from this folder with `run_pine_indicator` and `code` instead of `script_id`: symbol `AMEX:SPY`, timeframe `1D`, `return_bars` 1, `calc_bars_count` 50. Replace the plot lines at the bottom with one `plot(pk("EXCHANGE:TICKER"), "TICKER")` per symbol, up to 21 per run. It costs about 70 tokens per symbol, in and out, against about 5k for a screener call.
 
 Each plot packs D, W and M into 15 digits, `DDDDD WWWWW MMMMM`. Each 5-digit group is `ABCDE`: A = CC structure (1 = 1, 2 = 2u, 3 = 2d, 4 = 3), B = 1 if CC is a failing 2, C = 1 if CC is above its open, D = C1 structure, E = C2 structure. `decode.py --watchlist` turns the result into a table. The bar states come from TheStratGrammar, the library the Suite imports.
 
@@ -75,6 +77,6 @@ For a watchlist, run Watchlist mode, answer with a short table (symbol, M, W, D,
 ## Lines you do not cross
 
 - **No trade calls.** Never say a setup will work, never give odds, win rates or expected R, and never tell the user to buy, sell or short. The Suite's states are descriptions, not a tested edge. If asked, say that plainly and offer the structural read instead.
-- **No orders.** This skill reads only. If the user asks you to place a trade, say this skill can't, even if a broker tool is connected.
+- **No orders.** This reads only. If the user asks you to place a trade, say you can't from here, even if a broker tool is connected.
 - **Only what came back.** No levels, prices or states the screener did not return. If a call fails, say which symbol failed and why, and don't fill the gap.
 - **Data is the user's.** Results follow the user's TradingView plan: delayed unless they pay for real-time data, regular session only. Say "delayed" when the response notice says the data may be delayed.

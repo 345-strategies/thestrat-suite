@@ -12,6 +12,10 @@ Source: `TheStratSetupScreener_v0.5.0.pine`. Requires TheStratGrammar (`SpinTrad
 4. Pick the screen's timeframe. It is the **focus**: the State, Pattern, C2, C1, CC and other focus columns describe that timeframe's candles, like a timeframe tab in a setups table (1D = the daily row, 1W = the weekly row). Slots smaller than it are ignored.
 5. Set slots and signal toggles in the indicator's settings, add filters on the columns below, and press **Scan**. Changing anything requires a rescan.
 
+## Use it with an AI assistant
+
+The same script can be run without a chart by an AI assistant connected to TradingView's MCP connector, on the user's own TradingView data. Ask "any 2-1-2s in my watchlist?" or "is QQQ in full continuity?" and the assistant runs the screener and explains the states it returns. It is not tied to one AI model. Setup, cost and evals: [`ai/README.md`](ai/README.md). Use the Pine Screener for index-wide scans, and the AI route for a watchlist or a plain-English read of a few symbols.
+
 ## Columns
 
 Every column follows one sign rule: **positive = bullish, negative = bearish, 0 = none or conflict.** The one exception is a potential (State 1), which has no direction until it triggers. Code columns show whole numbers (-2, not -2.00). Plots don't draw on the chart; they show only in the data window and in Pine Screener. They use one color, because a colored plot would count twice against TradingView's 64-plot limit.

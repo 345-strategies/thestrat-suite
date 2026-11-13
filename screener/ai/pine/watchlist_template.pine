@@ -1,8 +1,8 @@
 //@version=6
-indicator("Strat Reader watchlist", overlay = true)
+indicator("TheStrat Setup Screener watchlist", overlay = true)
 import SpinTrades/TheStratGrammar/1 as g
 
-// Strat Reader watchlist template. Run through TradingView's run_pine_indicator
+// TheStrat Setup Screener watchlist template. Run through TradingView's run_pine_indicator
 // with `code`, symbol AMEX:SPY (any liquid chart), timeframe 1D, return_bars 1,
 // calc_bars_count 50. Edit only the plot lines at the bottom: one per symbol,
 // up to 21 (63 requests, 3 per symbol). One invalid symbol fails the whole run.

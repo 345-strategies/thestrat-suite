@@ -1,4 +1,4 @@
-"""Tests for the Strat Reader decoder and eval grader. Run: python3 -m pytest skills/strat-reader/tests"""
+"""Tests for the Setup Screener AI decoder and eval grader. Run: python3 -m pytest screener/ai/tests"""
 
 import json
 import sys

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Decode a TheStrat Setup Screener run into a plain TheStrat readout.
 
-The Strat Reader skill runs the published Setup Screener through TradingView's
+The AI instructions (SKILL.md) run the published Setup Screener through TradingView's
 `run_pine_indicator` tool. That tool returns numbered plots (plot_0, plot_1,
 ...) plus `metainfo.plots`, which names each one. This module maps the numbers
 back to TheStrat words using the screener's own column rules
