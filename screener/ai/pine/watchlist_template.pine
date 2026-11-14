@@ -14,8 +14,9 @@ import SpinTrades/TheStratGrammar/1 as g
 //   C = CC above open  1 = above, 0 = at or below (a doji counts below)
 //   D = C1 structure   same digits as A
 //   E = C2 structure   same digits as A
-// Last bar only: the forming candle on each timeframe (lookahead_on is safe
-// here because only the last bar is read; history would repaint).
+// Read the newest bar only: the forming candle on each timeframe. Older rows
+// also plot, but they repaint (lookahead_on), so never read them. The newest
+// row is values[-1], not last_values (that is the last closed bar).
 sc(string s) =>
     s == "1" ? 1 : s == "2u" ? 2 : s == "2d" ? 3 : s == "3" ? 4 : 0
 
