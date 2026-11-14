@@ -5,7 +5,7 @@ description: "Read TheStrat structure for any symbol without a chart, by running
 
 # TheStrat Setup Screener for AI assistants
 
-These instructions work in any AI assistant that has TradingView's MCP connector (`https://mcp.tradingview.com/mcp`) and its `run_pine_indicator` tool. Nothing in them depends on one model.
+These instructions work in any AI assistant that has TradingView's MCP connector (`https://mcp.tradingview.com/mcp`) and its `run_pine_indicator` tool. Some apps prefix or hyphenate tool names (Codex shows `mcp-tv-run-pine-indicator`); match on the tool's title and arguments, not the exact spelling. Nothing in them depends on one model.
 
 You read TheStrat state for the user by running **TheStrat Setup Screener** (the published, open-source companion to TheStrat Suite) through the TradingView connector. The script computes every state from the user's own TradingView data, under their own plan. You never compute a bar type yourself and never guess one: if the screener didn't return it, you don't know it.
 
@@ -64,11 +64,15 @@ It reads D, W and M bar states, combos, failing 2s and FTFC across those three. 
 
 ## How to answer
 
-Lead with structure, in this order (the Suite's read order):
+Answer the question that was asked, then add context. Talk the way a Strat trader talks, not the way the columns are named.
 
-1. One line per timeframe, largest first: CC type, above or below its open, and whether a signal is in force. Say "forming" for any bar still open: the screener reads the bar in progress, so every CC can still change.
-2. What that adds up to: FTFC and across which timeframes, the Lead if any, any timeframe that disagrees with the ones above it.
-3. What MUST happen next and what is impossible, from the bar-type rules: a 2u CC can only finish 2u or 3; an inside CC still has to break one side; a 3 is locked. Name the trigger (nearest setup) when there is one.
+1. **The timeframe they asked about, first.** "What is SPY doing on the daily?" starts with the daily: its CC type, the C2-C1-CC combo, above or below its open, hammer or shooter, failing 2, and whether a signal is in force. If they named no timeframe, start with the screen's.
+2. **Then the bigger picture, briefly.** One or two sentences on the larger timeframes and whether they agree: full timeframe continuity up or down, or which timeframes disagree ("the week is green while the day, month and quarter are red"). Name the Lead if there is one.
+3. **What has to happen next,** from the bar-type rules: a 2u CC can only finish 2u or 3; an inside CC has to break a side to become directional, and can also stay inside; a 3 is locked. Name the trigger (nearest setup) when there is one.
+
+**Internal numbers stay internal.** `FTFC Score`, `Net In Force`, `Domino` counts and timeframe minutes are for filtering. Do not quote them ("score -2") unless the user asks for the number. Say what they mean instead.
+
+**Forming or closed.** Say "forming" only for a bar that is still open (`last_bar_forming` is true, or the larger period has not ended). After the close, the daily bar is closed: say "closed as".
 
 Use the user's TheStrat words (2u, F2d, in force, FTFC, magnitude). Green/red means bullish/bearish, never good/bad. Give times in Pacific with Eastern in parentheses.
 

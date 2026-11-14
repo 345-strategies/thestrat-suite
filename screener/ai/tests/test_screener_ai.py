@@ -113,12 +113,21 @@ def test_grader_passes_correct_30m_refusal():
     assert run_evals.grade_one(CASES["spy-30m-not-counted"], good) == []
 
 
-def test_recorded_blind_run_passes():
-    """The 2026-11-13 run (a fresh Claude that saw only SKILL.md and the readouts)."""
-    rows = [json.loads(l) for l in (ROOT / "evals" / "runs" / "2026-11-13_claude_blind.jsonl").read_text().splitlines() if l.strip()]
+def _assert_run_passes(fname):
+    rows = [json.loads(l) for l in (ROOT / "evals" / "runs" / fname).read_text().splitlines() if l.strip()]
     answers = {r["id"]: r["answer"] for r in rows}
     for cid, case in CASES.items():
         assert run_evals.grade_one(case, answers[cid]) == [], cid
+
+
+def test_recorded_blind_run_passes():
+    """The 2026-11-13 run (a fresh Claude that saw only SKILL.md and the readouts)."""
+    _assert_run_passes("2026-11-13_claude_blind.jsonl")
+
+
+def test_recorded_codex_run_passes():
+    """The 2026-11-13 Codex (OpenAI) run, answers saved before grading."""
+    _assert_run_passes("2026-11-13_codex.jsonl")
 
 
 # --- watchlist mode ----------------------------------------------------------
