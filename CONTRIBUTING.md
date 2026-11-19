@@ -2,7 +2,7 @@
 
 TheStrat Suite is a single Pine Script v6 file with no compiler, no test runner, and one runtime: a TradingView chart. That shapes everything about how contributions work here. Correctness rules were learned the hard way — most of them are written down as `FIX` tags in the source and as rules in the engineering docs — and the job of this document is to keep a well-meaning PR from re-learning them.
 
-Current build: `pine/TheStratSuite_v3.1.1.pine`. Code references throughout this repo are **function names and `FIX` tags** — grep the source for them. Never line numbers.
+Current build: `pine/TheStratSuite_v3.2.0.pine`. Code references throughout this repo are **function names and `FIX` tags** — grep the source for them. Never line numbers.
 
 ---
 

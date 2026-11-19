@@ -2,7 +2,7 @@
 
 The pipeline a bar of data travels from `request.security` to pixels — and where each engineering invariant lives along the way. If you are forking or contributing, read this first; the companion docs go deep on the two hardest stages.
 
-Written against `pine/TheStratSuite_v3.1.1.pine`. Code references are function names, `SECTION` banners, and `FIX` tags; grep the source for them. Anti-repaint rules: `repaint-prevention.md`. Security-call traps: `htf-correctness.md`. Intentional design decisions a reviewer must not "fix": `../DESIGN_CONSTRAINTS.md`.
+Written against `pine/TheStratSuite_v3.2.0.pine`. Code references are function names, `SECTION` banners, and `FIX` tags; grep the source for them. Anti-repaint rules: `repaint-prevention.md`. Security-call traps: `htf-correctness.md`. Intentional design decisions a reviewer must not "fix": `../DESIGN_CONSTRAINTS.md`.
 
 ---
 

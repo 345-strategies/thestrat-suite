@@ -2,7 +2,7 @@
 
 Where the Suite spends its execution budget, the bounds designed into each cost center, and the gates that keep expensive work off the hot paths.
 
-Written against `pine/TheStratSuite_v3.1.1.pine`. Code references are function names and `FIX` tags; grep the source for them. Repaint rules decide *when* work is allowed to run — `repaint-prevention.md` — and this doc assumes them.
+Written against `pine/TheStratSuite_v3.2.0.pine`. Code references are function names and `FIX` tags; grep the source for them. Repaint rules decide *when* work is allowed to run — `repaint-prevention.md` — and this doc assumes them.
 
 ---
 
