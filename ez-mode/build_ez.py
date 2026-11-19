@@ -109,7 +109,11 @@ OVERRIDES: dict[str, str] = {
                      'ezSimpleTable = ezTableStyle == "Simple"\n'
                      'ezLastCol = 4\n'
                      'ezExplain = input.bool(true, "Explain Row", group = grpEZChart, tooltip = "Adds a short plain-English summary under the table: whether the timeframes agree, the higher timeframe trend, what is in force and the next trigger with that trend. Turn it off once you can read the table on your own.")',
-    "showBarNumbers": 'showBarNumbers = input.bool(true, "Bar Numbers", group = grpEZChart, tooltip = "Prints each candle\'s Strat number on the last 50 bars. 1: inside bar, took neither side of the bar before it. 2u: took the prior high. 2d: took the prior low. 3: outside bar, took both. F2u and F2d: a Failing 2, a 2 trading back through its own open.")',
+    # Bar numbers: split by side and keep tokens to two characters so neighbours collide less.
+    # Failing 2s print as F2u / F2d only when the Failing 2s signal is on.
+    "barNumNotation": 'barNumNotation = show_p3_toggle ? "Full" : "Classic"',
+    "barNumPosition": 'barNumPosition = "Broken Side"',
+    "showBarNumbers": 'showBarNumbers = input.bool(true, "Bar Numbers", group = grpEZChart, tooltip = "Prints each candle\'s Strat number on the last 50 bars. 1: inside bar, took neither side of the bar before it. 2u: took the prior high, printed above the candle. 2d: took the prior low, printed below it. 3: outside bar, took both. With Failing 2s turned on, F2u and F2d mark a 2 trading back through its own open.")',
 }
 
 # Alert conditions that do not appear in EZ Mode's alert dialog.

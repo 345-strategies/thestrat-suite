@@ -410,10 +410,10 @@ paintFtfcTransitions = true
 // -------------------- DISPLAY - BAR NUMBERS --------------------
 // FEATURE BARNUM-1 (2026-10-23): per-candle Strat numbers. Engine and rationale in SECTION 15.
 grpBarNum = "Display - Bar Numbers"
-showBarNumbers = input.bool(true, "Bar Numbers", group = grpEZChart, tooltip = "Prints each candle's Strat number on the last 50 bars. 1: inside bar, took neither side of the bar before it. 2u: took the prior high. 2d: took the prior low. 3: outside bar, took both. F2u and F2d: a Failing 2, a 2 trading back through its own open.")
-barNumNotation = "Full"
+showBarNumbers = input.bool(true, "Bar Numbers", group = grpEZChart, tooltip = "Prints each candle's Strat number on the last 50 bars. 1: inside bar, took neither side of the bar before it. 2u: took the prior high, printed above the candle. 2d: took the prior low, printed below it. 3: outside bar, took both. With Failing 2s turned on, F2u and F2d mark a 2 trading back through its own open.")
+barNumNotation = show_p3_toggle ? "Full" : "Classic"
 barNumEmphasis = "Tiered"
-barNumPosition = "Below"
+barNumPosition = "Broken Side"
 barNumColorMode = "Bar Type Palette"
 barNumColor = #9598a1
 barNumBarsShown = "Last 50"
