@@ -10,6 +10,16 @@
 // close vs served HTF opens, so painted history is honest - see SECTION 14 for the engine
 // and the lookahead rationale). Inputs live in "Display - Bar Coloring".
 //
+// BARNUM-1 (2026-10-23): Bar Numbers. Each chart candle's Strat number (1, 2u, 2d, 3u, 3d,
+// F2u, F2d) printed beside it, from the same classifier as Strat Candles and the table's CC
+// cell. plotshape, not labels, so the level-label budget is untouched. Tiered emphasis fades
+// plain 2s so 1s, 3s and Failing 2s stand out. Off by default; inputs in "Display - Bar
+// Numbers", engine in SECTION 15.
+//
+// CHART-TF-1 (2026-11-05): Include Chart Timeframe. The timeframe being viewed joins the six
+// slots, in timeframe order, and follows the chart. Off by default; toggle in "Timeframe Preset",
+// slot resolution right after the preset overrides in SECTION 2.
+//
 // NOTATION-1 (2026-07-21): canonical uppercase F2u/F2d everywhere. The lowercase live-'f'
 // (f2u/f2d for the forming candle) is retired: notation is tense-free; liveness is carried
 // by slot position (last token = forming candle), the '*' potential prefix, and words
@@ -20,8 +30,9 @@
 // (Range Reclaims) with intelligent signal consolidation and extensive customization.
 //
 // Features:
-//   - 6 configurable timeframes with independent settings
+//   - 6 configurable timeframes with independent settings, optionally including the chart's own
 //   - Bar coloring by Strat classification or timeframe continuity (v3)
+//   - Bar numbers (1/2u/2d/3) on chart candles, with tiered emphasis
 //   - Pattern detection: Inside bars, Hammers, Shooters, Failed 2s, Outside bars
 //   - Magnitude and Exhaustion level targets
 //   - Full Timeframe Continuity (FTFC) filtering
@@ -40,6 +51,13 @@ indicator("TheStrat Suite - v3.1.1", shorttitle = "TheStrat Suite", overlay = tr
 // Everything below that used to define classification is now a thin wrapper keeping the
 // original signature, so no call site changed and no behavior changed.
 import SpinTrades/TheStratGrammar/1 as sg
+
+// FIX NO-HA-1 (2026-10-24): refuse Heikin Ashi charts. TheStrat reads traded OHLC; Heikin
+// Ashi candles are averages, so every bar type, trigger and target would be wrong - and
+// because the slots request syminfo.tickerid, the HTF slots inherit Heikin Ashi prices too.
+// Halting here means nothing draws and no alert fires on a chart the Suite cannot read.
+if chart.is_heikinashi
+    runtime.error("Heikin Ashi charts are not supported: TheStrat needs real candles. Switch the chart to Candles or Bars.")
 
 // ============================================================================
 // SECTION 1: HELPER FUNCTIONS
@@ -82,6 +100,7 @@ getTimeframeLabel(tf) =>
         "720" => "12H"
         "D" => "D"
         "1d" => "D"
+        "1D" => "D"
         "W" => "W"
         "1W" => "W"
         "M" => "M"
@@ -142,6 +161,11 @@ grpPreset = "Timeframe Preset"
 tfPreset = input.string("TheStrat Classic", "Preset", options = ["Custom", "TheStrat Classic", "Scalp", "Day Trade", "Futures/Crypto", "Swing Trade", "Investing"], group = grpPreset, tooltip = "Select a timeframe preset to auto-configure timeframes and line widths. When set to anything other than Custom, individual Timeframe 1-6 settings are ignored. You must select Custom to use your own timeframe configuration.")
 labelStyleMode = input.string("TheStrat", "Label Style", options = ["TheStrat", "Universal"], group = grpPreset, tooltip = "TheStrat: standard Strat combo notation (e.g. 2d-1-2u HAM). Universal: plain-language labels - REV (reversal), CONT (continuation), INS (inside), OUT (outside), EXP (expansion), plus FAILING when a breakout is failing - with an up/down arrow for direction and a diamond for hammer/shooter confidence. Designed for traders who are new to TheStrat or prefer a simplified view.")
 simpleLabelMode = labelStyleMode == "Universal"
+// FEATURE CHART-TF-1 (2026-11-05): the chart's own timeframe as one of the six slots. Lives in the
+// Preset group, not Timeframes, because it works with every preset as well as Custom.
+includeChartTF = input.bool(false, "Include Chart Timeframe", inline = "ctf", group = grpPreset, tooltip = "Adds the timeframe you are viewing to the six timeframes, so the chart's own candles get levels, combos, a table row and alerts, and the slot follows the chart when you change timeframes. It is placed in order among the others. If the chart timeframe is already one of your timeframes, nothing changes. If all six slots are in use, the chart timeframe replaces a slot below it (those draw nothing on this chart anyway), or else the highest slot. The chart timeframe also counts toward FTFC. Tick charts are not supported.")
+chartTFLineWidth = input.int(1, "Width", minval = 1, maxval = 5, inline = "ctf", group = grpPreset, active = includeChartTF)
+chartTFShowOpen = input.bool(false, "Open", inline = "ctf", group = grpPreset, active = includeChartTF)
 customTFs = tfPreset == "Custom"  // FIX MOD-3: true only when no preset is active; gates the Timeframe rows' `active`
 
 // -------------------- TIMEFRAMES --------------------
@@ -182,33 +206,97 @@ tf6ShowOpen = input.bool(false, "Open", inline = "tf6b", group = grpTFs, active 
 // When preset != Custom, these override the individual TF inputs
 usePreset = tfPreset != "Custom"
 
-rTF1 = usePreset ? (tfPreset == "TheStrat Classic" ? "30"  : tfPreset == "Scalp" ? "5"   : tfPreset == "Day Trade" ? "15"  : tfPreset == "Futures/Crypto" ? "60"  : tfPreset == "Swing Trade" ? "240" : tfPreset == "Investing" ? "W"   : tf1) : tf1
-rTF2 = usePreset ? (tfPreset == "TheStrat Classic" ? "60"  : tfPreset == "Scalp" ? "15"  : tfPreset == "Day Trade" ? "30"  : tfPreset == "Futures/Crypto" ? "240" : tfPreset == "Swing Trade" ? "D"   : tfPreset == "Investing" ? "M"   : tf2) : tf2
-rTF3 = usePreset ? (tfPreset == "TheStrat Classic" ? "D"   : tfPreset == "Scalp" ? "30"  : tfPreset == "Day Trade" ? "60"  : tfPreset == "Futures/Crypto" ? "720" : tfPreset == "Swing Trade" ? "W"   : tfPreset == "Investing" ? "3M"  : tf3) : tf3
-rTF4 = usePreset ? (tfPreset == "TheStrat Classic" ? "W"   : tfPreset == "Scalp" ? "60"  : tfPreset == "Day Trade" ? "240" : tfPreset == "Futures/Crypto" ? "D"   : tfPreset == "Swing Trade" ? "M"   : tfPreset == "Investing" ? "12M" : tf4) : tf4
-rTF5 = usePreset ? (tfPreset == "TheStrat Classic" ? "M"   : tfPreset == "Scalp" ? "60"  : tfPreset == "Day Trade" ? "D"   : tfPreset == "Futures/Crypto" ? "W"   : tfPreset == "Swing Trade" ? "M"   : tfPreset == "Investing" ? "12M" : tf5) : tf5
-rTF6 = usePreset ? (tfPreset == "TheStrat Classic" ? "M"   : tfPreset == "Scalp" ? "60"  : tfPreset == "Day Trade" ? "D"   : tfPreset == "Futures/Crypto" ? "W"   : tfPreset == "Swing Trade" ? "M"   : tfPreset == "Investing" ? "12M" : tf6) : tf6
+pTF1 = usePreset ? (tfPreset == "TheStrat Classic" ? "30"  : tfPreset == "Scalp" ? "5"   : tfPreset == "Day Trade" ? "15"  : tfPreset == "Futures/Crypto" ? "60"  : tfPreset == "Swing Trade" ? "240" : tfPreset == "Investing" ? "W"   : tf1) : tf1
+pTF2 = usePreset ? (tfPreset == "TheStrat Classic" ? "60"  : tfPreset == "Scalp" ? "15"  : tfPreset == "Day Trade" ? "30"  : tfPreset == "Futures/Crypto" ? "240" : tfPreset == "Swing Trade" ? "D"   : tfPreset == "Investing" ? "M"   : tf2) : tf2
+pTF3 = usePreset ? (tfPreset == "TheStrat Classic" ? "D"   : tfPreset == "Scalp" ? "30"  : tfPreset == "Day Trade" ? "60"  : tfPreset == "Futures/Crypto" ? "720" : tfPreset == "Swing Trade" ? "W"   : tfPreset == "Investing" ? "3M"  : tf3) : tf3
+pTF4 = usePreset ? (tfPreset == "TheStrat Classic" ? "W"   : tfPreset == "Scalp" ? "60"  : tfPreset == "Day Trade" ? "240" : tfPreset == "Futures/Crypto" ? "D"   : tfPreset == "Swing Trade" ? "M"   : tfPreset == "Investing" ? "12M" : tf4) : tf4
+pTF5 = usePreset ? (tfPreset == "TheStrat Classic" ? "M"   : tfPreset == "Scalp" ? "60"  : tfPreset == "Day Trade" ? "D"   : tfPreset == "Futures/Crypto" ? "W"   : tfPreset == "Swing Trade" ? "M"   : tfPreset == "Investing" ? "12M" : tf5) : tf5
+pTF6 = usePreset ? (tfPreset == "TheStrat Classic" ? "M"   : tfPreset == "Scalp" ? "60"  : tfPreset == "Day Trade" ? "D"   : tfPreset == "Futures/Crypto" ? "W"   : tfPreset == "Swing Trade" ? "M"   : tfPreset == "Investing" ? "12M" : tf6) : tf6
 
-rEN1 = usePreset ? true  : tf1Enabled
-rEN2 = usePreset ? true  : tf2Enabled
-rEN3 = usePreset ? true  : tf3Enabled
-rEN4 = usePreset ? true  : tf4Enabled
-rEN5 = usePreset ? (tfPreset == "TheStrat Classic" or tfPreset == "Futures/Crypto" or tfPreset == "Day Trade") : tf5Enabled
-rEN6 = usePreset ? false : tf6Enabled
+pEN1 = usePreset ? true  : tf1Enabled
+pEN2 = usePreset ? true  : tf2Enabled
+pEN3 = usePreset ? true  : tf3Enabled
+pEN4 = usePreset ? true  : tf4Enabled
+pEN5 = usePreset ? (tfPreset == "TheStrat Classic" or tfPreset == "Futures/Crypto" or tfPreset == "Day Trade") : tf5Enabled
+pEN6 = usePreset ? false : tf6Enabled
 
-rLW1 = usePreset ? 1 : tf1LineWidth
-rLW2 = usePreset ? (tfPreset == "TheStrat Classic" or tfPreset == "Day Trade" ? 1 : 2) : tf2LineWidth
-rLW3 = usePreset ? (tfPreset == "TheStrat Classic" ? 2 : tfPreset == "Futures/Crypto" ? 2 : tfPreset == "Day Trade" ? 2 : 3) : tf3LineWidth
-rLW4 = usePreset ? (tfPreset == "TheStrat Classic" ? 3 : tfPreset == "Futures/Crypto" ? 3 : tfPreset == "Day Trade" ? 3 : 4) : tf4LineWidth
-rLW5 = usePreset ? 4 : tf5LineWidth
-rLW6 = usePreset ? 4 : tf6LineWidth
+pLW1 = usePreset ? 1 : tf1LineWidth
+pLW2 = usePreset ? (tfPreset == "TheStrat Classic" or tfPreset == "Day Trade" ? 1 : 2) : tf2LineWidth
+pLW3 = usePreset ? (tfPreset == "TheStrat Classic" ? 2 : tfPreset == "Futures/Crypto" ? 2 : tfPreset == "Day Trade" ? 2 : 3) : tf3LineWidth
+pLW4 = usePreset ? (tfPreset == "TheStrat Classic" ? 3 : tfPreset == "Futures/Crypto" ? 3 : tfPreset == "Day Trade" ? 3 : 4) : tf4LineWidth
+pLW5 = usePreset ? 4 : tf5LineWidth
+pLW6 = usePreset ? 4 : tf6LineWidth
 
-rSO1 = usePreset ? false : tf1ShowOpen
-rSO2 = usePreset ? false : tf2ShowOpen
-rSO3 = usePreset ? false : tf3ShowOpen
-rSO4 = usePreset ? false : tf4ShowOpen
-rSO5 = usePreset ? false : tf5ShowOpen
-rSO6 = usePreset ? false : tf6ShowOpen
+pSO1 = usePreset ? false : tf1ShowOpen
+pSO2 = usePreset ? false : tf2ShowOpen
+pSO3 = usePreset ? false : tf3ShowOpen
+pSO4 = usePreset ? false : tf4ShowOpen
+pSO5 = usePreset ? false : tf5ShowOpen
+pSO6 = usePreset ? false : tf6ShowOpen
+
+// FEATURE CHART-TF-1 (2026-11-05): fold the chart's own timeframe into the six slots.
+// The Lead Signal filter, the table and the Domino chain all read slot index as timeframe order
+// (index 5 is the highest), so the chart timeframe cannot just take a fixed slot: it is inserted
+// in order. Every enabled slot gets a rank by timeframe length (ties keep slot order: a lower slot
+// counts with <=, a higher one with <), the chart
+// timeframe is inserted at its rank, and the result is written back to slots 1-6 lowest first.
+// Overflow (six slots already enabled): drop the lowest slot if it is below the chart timeframe,
+// since computeSignalState never draws a lower timeframe on this chart; otherwise the highest
+// slot falls off the end. A chart timeframe that is already enabled changes nothing, and with the
+// toggle off (or a duplicate) the slots are exactly the preset-resolved ones, unsorted Custom
+// configs included. Everything here is simple-qualified ternaries on purpose: request.security
+// needs a simple timeframe, and arrays, loops and user functions would make it series.
+cSec = timeframe.in_seconds(timeframe.period)
+cOK = includeChartTF and not timeframe.isticks and cSec > 0
+
+pSec1 = timeframe.in_seconds(pTF1)
+pSec2 = timeframe.in_seconds(pTF2)
+pSec3 = timeframe.in_seconds(pTF3)
+pSec4 = timeframe.in_seconds(pTF4)
+pSec5 = timeframe.in_seconds(pTF5)
+pSec6 = timeframe.in_seconds(pTF6)
+cDup = (pEN1 and pSec1 == cSec) or (pEN2 and pSec2 == cSec) or (pEN3 and pSec3 == cSec) or (pEN4 and pSec4 == cSec) or (pEN5 and pSec5 == cSec) or (pEN6 and pSec6 == cSec)
+cIns = cOK and not cDup
+cBelow = (pEN1 and pSec1 < cSec ? 1 : 0) + (pEN2 and pSec2 < cSec ? 1 : 0) + (pEN3 and pSec3 < cSec ? 1 : 0) + (pEN4 and pSec4 < cSec ? 1 : 0) + (pEN5 and pSec5 < cSec ? 1 : 0) + (pEN6 and pSec6 < cSec ? 1 : 0)
+cEnCount = (pEN1 ? 1 : 0) + (pEN2 ? 1 : 0) + (pEN3 ? 1 : 0) + (pEN4 ? 1 : 0) + (pEN5 ? 1 : 0) + (pEN6 ? 1 : 0)
+cShift = cIns and cEnCount >= 6 and cBelow > 0 ? 1 : 0
+cPos = cBelow - cShift
+pPos1 = (pEN2 and pSec2 < pSec1 ? 1 : 0) + (pEN3 and pSec3 < pSec1 ? 1 : 0) + (pEN4 and pSec4 < pSec1 ? 1 : 0) + (pEN5 and pSec5 < pSec1 ? 1 : 0) + (pEN6 and pSec6 < pSec1 ? 1 : 0) + (pSec1 > cSec ? 1 : 0) - cShift
+pPos2 = (pEN1 and pSec1 <= pSec2 ? 1 : 0) + (pEN3 and pSec3 < pSec2 ? 1 : 0) + (pEN4 and pSec4 < pSec2 ? 1 : 0) + (pEN5 and pSec5 < pSec2 ? 1 : 0) + (pEN6 and pSec6 < pSec2 ? 1 : 0) + (pSec2 > cSec ? 1 : 0) - cShift
+pPos3 = (pEN1 and pSec1 <= pSec3 ? 1 : 0) + (pEN2 and pSec2 <= pSec3 ? 1 : 0) + (pEN4 and pSec4 < pSec3 ? 1 : 0) + (pEN5 and pSec5 < pSec3 ? 1 : 0) + (pEN6 and pSec6 < pSec3 ? 1 : 0) + (pSec3 > cSec ? 1 : 0) - cShift
+pPos4 = (pEN1 and pSec1 <= pSec4 ? 1 : 0) + (pEN2 and pSec2 <= pSec4 ? 1 : 0) + (pEN3 and pSec3 <= pSec4 ? 1 : 0) + (pEN5 and pSec5 < pSec4 ? 1 : 0) + (pEN6 and pSec6 < pSec4 ? 1 : 0) + (pSec4 > cSec ? 1 : 0) - cShift
+pPos5 = (pEN1 and pSec1 <= pSec5 ? 1 : 0) + (pEN2 and pSec2 <= pSec5 ? 1 : 0) + (pEN3 and pSec3 <= pSec5 ? 1 : 0) + (pEN4 and pSec4 <= pSec5 ? 1 : 0) + (pEN6 and pSec6 < pSec5 ? 1 : 0) + (pSec5 > cSec ? 1 : 0) - cShift
+pPos6 = (pEN1 and pSec1 <= pSec6 ? 1 : 0) + (pEN2 and pSec2 <= pSec6 ? 1 : 0) + (pEN3 and pSec3 <= pSec6 ? 1 : 0) + (pEN4 and pSec4 <= pSec6 ? 1 : 0) + (pEN5 and pSec5 <= pSec6 ? 1 : 0) + (pSec6 > cSec ? 1 : 0) - cShift
+cHit1 = (cIns and cPos == 0) or (pEN1 and pPos1 == 0) or (pEN2 and pPos2 == 0) or (pEN3 and pPos3 == 0) or (pEN4 and pPos4 == 0) or (pEN5 and pPos5 == 0) or (pEN6 and pPos6 == 0)
+cHit2 = (cIns and cPos == 1) or (pEN1 and pPos1 == 1) or (pEN2 and pPos2 == 1) or (pEN3 and pPos3 == 1) or (pEN4 and pPos4 == 1) or (pEN5 and pPos5 == 1) or (pEN6 and pPos6 == 1)
+cHit3 = (cIns and cPos == 2) or (pEN1 and pPos1 == 2) or (pEN2 and pPos2 == 2) or (pEN3 and pPos3 == 2) or (pEN4 and pPos4 == 2) or (pEN5 and pPos5 == 2) or (pEN6 and pPos6 == 2)
+cHit4 = (cIns and cPos == 3) or (pEN1 and pPos1 == 3) or (pEN2 and pPos2 == 3) or (pEN3 and pPos3 == 3) or (pEN4 and pPos4 == 3) or (pEN5 and pPos5 == 3) or (pEN6 and pPos6 == 3)
+cHit5 = (cIns and cPos == 4) or (pEN1 and pPos1 == 4) or (pEN2 and pPos2 == 4) or (pEN3 and pPos3 == 4) or (pEN4 and pPos4 == 4) or (pEN5 and pPos5 == 4) or (pEN6 and pPos6 == 4)
+cHit6 = (cIns and cPos == 5) or (pEN1 and pPos1 == 5) or (pEN2 and pPos2 == 5) or (pEN3 and pPos3 == 5) or (pEN4 and pPos4 == 5) or (pEN5 and pPos5 == 5) or (pEN6 and pPos6 == 5)
+rTF1 = not cIns ? pTF1 : cIns and cPos == 0 ? timeframe.period : pEN1 and pPos1 == 0 ? pTF1 : pEN2 and pPos2 == 0 ? pTF2 : pEN3 and pPos3 == 0 ? pTF3 : pEN4 and pPos4 == 0 ? pTF4 : pEN5 and pPos5 == 0 ? pTF5 : pEN6 and pPos6 == 0 ? pTF6 : pTF1
+rTF2 = not cIns ? pTF2 : cIns and cPos == 1 ? timeframe.period : pEN1 and pPos1 == 1 ? pTF1 : pEN2 and pPos2 == 1 ? pTF2 : pEN3 and pPos3 == 1 ? pTF3 : pEN4 and pPos4 == 1 ? pTF4 : pEN5 and pPos5 == 1 ? pTF5 : pEN6 and pPos6 == 1 ? pTF6 : pTF2
+rTF3 = not cIns ? pTF3 : cIns and cPos == 2 ? timeframe.period : pEN1 and pPos1 == 2 ? pTF1 : pEN2 and pPos2 == 2 ? pTF2 : pEN3 and pPos3 == 2 ? pTF3 : pEN4 and pPos4 == 2 ? pTF4 : pEN5 and pPos5 == 2 ? pTF5 : pEN6 and pPos6 == 2 ? pTF6 : pTF3
+rTF4 = not cIns ? pTF4 : cIns and cPos == 3 ? timeframe.period : pEN1 and pPos1 == 3 ? pTF1 : pEN2 and pPos2 == 3 ? pTF2 : pEN3 and pPos3 == 3 ? pTF3 : pEN4 and pPos4 == 3 ? pTF4 : pEN5 and pPos5 == 3 ? pTF5 : pEN6 and pPos6 == 3 ? pTF6 : pTF4
+rTF5 = not cIns ? pTF5 : cIns and cPos == 4 ? timeframe.period : pEN1 and pPos1 == 4 ? pTF1 : pEN2 and pPos2 == 4 ? pTF2 : pEN3 and pPos3 == 4 ? pTF3 : pEN4 and pPos4 == 4 ? pTF4 : pEN5 and pPos5 == 4 ? pTF5 : pEN6 and pPos6 == 4 ? pTF6 : pTF5
+rTF6 = not cIns ? pTF6 : cIns and cPos == 5 ? timeframe.period : pEN1 and pPos1 == 5 ? pTF1 : pEN2 and pPos2 == 5 ? pTF2 : pEN3 and pPos3 == 5 ? pTF3 : pEN4 and pPos4 == 5 ? pTF4 : pEN5 and pPos5 == 5 ? pTF5 : pEN6 and pPos6 == 5 ? pTF6 : pTF6
+rEN1 = not cIns ? pEN1 : cHit1
+rEN2 = not cIns ? pEN2 : cHit2
+rEN3 = not cIns ? pEN3 : cHit3
+rEN4 = not cIns ? pEN4 : cHit4
+rEN5 = not cIns ? pEN5 : cHit5
+rEN6 = not cIns ? pEN6 : cHit6
+rLW1 = not cIns ? pLW1 : cIns and cPos == 0 ? chartTFLineWidth : pEN1 and pPos1 == 0 ? pLW1 : pEN2 and pPos2 == 0 ? pLW2 : pEN3 and pPos3 == 0 ? pLW3 : pEN4 and pPos4 == 0 ? pLW4 : pEN5 and pPos5 == 0 ? pLW5 : pEN6 and pPos6 == 0 ? pLW6 : pLW1
+rLW2 = not cIns ? pLW2 : cIns and cPos == 1 ? chartTFLineWidth : pEN1 and pPos1 == 1 ? pLW1 : pEN2 and pPos2 == 1 ? pLW2 : pEN3 and pPos3 == 1 ? pLW3 : pEN4 and pPos4 == 1 ? pLW4 : pEN5 and pPos5 == 1 ? pLW5 : pEN6 and pPos6 == 1 ? pLW6 : pLW2
+rLW3 = not cIns ? pLW3 : cIns and cPos == 2 ? chartTFLineWidth : pEN1 and pPos1 == 2 ? pLW1 : pEN2 and pPos2 == 2 ? pLW2 : pEN3 and pPos3 == 2 ? pLW3 : pEN4 and pPos4 == 2 ? pLW4 : pEN5 and pPos5 == 2 ? pLW5 : pEN6 and pPos6 == 2 ? pLW6 : pLW3
+rLW4 = not cIns ? pLW4 : cIns and cPos == 3 ? chartTFLineWidth : pEN1 and pPos1 == 3 ? pLW1 : pEN2 and pPos2 == 3 ? pLW2 : pEN3 and pPos3 == 3 ? pLW3 : pEN4 and pPos4 == 3 ? pLW4 : pEN5 and pPos5 == 3 ? pLW5 : pEN6 and pPos6 == 3 ? pLW6 : pLW4
+rLW5 = not cIns ? pLW5 : cIns and cPos == 4 ? chartTFLineWidth : pEN1 and pPos1 == 4 ? pLW1 : pEN2 and pPos2 == 4 ? pLW2 : pEN3 and pPos3 == 4 ? pLW3 : pEN4 and pPos4 == 4 ? pLW4 : pEN5 and pPos5 == 4 ? pLW5 : pEN6 and pPos6 == 4 ? pLW6 : pLW5
+rLW6 = not cIns ? pLW6 : cIns and cPos == 5 ? chartTFLineWidth : pEN1 and pPos1 == 5 ? pLW1 : pEN2 and pPos2 == 5 ? pLW2 : pEN3 and pPos3 == 5 ? pLW3 : pEN4 and pPos4 == 5 ? pLW4 : pEN5 and pPos5 == 5 ? pLW5 : pEN6 and pPos6 == 5 ? pLW6 : pLW6
+rSO1 = not cIns ? pSO1 : cIns and cPos == 0 ? chartTFShowOpen : pEN1 and pPos1 == 0 ? pSO1 : pEN2 and pPos2 == 0 ? pSO2 : pEN3 and pPos3 == 0 ? pSO3 : pEN4 and pPos4 == 0 ? pSO4 : pEN5 and pPos5 == 0 ? pSO5 : pEN6 and pPos6 == 0 ? pSO6 : pSO1
+rSO2 = not cIns ? pSO2 : cIns and cPos == 1 ? chartTFShowOpen : pEN1 and pPos1 == 1 ? pSO1 : pEN2 and pPos2 == 1 ? pSO2 : pEN3 and pPos3 == 1 ? pSO3 : pEN4 and pPos4 == 1 ? pSO4 : pEN5 and pPos5 == 1 ? pSO5 : pEN6 and pPos6 == 1 ? pSO6 : pSO2
+rSO3 = not cIns ? pSO3 : cIns and cPos == 2 ? chartTFShowOpen : pEN1 and pPos1 == 2 ? pSO1 : pEN2 and pPos2 == 2 ? pSO2 : pEN3 and pPos3 == 2 ? pSO3 : pEN4 and pPos4 == 2 ? pSO4 : pEN5 and pPos5 == 2 ? pSO5 : pEN6 and pPos6 == 2 ? pSO6 : pSO3
+rSO4 = not cIns ? pSO4 : cIns and cPos == 3 ? chartTFShowOpen : pEN1 and pPos1 == 3 ? pSO1 : pEN2 and pPos2 == 3 ? pSO2 : pEN3 and pPos3 == 3 ? pSO3 : pEN4 and pPos4 == 3 ? pSO4 : pEN5 and pPos5 == 3 ? pSO5 : pEN6 and pPos6 == 3 ? pSO6 : pSO4
+rSO5 = not cIns ? pSO5 : cIns and cPos == 4 ? chartTFShowOpen : pEN1 and pPos1 == 4 ? pSO1 : pEN2 and pPos2 == 4 ? pSO2 : pEN3 and pPos3 == 4 ? pSO3 : pEN4 and pPos4 == 4 ? pSO4 : pEN5 and pPos5 == 4 ? pSO5 : pEN6 and pPos6 == 4 ? pSO6 : pSO5
+rSO6 = not cIns ? pSO6 : cIns and cPos == 5 ? chartTFShowOpen : pEN1 and pPos1 == 5 ? pSO1 : pEN2 and pPos2 == 5 ? pSO2 : pEN3 and pPos3 == 5 ? pSO3 : pEN4 and pPos4 == 5 ? pSO4 : pEN5 and pPos5 == 5 ? pSO5 : pEN6 and pPos6 == 5 ? pSO6 : pSO6
 
 // -------------------- SIGNALS --------------------
 grpSigRev = "Signals - Reversals"
@@ -320,6 +408,17 @@ colorFtfcDownBar = input.color(#f23645, "", inline = "bc_ftfc", group = grpBarCo
 colorFtfcConflictBar = input.color(#808080, "", inline = "bc_ftfc", group = grpBarColor, active = barColorMode == "FTFC Candles")
 paintFtfcConflict = input.bool(true, "Color Conflict Bars", group = grpBarColor, active = barColorMode == "FTFC Candles", tooltip = "OFF: conflicted bars keep the chart's normal candle colors, so only full up/down agreement is painted.")
 paintFtfcTransitions = input.bool(true, "Highlight Failing 2 Flips", group = grpBarColor, active = barColorMode == "FTFC Candles", tooltip = "When continuity flips while a Failing 2 (Range Reclaim) is live on a monitored timeframe, paint the flip bar with the Range Reclaim color instead of the plain continuity color. A reclaim that flips continuity is the highest-conviction version of the signal - trapped traders from the failed breakout fuel the new direction.")
+
+// -------------------- DISPLAY - BAR NUMBERS --------------------
+// FEATURE BARNUM-1 (2026-10-23): per-candle Strat numbers. Engine and rationale in SECTION 15.
+grpBarNum = "Display - Bar Numbers"
+showBarNumbers = input.bool(false, "Show Bar Numbers", group = grpBarNum, tooltip = "Print each chart candle's Strat number (1, 2u, 2d, 3) next to it, classified against the prior candle. Uses the same classification (and Failing 2 Detection Method) as the data table's CC cell and Strat Candles, so numbers, candle paint and table always agree. Chart timeframe only - the data table covers your other timeframes.")
+barNumNotation = input.string("Full", "Notation", options = ["Full", "Classic", "Numbers"], group = grpBarNum, active = showBarNumbers, tooltip = "Full: 1, 2u, 2d, 3u, 3d, F2u, F2d - exactly the data table's notation.\n\nClassic: 1, 2u, 2d, 3. Outside bars drop their close direction and Failing 2s show as their plain 2u/2d.\n\nNumbers: 1, 2, 3. Direction is carried by color alone.")
+barNumEmphasis = input.string("Tiered", "Emphasis", options = ["Tiered", "Uniform", "Key Bars Only"], group = grpBarNum, active = showBarNumbers, tooltip = "Tiered: 1s, 3s and Failing 2s in full color, plain 2s faded - setups start at 1s, 3s and failing 2s, so those stand out while trending 2s recede.\n\nUniform: every number at full strength.\n\nKey Bars Only: plain 2s are hidden. In Classic and Numbers notation a Failing 2 shows as a plain 2, so it is hidden too.")
+barNumPosition = input.string("Below", "Position", options = ["Below", "Above", "Broken Side"], group = grpBarNum, active = showBarNumbers, tooltip = "Below / Above: every number on the same side, reading as one steady row.\n\nBroken Side: the number sits on the side the candle took out - 2u and F2u above, 2d and F2d below. Outside bars follow their close (3u above, 3d below); inside bars sit below.")
+barNumColorMode = input.string("Bar Type Palette", "Color", options = ["Bar Type Palette", "Single Color"], inline = "bn_col", group = grpBarNum, active = showBarNumbers, tooltip = "Bar Type Palette: each number takes its family color from the Style sections (Signal, Inside Bar, Outside Bar, Range Reclaim), the same colors Strat Candles paints. Single Color: one color for every number - useful with Strat Candles on, so color is not shown twice. Emphasis still applies.")
+barNumColor = input.color(#9598a1, "", inline = "bn_col", group = grpBarNum, active = showBarNumbers and barNumColorMode == "Single Color")
+barNumBarsShown = input.int(0, "Bars Shown", minval = 0, group = grpBarNum, active = showBarNumbers, tooltip = "Number only the most recent N candles. 0 = every candle on the chart. The forming candle's number is drawn lighter because it can still change (a 2u can become a 3 or fail into an F2u); it takes full strength when the candle closes.")
 
 // Auto-preview detection: activate whenever the market is not actively trading
 // Equity-like (stocks, ETFs, options, indices, ADRs): outside 9:30 AM - 4:00 PM ET and weekends
@@ -3284,8 +3383,13 @@ getChartBarColor(string barType) =>
         "3d"  => paintOutsideBars ? COLOR_3_LOW : color(na)
         => color(na)
 
+// FEATURE BARNUM-1: one classification per bar shared by Strat Candles and Bar Numbers
+// (SECTION 15), so the two can never disagree and turning both on costs one call, not two.
+string chartBarType = ""
+if barColorMode == "Strat Candles" or showBarNumbers
+    [chartBarTypeNow, _chartBarIsFailed] = detectBarTypeAndFailed(high[1], low[1], high, low, open, close)
+    chartBarType := chartBarTypeNow
 if barColorMode == "Strat Candles"
-    [chartBarType, _chartBarIsFailed] = detectBarTypeAndFailed(high[1], low[1], high, low, open, close)
     chartCandleColor := getChartBarColor(chartBarType)
 
 // FTFC Candles: per-slot Failing 2 state for the flip highlight. The served ccH/ccL are
@@ -3354,3 +3458,77 @@ if barColorMode == "FTFC Candles"
             chartCandleColor := colorFtfcConflictBar
 
 barcolor(chartCandleColor, title = "Strat / FTFC Candles")
+
+// ============================================================================
+// SECTION 15: BAR NUMBERS
+// ============================================================================
+// FEATURE BARNUM-1 (2026-10-23): print each chart candle's Strat number beside it.
+//
+// Rendered with plotshape, not label.new. plotshape draws on every bar of history at no
+// cost to max_labels_count, which the level labels already spend; labels would cap the
+// numbers near the budget and TradingView garbage-collects the OLDEST labels first, which
+// could delete a level label. The price is fixed text size: plotshape's size sizes the
+// (invisible) shape, never the text. plotshape text must be a const string, so there is one
+// call per token, and location is input-qualified, so tokens whose side depends on the bar
+// ("3" in Classic, "2" in Numbers) get an up-side and a down-side call. 11 calls in all.
+//
+// Like Strat Candles (SECTION 14) this runs on every bar - it is history, not islast
+// rendering - and it is repaint-safe for the same reason (repaint-prevention.md Rule 8): it
+// reads only the chart bar's own OHLC and the prior bar's high/low, which evaluate
+// identically live and on reload. The forming bar is drawn lighter until it confirms.
+//
+// Classification is chartBarType from SECTION 14 (detectBarTypeAndFailed, the CC
+// classifier), so numbers, candle paint and the table share one engine and one Failing 2
+// method (the P1-f consistency rule). Booleans, not built strings, keep the per-bar cost
+// to a few string compares (the PERF-FTFC-1 lesson).
+
+bool bnOn = showBarNumbers and chartBarType != ""
+bool bnFull = barNumNotation == "Full"
+bool bnNumbers = barNumNotation == "Numbers"
+bool bnKeyOnly = barNumEmphasis == "Key Bars Only"
+
+bool bnIs1 = chartBarType == "1u" or chartBarType == "1d"
+bool bnIs3u = chartBarType == "3u"
+bool bnIs3d = chartBarType == "3d"
+bool bnIsF2u = chartBarType == "F2u"
+bool bnIsF2d = chartBarType == "F2d"
+// A Failing 2 renders as its plain 2 outside Full notation (as Strat Candles does with F2 paint off).
+bool bnPlain2u = chartBarType == "2u" or (bnIsF2u and not bnFull)
+bool bnPlain2d = chartBarType == "2d" or (bnIsF2d and not bnFull)
+
+// Text color: family color from the Style inputs (or the single color), then emphasis
+// tiering, then lightened on the forming bar.
+color bnPalette = switch chartBarType
+    "1u"  => colorBullishPotential
+    "1d"  => colorBearishPotential
+    "2u"  => colorBullishActive
+    "2d"  => colorBearishActive
+    "F2u" => bnFull ? COLOR_FAILED_2U : colorBullishActive
+    "F2d" => bnFull ? COLOR_FAILED_2D : colorBearishActive
+    "3u"  => COLOR_3_HIGH
+    "3d"  => COLOR_3_LOW
+    => color(na)
+color bnBase = barNumColorMode == "Single Color" ? barNumColor : bnPalette
+float bnTransp = barNumEmphasis == "Tiered" and (bnPlain2u or bnPlain2d) ? 65 : 0
+if barstate.islast and not barstate.isconfirmed
+    bnTransp := bnTransp + (100 - bnTransp) / 2
+color bnTextColor = color.new(bnBase, bnTransp)
+color bnShapeColor = color.new(color.black, 100)
+
+// Placement. Up-side tokens (2u, F2u, 3u) and down-side tokens (2d, F2d, 3d) only split
+// under Broken Side; inside bars sit with the down side.
+string bnLocUp = barNumPosition == "Below" ? location.belowbar : location.abovebar
+string bnLocDown = barNumPosition == "Above" ? location.abovebar : location.belowbar
+int bnShowLast = barNumBarsShown > 0 ? barNumBarsShown : na
+
+plotshape(bnOn and bnIs1, "Bar # 1", shape.circle, bnLocDown, bnShapeColor, text = "1", textcolor = bnTextColor, size = size.tiny, show_last = bnShowLast, display = display.pane, editable = false)
+plotshape(bnOn and not bnNumbers and not bnKeyOnly and bnPlain2u, "Bar # 2u", shape.circle, bnLocUp, bnShapeColor, text = "2u", textcolor = bnTextColor, size = size.tiny, show_last = bnShowLast, display = display.pane, editable = false)
+plotshape(bnOn and not bnNumbers and not bnKeyOnly and bnPlain2d, "Bar # 2d", shape.circle, bnLocDown, bnShapeColor, text = "2d", textcolor = bnTextColor, size = size.tiny, show_last = bnShowLast, display = display.pane, editable = false)
+plotshape(bnOn and bnNumbers and not bnKeyOnly and bnPlain2u, "Bar # 2 (up)", shape.circle, bnLocUp, bnShapeColor, text = "2", textcolor = bnTextColor, size = size.tiny, show_last = bnShowLast, display = display.pane, editable = false)
+plotshape(bnOn and bnNumbers and not bnKeyOnly and bnPlain2d, "Bar # 2 (down)", shape.circle, bnLocDown, bnShapeColor, text = "2", textcolor = bnTextColor, size = size.tiny, show_last = bnShowLast, display = display.pane, editable = false)
+plotshape(bnOn and bnFull and bnIsF2u, "Bar # F2u", shape.circle, bnLocUp, bnShapeColor, text = "F2u", textcolor = bnTextColor, size = size.tiny, show_last = bnShowLast, display = display.pane, editable = false)
+plotshape(bnOn and bnFull and bnIsF2d, "Bar # F2d", shape.circle, bnLocDown, bnShapeColor, text = "F2d", textcolor = bnTextColor, size = size.tiny, show_last = bnShowLast, display = display.pane, editable = false)
+plotshape(bnOn and bnFull and bnIs3u, "Bar # 3u", shape.circle, bnLocUp, bnShapeColor, text = "3u", textcolor = bnTextColor, size = size.tiny, show_last = bnShowLast, display = display.pane, editable = false)
+plotshape(bnOn and bnFull and bnIs3d, "Bar # 3d", shape.circle, bnLocDown, bnShapeColor, text = "3d", textcolor = bnTextColor, size = size.tiny, show_last = bnShowLast, display = display.pane, editable = false)
+plotshape(bnOn and not bnFull and bnIs3u, "Bar # 3 (up)", shape.circle, bnLocUp, bnShapeColor, text = "3", textcolor = bnTextColor, size = size.tiny, show_last = bnShowLast, display = display.pane, editable = false)
+plotshape(bnOn and not bnFull and bnIs3d, "Bar # 3 (down)", shape.circle, bnLocDown, bnShapeColor, text = "3", textcolor = bnTextColor, size = size.tiny, show_last = bnShowLast, display = display.pane, editable = false)

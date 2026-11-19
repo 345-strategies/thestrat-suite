@@ -145,6 +145,8 @@ All drawing happens under `barstate.islast`, in source order:
 
 `SECTION 14` (`BARCOLOR-1`, off by default) runs in the main context on **every** bar — `barcolor()` paints history, so its classification cannot be islast-gated. Strat Candles mode reuses `detectBarTypeAndFailed` — the data table's CC classifier — on the chart bar itself, so candle paint and table notation cannot disagree. FTFC Candles mode re-runs `calculateFTFC` with the chart bar's own close against the served HTF opens (never the lookahead-final HTF closes), and `paintSlotFailed2` rebuilds each slot's intra-period range from chart bars for the flip highlight. No lines, labels, or boxes are involved, so the object budget is untouched. This is the one stated exception to "rendering runs only on islast," and it is safe because it obeys `repaint-prevention.md` Rule 8: historical paint reads only series that evaluate identically live and on reload.
 
+`SECTION 15` (`BARNUM-1`, off by default) is the second exception, on the same terms. Bar Numbers reads `chartBarType`, the classification SECTION 14 now computes once for either consumer. It draws one `plotshape` per token, because plotshape text must be a const string, with an up-side and a down-side call where a token's side depends on the bar. There are 11 calls, and no labels, so `max_labels_count` stays with the levels. History reads only the chart bar's OHLC and the prior bar's high/low (Rule 8). The forming bar is lightened until `barstate.isconfirmed`.
+
 ---
 
 ## The major state arrays
