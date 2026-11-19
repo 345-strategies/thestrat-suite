@@ -12,7 +12,7 @@ Status: v0.1.0, not yet published on TradingView.
   60-minute, Day, Week and Month. Day Trade, Swing Trade, Investing and Custom are the others.
 - Reversals and inside bar breaks, always on. 2-2 Continuations, Failing 2s and 3-2
   Expansions are optional and have no filters.
-- Magnitude and exhaustion targets, Take Action Windows, stops (on by default), Preview Mode.
+- Magnitude and exhaustion targets, Take Action Windows, stops (off by default), Preview Mode.
 - Bar numbers on the last 50 chart candles (on by default).
 - The data table in one of two styles. **Simple** (default) has one line per timeframe: the
   combo, oldest bar first, with the current bar highlighted at the end (3-1-2u), and a Prior
@@ -34,7 +34,6 @@ Status: v0.1.0, not yet published on TradingView.
 |---|---|---|
 | Failing 2 | Reclaim: price back inside the prior bar's range | Open: a 2u trading below its own open, a 2d trading above it |
 | Timeframes | Six slots, TheStrat Classic preset is 30m, 60m, D, W, M | Four slots, TheStrat Classic is 60m, D, W, M |
-| Stops | Off | On |
 | Bar numbers | Off | On |
 | Filters (HAM/SHO, F2, FTFC, Lead Signal), Domino, bar coloring, colors, per-timeframe alerts | Available | Not present |
 

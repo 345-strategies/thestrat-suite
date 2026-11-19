@@ -356,7 +356,7 @@ tawFillOpacity = 8
 tawBorderOpacity = 30
 // -------------------- STOP LEVELS --------------------
 grpStops = "Stops - Stop Levels"
-showStopLevels = input.bool(true, "Stops", group = grpEZChart, tooltip = "Draws a stop level for each signal: the price where the idea is wrong. Treat it as a reference level, not a full risk plan.")
+showStopLevels = input.bool(false, "Stops", group = grpEZChart, tooltip = "Draws a stop level for each signal: the price where the idea is wrong. Treat it as a reference level, not a full risk plan.")
 stopReference = "CC"
 stopSmallestOnly = false
 stopBEatMag = false

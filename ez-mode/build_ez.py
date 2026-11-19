@@ -100,7 +100,7 @@ OVERRIDES: dict[str, str] = {
     # A Failing 2 is judged against the bar's own open (decided 2026-11-18).
     "failed_2_method": 'failed_2_method = "Open"',
     "showDominoInTable": "showDominoInTable = false",
-    "showStopLevels": 'showStopLevels = input.bool(true, "Stops", group = grpEZChart, tooltip = "Draws a stop level for each signal: the price where the idea is wrong. Treat it as a reference level, not a full risk plan.")',
+    "showStopLevels": 'showStopLevels = input.bool(false, "Stops", group = grpEZChart, tooltip = "Draws a stop level for each signal: the price where the idea is wrong. Treat it as a reference level, not a full risk plan.")',
     "previewMode": 'previewMode = input.string("Auto", "Preview Mode", options = ["Off", "On", "Auto"], group = grpEZChart, tooltip = "Auto: when the market is closed, shows the levels for the next bar so you can plan ahead. The table says PREVIEW MODE while it is on. Off: never preview. Use Off with Bar Replay. On: always preview.")',
     "showBarTypeTable": 'showBarTypeTable = input.bool(true, "Data Table", inline = "ez_tbl", group = grpEZChart, tooltip = "The table of timeframes. Hover any cell for a plain-English read of what it means right now.")',
     "tablePosition": 'tablePosition = input.string("Top Right", "", options = ["Bottom Center", "Bottom Left", "Bottom Right", "Middle Center", "Middle Left", "Middle Right", "Top Center", "Top Left", "Top Right"], inline = "ez_tbl", group = grpEZChart)\n'
