@@ -2053,7 +2053,7 @@ ezPieceTip(string piece, string px, int side) =>
     else if str.contains(body, "*")
         bool toOutside = str.contains(body, "3u") or str.contains(body, "3d") or str.contains(body, "OUT")
         string becomes = toOutside ? "a 3 (outside bar), because it has already taken the other side" : side == 1 ? "a 2u" : "a 2d"
-        out := tf + " trigger (" + px + "), not hit yet. If price trades " + (side == 1 ? "above" : "below") + " this level, the " + tf + " bar becomes " + becomes + "." + (toOutside or simpleLabelMode ? "" : " That would complete a " + ezComboName(body) + ".")
+        out := tf + " trigger (" + px + "), not hit yet. If price trades " + (side == 1 ? "above" : "below") + " this level, the " + tf + " bar becomes " + becomes + "." + (toOutside or simpleLabelMode ? "" : " That would put this combo in force: a " + ezComboName(body) + ".")
     else if simpleLabelMode
         string word = str.contains(body, "REV") ? "REV = reversal: a bar trending one way answered by a bar trending the other way." : str.contains(body, "CONT") ? "CONT = continuation: the trend keeps going the same way." : str.contains(body, "INS") ? "INS = inside bar break: price paused inside the prior bar, then picked a side." : str.contains(body, "EXP") ? "EXP = expansion: the range is getting wider, as with an outside bar." : "OUT = outside bar: both sides of the prior bar taken."
         out := tf + " level (" + px + "). " + word + " The arrow shows the direction a break of this level points."
@@ -2062,7 +2062,7 @@ ezPieceTip(string piece, string px, int side) =>
         bool lastDn = str.endswith(body, "2d") or str.endswith(body, "2d HAM") or str.endswith(body, "2d SHO")
         bool last3 = str.contains(body, "3u") or str.contains(body, "3d")
         if (lastUp and side == 1) or (lastDn and side == -1)
-            out := tf + " " + body + " (" + px + "): triggered. The " + tf + " bar traded " + (side == 1 ? "above the prior bar's high" : "below the prior bar's low") + ", which completed a " + ezComboName(body) + ". It stays in force while price holds " + (side == 1 ? "above" : "below") + " this level and the " + tf + " bar is still open."
+            out := tf + " " + body + " (" + px + "): in force. The " + tf + " bar traded " + (side == 1 ? "above the prior bar's high" : "below the prior bar's low") + ", which put this combo in force: a " + ezComboName(body) + ". It stays in force while price holds " + (side == 1 ? "above" : "below") + " this level and the " + tf + " bar is still open."
         else if lastUp or lastDn
             out := tf + " (" + px + "): the other side of the " + tf + " bar. This bar has already taken the prior " + (lastUp ? "high" : "low") + ". If it also trades " + (side == 1 ? "above" : "below") + " this level it becomes a 3 (outside bar)."
         else if last3
