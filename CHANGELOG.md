@@ -24,6 +24,8 @@ How to read this file:
 
 ### Changed
 
+- **The 1-2-2 RevStrat is named on its label.** A 2-2 whose C2 was an inside bar now reads `1-2d-2u` (pending: `*1-2d-2u`) on the chart and in alerts, the way a 3-2-2 already read `3-2d-2u`; alerts now carry the `3` too. Signal logic, levels and inputs are unchanged, since the 2-2 Reversals row already traded the setup. Failing 2 labels keep their C1-only form. (`REVSTRAT-122-1`)
+
 - **Signal tooltips explain the signal, and the filters once.** TradingView shows one tooltip per settings row, the last input's, so each signal row only ever showed its FTFC text, repeated seven times, and the signal's own description and the HAM/SHO and F2 text were never visible. Each row's tooltip now describes that signal. The Inside Reversals row, first in Signals, also explains every filter (HAM/SHO, F2, FTFC) once, and the other rows point to it. The FTFC text now says what the filter does: it hides a setup only when every enabled timeframe is against it, so setups with mixed timeframes still show.
 
 - **Bar Numbers *Bars Shown* is a dropdown, default Last 50.** It was a number where 0 meant every candle, and it defaulted to 0. The choices are Last 10, 20, 50, 100, 250 or All. (`BARNUM-SHOWN-1`)

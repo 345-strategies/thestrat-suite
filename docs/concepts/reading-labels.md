@@ -51,6 +51,7 @@ A combo reads **oldest → newest, and the last token is always the forming cand
 
 - **`*` prefix = potential.** `*2d-1-2u` is a setup whose trigger hasn't broken yet. When price crosses, the `*` drops and the line takes the signal color.
 - **`F` marks a slot that was a Failing 2.** `F2d-2u` — the prior bar failed its downside break, the current bar is following through up.
+- **A leading `1` or `3` names C2 on a 2-2.** `1-2d-2u` is the 1-2-2 RevStrat (C2 inside), `3-2d-2u` the 3-2-2. Same signal and levels as a plain `2d-2u` (the 2-2 Reversals row); the extra token just names the setup (`REVSTRAT-122-1`). Failing 2 labels keep their C1-only form (`2d-F2u`).
 - **Dashes are cosmetic.** **Use Dash Separator** (default on) turns `2d12u` into `2d-1-2u` (`formatCombo`). Same string.
 - **During a live Failing 2, both sides tell the story.** The failing side reads the F2 combo (`2u-F2u`); the *opposite* trigger reads a potential outside bar (`*2u-3d`) — because a full traversal through the other side would print a 3.
 
