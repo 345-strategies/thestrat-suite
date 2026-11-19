@@ -366,7 +366,7 @@ colorStop = #FFFFFF
 // -------------------- DISPLAY - PREVIEW MODE --------------------
 grpPreview = "Display - Preview Mode"
 // FIX AUTO-SESSION-1 (tooltip): states the scheduled-close rule first; the ET windows are the US closed-market schedule, not the whole rule.
-previewMode = input.string("Auto", "Preview Mode", options = ["Off", "On", "Auto"], group = grpEZChart, tooltip = "Auto: when the market is closed, shows the levels for the next bar so you can plan ahead. The table says PREVIEW MODE while it is on. Off: never preview. Use Off with Bar Replay. On: always preview.")
+previewMode = input.string("Auto", "Preview Next Bar", options = ["Off", "On", "Auto"], group = "When The Market Is Closed", tooltip = "Auto: when the market is closed, shows the levels for the next bar so you can plan ahead. The table says PREVIEW MODE while it is on. Off: never preview. Use Off with Bar Replay. On: always preview.")
 
 // -------------------- DISPLAY - DATA TABLE --------------------
 grpTable = "Display - Data Table"
@@ -3141,7 +3141,7 @@ if barstate.islast and showBarTypeTable and not na(barTypeTable)
             row += 1
         if previewNextPeriod
             table.merge_cells(barTypeTable, 0, row, ezLastCol, row)
-            table.cell(barTypeTable, 0, row, "PREVIEW MODE", text_color = color.yellow, bgcolor = color.new(color.yellow, 85), text_size = textSize, tooltip = "The market is closed, so the chart is showing the levels for the next bar to help you plan. A ? means that bar has not started trading. Set Preview Mode to Off for Bar Replay.")
+            table.cell(barTypeTable, 0, row, "PREVIEW MODE", text_color = color.yellow, bgcolor = color.new(color.yellow, 85), text_size = textSize, tooltip = "The market is closed, so the chart is showing the levels for the next bar to help you plan. A ? means that bar has not started trading. Set Preview Next Bar to Off for Bar Replay.")
             row += 1
 
 // ============================================================================

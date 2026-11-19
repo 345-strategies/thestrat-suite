@@ -102,7 +102,7 @@ OVERRIDES: dict[str, str] = {
     "failed_2_method": 'failed_2_method = "Open"',
     "showDominoInTable": "showDominoInTable = false",
     "showStopLevels": 'showStopLevels = input.bool(false, "Stops", group = grpEZChart, tooltip = "Draws a stop level for each signal: the price where the idea is wrong. Treat it as a reference level, not a full risk plan.")',
-    "previewMode": 'previewMode = input.string("Auto", "Preview Mode", options = ["Off", "On", "Auto"], group = grpEZChart, tooltip = "Auto: when the market is closed, shows the levels for the next bar so you can plan ahead. The table says PREVIEW MODE while it is on. Off: never preview. Use Off with Bar Replay. On: always preview.")',
+    "previewMode": 'previewMode = input.string("Auto", "Preview Next Bar", options = ["Off", "On", "Auto"], group = "When The Market Is Closed", tooltip = "Auto: when the market is closed, shows the levels for the next bar so you can plan ahead. The table says PREVIEW MODE while it is on. Off: never preview. Use Off with Bar Replay. On: always preview.")',
     "showBarTypeTable": 'showBarTypeTable = input.bool(true, "Data Table", inline = "ez_tbl", group = grpEZChart, tooltip = "The table of timeframes. Hover any cell for a plain-English read of what it means right now.")',
     "tablePosition": 'tablePosition = input.string("Top Right", "", options = ["Bottom Center", "Bottom Left", "Bottom Right", "Middle Center", "Middle Left", "Middle Right", "Top Center", "Top Left", "Top Right"], inline = "ez_tbl", group = grpEZChart)\n'
                      'ezTableStyle = input.string("Combo", "Table Style", options = ["Combo", "Bar by Bar"], group = grpEZChart, tooltip = "Combo: one line per timeframe showing the combo, oldest bar first, with the current bar highlighted at the end. TFC shows whether each timeframe is trading above or below its open, and AS shows HAM, SHO or INS when the bar before the current one is a hammer, a shooter or an inside bar. The Explain Row names any hammer or shooter and the bar it is on. Bar by Bar: the full Suite table with a column each for C2, C1, the actionable signal and the current candle.")\n'
@@ -410,7 +410,7 @@ PATCHES: list[tuple[str, str]] = [
     ("            table.merge_cells(barTypeTable, 0, row, 4, row)\n"
      "            table.cell(barTypeTable, 0, row, \"PREVIEW MODE\", text_color = color.yellow, bgcolor = color.new(color.yellow, 85), text_size = textSize)\n",
      "            table.merge_cells(barTypeTable, 0, row, 4, row)\n"
-     "            table.cell(barTypeTable, 0, row, \"PREVIEW MODE\", text_color = color.yellow, bgcolor = color.new(color.yellow, 85), text_size = textSize, tooltip = \"The market is closed, so the chart is showing the levels for the next bar to help you plan. A ? means that bar has not started trading. Set Preview Mode to Off for Bar Replay.\")\n"),
+     "            table.cell(barTypeTable, 0, row, \"PREVIEW MODE\", text_color = color.yellow, bgcolor = color.new(color.yellow, 85), text_size = textSize, tooltip = \"The market is closed, so the chart is showing the levels for the next bar to help you plan. A ? means that bar has not started trading. Set Preview Next Bar to Off for Bar Replay.\")\n"),
 ]
 
 HEADER = f'''//@version=6
