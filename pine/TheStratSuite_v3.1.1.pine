@@ -16,6 +16,10 @@
 // plain 2s so 1s, 3s and Failing 2s stand out. Off by default; inputs in "Display - Bar
 // Numbers", engine in SECTION 15.
 //
+// OUTSIDE-IF-1 (2026-11-05): an outside bar (3) counts as in force toward the side of C1 it
+// closes beyond, in one place (computeSignalState), so the Lead Signal, stops and the data
+// table agree. Closed back inside C1 it is not in force. Needs "Outside Bars (3 Exp)" on.
+//
 // CHART-TF-1 (2026-11-05): Include Chart Timeframe. The timeframe being viewed joins the six
 // slots, in timeframe order, and follows the chart. Off by default; toggle in "Timeframe Preset",
 // slot resolution right after the preset overrides in SECTION 2.
@@ -327,7 +331,7 @@ showRangeExpansions = input.bool(false, "3-2 Expansions |", inline = "s_3e", gro
 rangeExpOnlyMomo = input.bool(false, "HAM/SHO", inline = "s_3e", group = grpSigExp, tooltip = "HAM/SHO filter: Require C1 to be a hammer or shooter. A 3-bar that also formed a hammer/shooter tested and rejected one side despite the range expansion, adding directional conviction.")
 rangeExpansionsRequireFTFC = input.bool(false, "FTFC", inline = "s_3e", group = grpSigExp, tooltip = "FTFC filter: Require all monitored timeframes to agree on direction. Removes setups that fight the broader structural alignment, keeping only those swimming with the current.")
 
-show3Expansions = input.bool(false, "Outside Bars (3 Exp) |", inline = "s_ob", group = grpSigExp, tooltip = "CC itself is a 3-bar, engulfing C1's entire range. Represents range expansion and volatility. Direction determined by close vs open (3u = bullish, 3d = bearish).")
+show3Expansions = input.bool(false, "Outside Bars (3 Exp) |", inline = "s_ob", group = grpSigExp, tooltip = "CC itself is a 3-bar, engulfing C1's entire range. Represents range expansion and volatility. Its color follows close vs open (3u = bullish, 3d = bearish). It is in force bull while price is above C1's high and bear while below C1's low; back inside C1 it is contested and not in force.")
 threeExpRequireFTFC = input.bool(false, "FTFC", inline = "s_ob", group = grpSigExp, tooltip = "FTFC filter: Require all monitored timeframes to agree on direction. Removes setups that fight the broader structural alignment, keeping only those swimming with the current.")
 
 // -------------------- FILTERS --------------------
@@ -759,6 +763,8 @@ type DebugInfo
     bool t_cont22_l = false
     bool t_exp32_h = false
     bool t_exp32_l = false
+    bool t_exp3_h = false
+    bool t_exp3_l = false
     bool t_f2_h = false
     bool t_f2_l = false
     bool drawHigh = false
@@ -1527,7 +1533,7 @@ computeSignalState(data, tf, raw, showOpen, populateDebug, debugTfStr, synthetic
             // (shouldDrawC1Level treats flat C2 as a reversal). The old strict c2_closed_down/c2_closed_up
             // left flat-C2 inside reversals drawn + alerting but never marked in-force, so the table, the
             // sticky stop latch, and the "only when in force" target/TAW gates all disagreed with the line.
-            // FEATURE DEBUG-TERMS-1: the seven in-force terms are named rather than inlined into one
+            // FEATURE DEBUG-TERMS-1: the in-force terms are named rather than inlined into one
             // expression, so the debug panel reports the same booleans the signal is built from and
             // cannot drift out of sync with this line the way a re-derived copy would.
             t_insideRev_h  = isInside and not c2_closed_up and cc_is_2u
@@ -1537,6 +1543,14 @@ computeSignalState(data, tf, raw, showOpen, populateDebug, debugTfStr, synthetic
             t_cont22_h     = showContinuations and c1_was_2u and cc_is_2u and twotwo_cont_high_passes_momo   // FIX CONT22-PRIOR-1: `and not c2_was_3` removed, matching the draw branch
             t_exp32_h      = showRangeExpansions and c1_is_3 and cc_is_2u
             t_f2_h         = show_p3_toggle and is_f2d and p3_high_passes_ftfc
+            // FIX OUTSIDE-IF-1 (2026-11-05): an outside bar (3) has broken both sides of C1, so it is
+            // in force toward the side it closes beyond: above C1's high is bull, below C1's low is
+            // bear, closed back inside C1 is neither. The "price beyond trigger" half comes from
+            // currently_above/below_trigger below, and the FTFC gate from drawHigh/drawLow
+            // (shouldDrawC1Level's 3 branch), exactly as for every other term. Before this, a 3 only
+            // got through on the hammer/shooter path, so the Lead Signal and stops ignored it while
+            // the data table lit the timeframe on any enabled 3.
+            t_exp3_h       = show3Expansions and cc_is_3
             t_insideRev_l  = isInside and not c2_closed_down and cc_is_2d
             t_insideCont_l = inside_bearish and showInsideContinuations and inside_cont_low_passes_momo and cc_is_2d
             t_hamSho_l     = shooter_shows and cc_broke_low
@@ -1544,8 +1558,9 @@ computeSignalState(data, tf, raw, showOpen, populateDebug, debugTfStr, synthetic
             t_cont22_l     = showContinuations and c1_was_2d and cc_is_2d and twotwo_cont_low_passes_momo   // FIX CONT22-PRIOR-1: as t_cont22_h
             t_exp32_l      = showRangeExpansions and c1_is_3 and cc_is_2d
             t_f2_l         = show_p3_toggle and is_f2u and p3_low_passes_ftfc
-            signal_in_force_high = t_insideRev_h or t_insideCont_h or t_hamSho_h or t_rev22_h or t_cont22_h or t_exp32_h or t_f2_h
-            signal_in_force_low = t_insideRev_l or t_insideCont_l or t_hamSho_l or t_rev22_l or t_cont22_l or t_exp32_l or t_f2_l
+            t_exp3_l       = show3Expansions and cc_is_3
+            signal_in_force_high = t_insideRev_h or t_insideCont_h or t_hamSho_h or t_rev22_h or t_cont22_h or t_exp32_h or t_exp3_h or t_f2_h
+            signal_in_force_low = t_insideRev_l or t_insideCont_l or t_hamSho_l or t_rev22_l or t_cont22_l or t_exp32_l or t_exp3_l or t_f2_l
             // For directional filter, signal is only "currently in force" if price is still beyond the trigger
             currently_above_trigger = tfC > data.prevHigh
             currently_below_trigger = tfC < data.prevLow
@@ -1718,6 +1733,8 @@ computeSignalState(data, tf, raw, showOpen, populateDebug, debugTfStr, synthetic
                 debugData.t_cont22_l := t_cont22_l
                 debugData.t_exp32_h := t_exp32_h
                 debugData.t_exp32_l := t_exp32_l
+                debugData.t_exp3_h := t_exp3_h
+                debugData.t_exp3_l := t_exp3_l
                 debugData.t_f2_h := t_f2_h
                 debugData.t_f2_l := t_f2_l
                 debugData.drawHigh := drawHigh
@@ -2686,11 +2703,12 @@ populateBarTypeRow(table tbl, int row, string tf, TimeframeData data, TFRawData 
         isInForce = colorTFWhenInForce and (isBullInForce or isBearInForce)
         // FIX TFCOLOR-1 (2026-07-07): an inside bar (1u/1d) is by definition NOT in force, so it must
         // not highlight the TF column under "Color TF When In-Force". The old ccIsInsideBar term lit the
-        // TF on every inside bar (the common case) - "coloring everything". In force = a live 2/F2 signal
-        // (isInForce, from signalInForceHigh/Low) OR an enabled outside-bar (3) expansion, which IS in
-        // force by definition (broke both C1 sides). Inside bars remain colored in the CC cell only.
-        bool ccIs3Exp = colorTFWhenInForce and show3Expansions and str.startswith(barType_CC, "3")
-        bool highlightTF = isInForce or ccIs3Exp
+        // TF on every inside bar (the common case) - "coloring everything". Inside bars remain colored
+        // in the CC cell only.
+        // FIX OUTSIDE-IF-1 (2026-11-05): the separate "any enabled 3" term is gone. signalInForceHigh/Low
+        // now count an outside bar closing beyond C1 (t_exp3_h/l), so the table, Lead Signal and stops
+        // share one rule; a 3 that closed back inside C1 (contested) stays dark.
+        bool highlightTF = isInForce
         tfBgColor = highlightTF ? getBarTypeColor(barType_CC) : #111111
         tfTextColor = highlightTF ? color.black : color.white
         table.cell(tbl, 0, row, tfLabelStr, text_color = tfTextColor, bgcolor = tfBgColor, text_size = sz)
@@ -2869,11 +2887,9 @@ if barstate.islast and showBarTypeTable and not na(barTypeTable)
                         cellText := ccTypeCompact != "" ? color.black : color.white
                     else
                         // Mirrors the Full table's TF column: colored only while a signal is in
-                        // force, or on an enabled outside bar (in force by definition). Same rule
-                        // as FIX TFCOLOR-1 - an inside bar is not in force and stays dark.
-                        bool inForceCompact = result.signalInForceHigh or result.signalInForceLow
-                        bool ccIs3ExpCompact = show3Expansions and str.startswith(ccTypeCompact, "3")
-                        bool highlightCompact = inForceCompact or ccIs3ExpCompact
+                        // force (FIX TFCOLOR-1, FIX OUTSIDE-IF-1). An inside bar, or a 3 that
+                        // closed back inside C1, is not in force and stays dark.
+                        bool highlightCompact = result.signalInForceHigh or result.signalInForceLow
                         cellBg := highlightCompact ? getBarTypeColor(ccTypeCompact) : #111111
                         cellText := highlightCompact ? color.black : color.white
                 table.cell(barTypeTable, col, 0, tfLabelStr, text_color = cellText, bgcolor = cellBg, text_size = textSize)
@@ -2962,7 +2978,7 @@ debugPair(t, c, r, label, h, l) =>
 
 var table debugTable = na
 if barstate.isfirst and showDebugPanel
-    debugTable := table.new(position.middle_left, 4, 26, bgcolor = color.new(#0d0d0d, 0), frame_color = color.orange, frame_width = 2, border_color = color.new(#333333, 0), border_width = 1)
+    debugTable := table.new(position.middle_left, 4, 27, bgcolor = color.new(#0d0d0d, 0), frame_color = color.orange, frame_width = 2, border_color = color.new(#333333, 0), border_width = 1)
 
 if barstate.islast and showDebugPanel and not na(debugTable)
     dbg = debugData
@@ -3005,22 +3021,23 @@ if barstate.islast and showDebugPanel and not na(debugTable)
     debugPair(debugTable, 2, 7, "2-2 Rev", dbg.t_rev22_h, dbg.t_rev22_l)
     debugPair(debugTable, 2, 8, "2-2 Cont", dbg.t_cont22_h, dbg.t_cont22_l)
     debugPair(debugTable, 2, 9, "3-2 Exp", dbg.t_exp32_h, dbg.t_exp32_l)
-    debugPair(debugTable, 2, 10, "Failing 2", dbg.t_f2_h, dbg.t_f2_l)
-    debugHdr(debugTable, 2, 11, "Gates")
-    debugRow(debugTable, 2, 12, "hammer_shows", dbg.hammer_shows)
-    debugRow(debugTable, 2, 13, "shooter_shows", dbg.shooter_shows)
-    debugRow(debugTable, 2, 14, "ftfc_up", dbg.ftfc_up)
-    debugRow(debugTable, 2, 15, "ftfc_down", dbg.ftfc_down)
-    debugHdr(debugTable, 2, 16, "Draw Decisions")
-    debugRow(debugTable, 2, 17, "drawHigh", dbg.drawHigh)
-    debugRow(debugTable, 2, 18, "drawLow", dbg.drawLow)
-    debugRow(debugTable, 2, 19, "drawMagHigh", dbg.drawMagHigh)
-    debugRow(debugTable, 2, 20, "drawMagLow", dbg.drawMagLow)
-    debugRow(debugTable, 2, 21, "drawExhHigh", dbg.drawExhHigh)
-    debugRow(debugTable, 2, 22, "drawExhLow", dbg.drawExhLow)
-    debugHdr(debugTable, 2, 23, "Magnitude")
-    debugPair(debugTable, 2, 24, "force_mag", dbg.force_mag_high, dbg.force_mag_low)
-    debugPair(debugTable, 2, 25, "mag_ftfc", dbg.mag_high_passes_ftfc, dbg.mag_low_passes_ftfc)
+    debugPair(debugTable, 2, 10, "Outside 3", dbg.t_exp3_h, dbg.t_exp3_l)
+    debugPair(debugTable, 2, 11, "Failing 2", dbg.t_f2_h, dbg.t_f2_l)
+    debugHdr(debugTable, 2, 12, "Gates")
+    debugRow(debugTable, 2, 13, "hammer_shows", dbg.hammer_shows)
+    debugRow(debugTable, 2, 14, "shooter_shows", dbg.shooter_shows)
+    debugRow(debugTable, 2, 15, "ftfc_up", dbg.ftfc_up)
+    debugRow(debugTable, 2, 16, "ftfc_down", dbg.ftfc_down)
+    debugHdr(debugTable, 2, 17, "Draw Decisions")
+    debugRow(debugTable, 2, 18, "drawHigh", dbg.drawHigh)
+    debugRow(debugTable, 2, 19, "drawLow", dbg.drawLow)
+    debugRow(debugTable, 2, 20, "drawMagHigh", dbg.drawMagHigh)
+    debugRow(debugTable, 2, 21, "drawMagLow", dbg.drawMagLow)
+    debugRow(debugTable, 2, 22, "drawExhHigh", dbg.drawExhHigh)
+    debugRow(debugTable, 2, 23, "drawExhLow", dbg.drawExhLow)
+    debugHdr(debugTable, 2, 24, "Magnitude")
+    debugPair(debugTable, 2, 25, "force_mag", dbg.force_mag_high, dbg.force_mag_low)
+    debugPair(debugTable, 2, 26, "mag_ftfc", dbg.mag_high_passes_ftfc, dbg.mag_low_passes_ftfc)
 
 // ============================================================================
 // SECTION 13: ALERTS

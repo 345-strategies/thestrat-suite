@@ -102,7 +102,7 @@ One row per enabled timeframe, five columns (`populateBarTypeRow`):
 
 | Column | Contents |
 |---|---|
-| **TF** | The timeframe label. Its background lights up in the CC bar-type color when a signal is **in force** on that timeframe — a live 2/F2 signal or an enabled outside-bar expansion. Inside bars never light it (`FIX TFCOLOR-1`): an inside bar is by definition *not* in force. |
+| **TF** | The timeframe label. Its background lights up in the CC bar-type color when a signal is **in force** on that timeframe — a live 2/F2 signal or an enabled outside bar closing beyond `C1` (`OUTSIDE-IF-1`). Inside bars never light it (`FIX TFCOLOR-1`): an inside bar is by definition *not* in force. |
 | **C2** | Two bars back, completed — colored text on black |
 | **C1** | The prior bar, completed — colored text on black |
 | **AS** | Actionable signal on C1: `HAM`, `SHO`, or `INS` (inside), else blank |

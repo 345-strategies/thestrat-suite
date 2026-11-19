@@ -57,6 +57,8 @@ Note the two-layer design: **detection** (Advanced → Failing 2 Detection, on b
 
 `CC` itself takes both sides of `C1`. Direction from close vs open (`3u`/`3d`). This is volatility expansion, not a directional setup in the classic sense — magnitude/exhaustion targets for it are separately toggleable under Advanced.
 
+In force: a 3 is in force bull while price is above `C1`'s high and bear while below `C1`'s low. Back inside `C1` it is contested (an F3) and not in force. That one rule feeds the Lead Signal, stops and the data table (`OUTSIDE-IF-1`).
+
 ---
 
 ## Cross-cutting filters
