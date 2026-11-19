@@ -1,6 +1,6 @@
 # TheStrat Suite EZ Mode - Learn TheStrat
 
-TheStrat Suite with 15 settings instead of 139, plus hover text that explains what is on
+TheStrat Suite with 16 settings instead of 139, plus hover text that explains what is on
 the chart. It is for people who are new to TheStrat or who want the Suite's read without the
 setup. TheStrat was created by Rob Smith.
 
@@ -14,7 +14,10 @@ Status: v0.1.0, not yet published on TradingView.
   Expansions are optional and have no filters.
 - Magnitude and exhaustion targets, Take Action Windows, stops (on by default), Preview Mode.
 - Bar numbers on the last 50 chart candles (on by default).
-- The data table, with an **Explain Row** that sums it up in plain English.
+- The data table in one of two styles. **Simple** (default) has one line per timeframe:
+  Before (the bar or bars leading in, with HAM or SHO), then Now (the current bar,
+  highlighted). Read together they are the combo. **Detailed** is the Suite's five-column table.
+- An **Explain Row** under the table that sums it up in plain English.
 - Alerts: Signal In-Force (Any, Bullish, Bearish), New Potential, and the four FTFC alerts.
 
 ## The teaching layer
