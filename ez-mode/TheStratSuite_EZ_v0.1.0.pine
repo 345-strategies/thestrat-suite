@@ -374,7 +374,7 @@ showBarTypeTable = input.bool(true, "Data Table", inline = "ez_tbl", group = grp
 tableMode = "Full"
 compactCellColor = "Bar State"
 tablePosition = input.string("Top Right", "", options = ["Bottom Center", "Bottom Left", "Bottom Right", "Middle Center", "Middle Left", "Middle Right", "Top Center", "Top Left", "Top Right"], inline = "ez_tbl", group = grpEZChart)
-ezTableStyle = input.string("Simple", "Table Style", options = ["Simple", "Detailed"], group = grpEZChart, tooltip = "Simple: one line per timeframe showing the combo, oldest bar first, with the current bar highlighted at the end. Trend shows whether each timeframe is trading above or below its open, and AS shows HAM, SHO or INS when the bar before the current one is a hammer, a shooter or an inside bar. The Explain Row names any hammer or shooter and the bar it is on. Detailed: the full Suite table with a column each for C2, C1, the actionable signal and the current candle.")
+ezTableStyle = input.string("Simple", "Table Style", options = ["Simple", "Detailed"], group = grpEZChart, tooltip = "Simple: one line per timeframe showing the combo, oldest bar first, with the current bar highlighted at the end. TFC shows whether each timeframe is trading above or below its open, and AS shows HAM, SHO or INS when the bar before the current one is a hammer, a shooter or an inside bar. The Explain Row names any hammer or shooter and the bar it is on. Detailed: the full Suite table with a column each for C2, C1, the actionable signal and the current candle.")
 ezSimpleTable = ezTableStyle == "Simple"
 ezLastCol = 4
 ezExplain = input.bool(true, "Explain Row", group = grpEZChart, tooltip = "Adds a short plain-English summary under the table: whether the timeframes agree, the higher timeframe trend, what is in force and the next trigger with that trend. Turn it off once you can read the table on your own.")
@@ -2832,8 +2832,8 @@ populateBarTypeRow(table tbl, int row, string tf, TimeframeData data, TFRawData 
         ccTextColor = ccUnknown ? color.yellow : barType_CC != "" ? color.black : color.white
         table.cell(tbl, 4, row, ccDisplayText, text_color = ccTextColor, bgcolor = ccBgColor, text_size = sz, tooltip = ccUnknown ? "Preview Mode: the next " + tfLabelStr + " bar has not started trading, so there is nothing to read yet." : "CC, the current bar. " + ezBarTip(barType_CC, tfLabelStr, true))
         if ezSimpleTable
-            // EZ-MODE: Simple table. TF | Trend | Combo | AS.
-            // Trend: is this timeframe trading above or below its own open (what FTFC compares).
+            // EZ-MODE: Simple table. TF | TFC | Combo | AS.
+            // TFC: is this timeframe trading above or below its own open (what FTFC compares).
             // Combo reads across two cells that sit flush: the bars leading in (right-aligned,
             // ending in a dash) and the current bar (left-aligned, in its bar color).
             // AS: the actionable signal on the bar before the current one (HAM, SHO, INS).
@@ -3058,7 +3058,7 @@ if barstate.islast and showBarTypeTable and not na(barTypeTable)
         table.cell(barTypeTable, 4, 0, "CC", text_color = #888888, bgcolor = #1a1a1a, text_size = textSize, tooltip = "CC = the current candle on each timeframe, still forming. Read C2, C1, CC left to right to get the combo, for example 2d-2u.")
         if ezSimpleTable
             table.clear(barTypeTable, 1, 0, 4, 0)
-            table.cell(barTypeTable, 1, 0, "Trend", text_color = #888888, bgcolor = #1a1a1a, text_size = textSize, tooltip = "Trend = is each timeframe trading above its open (▲ up) or below it (▼ down). Read down the column: when every arrow points the same way, the timeframes agree. That is Full Timeframe Continuity. The rows at the top are the higher timeframes, and they set the trend the lower ones trade into.")
+            table.cell(barTypeTable, 1, 0, "TFC", text_color = #888888, bgcolor = #1a1a1a, text_size = textSize, tooltip = "TFC = Timeframe Continuity: is each timeframe trading above its open (▲ up) or below it (▼ down). Read down the column: when every arrow points the same way, the timeframes agree. That is Full Timeframe Continuity. The rows at the top are the higher timeframes, and they set the trend the lower ones trade into.")
             table.merge_cells(barTypeTable, 2, 0, 3, 0)
             table.cell(barTypeTable, 2, 0, "Combo", text_color = #888888, bgcolor = #1a1a1a, text_size = textSize, tooltip = "Combo = the last few bars on each timeframe, oldest first. The highlighted bar at the end is the current one, still forming. Every bar is a 1 (took neither side of the bar before it), a 2 (2u took the high, 2d took the low) or a 3 (took both). So 3-1-2u is an outside bar, an inside bar, then the current bar breaking up. Hover a row for its read.")
             table.cell(barTypeTable, 4, 0, "AS", text_color = #888888, bgcolor = #1a1a1a, text_size = textSize, tooltip = "AS = actionable signal. It describes the bar before the current one, the last bar in the combo that has closed: HAM (hammer), SHO (shooter) or INS (inside bar). A break of that bar is the trigger. Blank when there is none. A timeframe with a signal in force lights up its TF cell.")

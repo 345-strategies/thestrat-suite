@@ -16,7 +16,7 @@ Status: v0.1.0, not yet published on TradingView.
 - Magnitude and exhaustion targets, Take Action Windows, stops (off by default), Preview Mode.
 - Bar numbers on the last 50 chart candles (on by default).
 - The data table in one of two styles. **Simple** (default) has one line per timeframe,
-  built around what a beginner is asking. **Trend**: an arrow for whether the timeframe is
+  built around what a beginner is asking. **TFC** (timeframe continuity): an arrow for whether the timeframe is
   trading above or below its open, so matching arrows down the column mean the timeframes
   agree. **Combo**: oldest bar first, with the current bar highlighted at the end (3-1-2u).
   **AS** (actionable signal): HAM, SHO or INS when the bar before the current one is a
