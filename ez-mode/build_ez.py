@@ -79,6 +79,7 @@ def style_tf(classic: str, day: str, swing: str, invest: str, custom: str) -> st
 
 OVERRIDES: dict[str, str] = {
     "tfPreset": SETUP_BLOCK,
+    "includeChartTF": 'includeChartTF = input.bool(true, "Add Chart Timeframe", group = grpEZSetup, tooltip = "Adds the timeframe you are viewing as a fifth timeframe, so the candles on your chart get their own levels and a row in the table. It follows the chart when you change timeframes. If the chart timeframe is already one of your four, nothing changes.")',
     "labelStyleMode": 'labelStyleMode = input.string("Strat Numbers", "Labels", options = ["Strat Numbers", "Plain Words"], group = grpEZSetup, tooltip = "Strat Numbers: labels use Strat notation, for example 2d-2u, MAG and EXH. Plain Words: words instead. TARGET is magnitude, FINAL is exhaustion, REV is a reversal, CONT a continuation, INS an inside bar break, EXP an expansion, OUT an outside bar.")',
     # Four slots on, lowest to highest; slots 5 and 6 stay off.
     "tf1Enabled": "tf1Enabled = true",
@@ -104,10 +105,10 @@ OVERRIDES: dict[str, str] = {
     "previewMode": 'previewMode = input.string("Auto", "Preview Mode", options = ["Off", "On", "Auto"], group = grpEZChart, tooltip = "Auto: when the market is closed, shows the levels for the next bar so you can plan ahead. The table says PREVIEW MODE while it is on. Off: never preview. Use Off with Bar Replay. On: always preview.")',
     "showBarTypeTable": 'showBarTypeTable = input.bool(true, "Data Table", inline = "ez_tbl", group = grpEZChart, tooltip = "The table of timeframes. Hover any cell for a plain-English read of what it means right now.")',
     "tablePosition": 'tablePosition = input.string("Top Right", "", options = ["Bottom Center", "Bottom Left", "Bottom Right", "Middle Center", "Middle Left", "Middle Right", "Top Center", "Top Left", "Top Right"], inline = "ez_tbl", group = grpEZChart)\n'
-                     'ezTableStyle = input.string("Simple", "Table Style", options = ["Simple", "Detailed"], group = grpEZChart, tooltip = "Simple: one line per timeframe showing the combo, oldest bar first, with the current bar highlighted at the end. If the bar before the current one is a hammer or shooter, the Prior column says so. Detailed: the full Suite table with a column each for C2, C1, the actionable signal and the current candle.")\n'
+                     'ezTableStyle = input.string("Simple", "Table Style", options = ["Simple", "Detailed"], group = grpEZChart, tooltip = "Simple: one line per timeframe showing the combo, oldest bar first, with the current bar highlighted at the end. Trend shows whether each timeframe is trading above or below its open, and Setup shows what is in force or setting up. Detailed: the full Suite table with a column each for C2, C1, the actionable signal and the current candle.")\n'
                      'ezSimpleTable = ezTableStyle == "Simple"\n'
-                     'ezLastCol = ezSimpleTable ? 3 : 4\n'
-                     'ezExplain = input.bool(true, "Explain Row", group = grpEZChart, tooltip = "Adds a short plain-English summary under the table: which way the timeframes lean and what is in force. Turn it off once you can read the table on your own.")',
+                     'ezLastCol = 4\n'
+                     'ezExplain = input.bool(true, "Explain Row", group = grpEZChart, tooltip = "Adds a short plain-English summary under the table: whether the timeframes agree, the higher timeframe trend, what is in force and the next trigger with that trend. Turn it off once you can read the table on your own.")',
     "showBarNumbers": 'showBarNumbers = input.bool(true, "Bar Numbers", group = grpEZChart, tooltip = "Prints each candle\'s Strat number on the last 50 bars. 1: inside bar, took neither side of the bar before it. 2u: took the prior high. 2d: took the prior low. 3: outside bar, took both. F2u and F2d: a Failing 2, a 2 trading back through its own open.")',
 }
 
@@ -256,11 +257,6 @@ PATCHES: list[tuple[str, str]] = [
     ("        table.cell(tbl, 0, row, tfLabelStr, text_color = #555555, bgcolor = #111111, text_size = sz)\n",
      "        table.cell(tbl, 0, row, tfLabelStr, text_color = #555555, bgcolor = #111111, text_size = sz, tooltip = tfLabelStr + \" is a lower timeframe than this chart, so it cannot be read here. Switch the chart to \" + tfLabelStr + \" or lower to see it.\")\n"),
 
-    ("        table.cell(tbl, 4, row, \"\", text_color = color.gray, bgcolor = COLOR_BG_BLACK, text_size = sz)\n",
-     "        table.cell(tbl, 4, row, \"\", text_color = color.gray, bgcolor = COLOR_BG_BLACK, text_size = sz)\n"
-     "        if ezSimpleTable  // EZ-MODE: the Simple table has four columns\n"
-     "            table.clear(tbl, 4, row, 4, row)\n"),
-
     # Data table: every cell in a timeframe row carries a live read.
     ("        table.cell(tbl, 0, row, tfLabelStr, text_color = tfTextColor, bgcolor = tfBgColor, text_size = sz)\n"
      "        table.cell(tbl, 1, row, barType_C2, text_color = getBarTypeTextColor(barType_C2), bgcolor = COLOR_BG_BLACK, text_size = sz)\n"
@@ -279,30 +275,52 @@ PATCHES: list[tuple[str, str]] = [
      "        table.cell(tbl, 3, row, asText, text_color = color.white, bgcolor = COLOR_BG_BLACK, text_size = sz, tooltip = ezAsTip)\n"),
     ("        table.cell(tbl, 4, row, ccDisplayText, text_color = ccTextColor, bgcolor = ccBgColor, text_size = sz)\n",
      "        table.cell(tbl, 4, row, ccDisplayText, text_color = ccTextColor, bgcolor = ccBgColor, text_size = sz, tooltip = ccUnknown ? \"Preview Mode: the next \" + tfLabelStr + \" bar has not started trading, so there is nothing to read yet.\" : \"CC, the current bar. \" + ezBarTip(barType_CC, tfLabelStr, true))\n"
-     "        if ezSimpleTable\n"
-     "            // EZ-MODE: Simple table. The combo reads across two cells that sit flush: the bars\n"
-     "            // leading in (right-aligned, ending in a dash) and the current bar (left-aligned,\n"
-     "            // in its bar color). A hammer or shooter on C1 goes in its own Prior column so it\n"
-     "            // does not split the combo.\n"
-     "            // C2 is named only when it is part of the combo: an inside C1 (2-1-2, 3-1-2), or\n"
-     "            // a 1 or 3 ahead of a 2 (1-2-2, 3-2-2), the same rule the level labels use.\n"
-     "            string ezC1 = ezPlain(barType_C1)\n"
-     "            string ezC2 = ezPlain(barType_C2)\n"
-     "            bool ezC1Is2 = str.contains(ezC1, \"2\")\n"
-     "            bool ezNeedC2 = ezC2 != \"\" and (ezC1 == \"1\" or (ezC1Is2 and (ezC2 == \"1\" or ezC2 == \"3\")))\n"
-     "            string ezBefore = (ezNeedC2 ? ezC2 + \"-\" : \"\") + ezC1\n"
-     "            string ezShape = data.c1IsHammer ? \"Hammer\" : data.c1IsShooter ? \"Shooter\" : \"\"\n"
-     "            string ezNow = ccUnknown ? \"?\" : ezPlain(barType_CC)\n"
-     "            string ezName = ezComboName(ezBefore + ezNow)\n"
-     "            string ezCombo = ezBefore + \"-\" + ezNow\n"
-     "            string ezRead = \"The \" + tfLabelStr + \" combo is \" + ezCombo + \". Read it left to right, oldest bar first. The highlighted bar at the end is the current one, still forming.\" + (ezNow == \"1\" ? \" It is waiting on the current bar to break one side.\" : ezName != \"combo\" ? \" That is a \" + ezName + \".\" : \"\")\n"
-     "            string ezBeforeTip = ezRead + \" The bar before the current one: \" + ezBarTip(barType_C1, tfLabelStr, false)\n"
-     "            string ezShapeTip = data.c1IsHammer ? \"The \" + tfLabelStr + \" bar before the current one is a hammer: a long lower wick and a close near its high. Sellers pushed down and lost. A break above its high is the trigger.\" : data.c1IsShooter ? \"The \" + tfLabelStr + \" bar before the current one is a shooter: a long upper wick and a close near its low. Buyers pushed up and lost. A break below its low is the trigger.\" : \"Shows Hammer or Shooter when the \" + tfLabelStr + \" bar before the current one is one. Blank otherwise.\"\n"
-     "            string ezNowTip = ccUnknown ? \"Preview Mode: the next \" + tfLabelStr + \" bar has not started trading, so there is nothing to read yet.\" : ezRead + \" The current bar: \" + ezBarTip(barType_CC, tfLabelStr, true)\n"
-     "            table.clear(tbl, 1, row, 4, row)\n"
-     "            table.cell(tbl, 1, row, ezBefore + \"-\", text_color = #b2b5be, bgcolor = COLOR_BG_BLACK, text_size = sz, text_halign = text.align_right, tooltip = ezBeforeTip)\n"
-     "            table.cell(tbl, 2, row, ezNow, text_color = ccTextColor, bgcolor = ccBgColor, text_size = sz, text_halign = text.align_left, tooltip = ezNowTip)\n"
-     "            table.cell(tbl, 3, row, ezShape, text_color = color.white, bgcolor = COLOR_BG_BLACK, text_size = sz, tooltip = ezShapeTip)\n"),
+     '        if ezSimpleTable\n'
+     '            // EZ-MODE: Simple table. TF | Trend | Combo | Setup.\n'
+     '            // Trend: is this timeframe trading above or below its own open (what FTFC compares).\n'
+     '            // Combo reads across two cells that sit flush: the bars leading in (right-aligned,\n'
+     '            // ending in a dash) and the current bar (left-aligned, in its bar color).\n'
+     '            // Setup: what is in force, or the shape of the bar before the current one.\n'
+     '            // C2 is named only when it is part of the combo: an inside C1 (2-1-2, 3-1-2), or\n'
+     '            // a 1 or 3 ahead of a 2 (1-2-2, 3-2-2), the same rule the level labels use.\n'
+     '            string ezC1 = ezPlain(barType_C1)\n'
+     '            string ezC2 = ezPlain(barType_C2)\n'
+     '            bool ezC1Is2 = str.contains(ezC1, "2")\n'
+     '            bool ezNeedC2 = ezC2 != "" and (ezC1 == "1" or (ezC1Is2 and (ezC2 == "1" or ezC2 == "3")))\n'
+     '            string ezBefore = (ezNeedC2 ? ezC2 + "-" : "") + ezC1\n'
+     '            string ezNow = ccUnknown ? "?" : ezPlain(barType_CC)\n'
+     '            string ezName = ezComboName(ezBefore + ezNow)\n'
+     '            string ezCombo = ezBefore + "-" + ezNow\n'
+     '            string ezRead = "The " + tfLabelStr + " combo is " + ezCombo + ". Read it left to right, oldest bar first. The highlighted bar at the end is the current one, still forming." + (ezNow == "1" ? " It is waiting on the current bar to break one side." : ezName != "combo" ? " That is a " + ezName + "." : "")\n'
+     '            string ezBeforeTip = ezRead + " The bar before the current one: " + ezBarTip(barType_C1, tfLabelStr, false)\n'
+     '            string ezNowTip = ccUnknown ? "Preview Mode: the next " + tfLabelStr + " bar has not started trading, so there is nothing to read yet." : ezRead + " The current bar: " + ezBarTip(barType_CC, tfLabelStr, true)\n'
+     '            bool ezBarUp = raw.ccC > raw.ccO\n'
+     '            string ezTrend = ccUnknown ? "?" : ezBarUp ? "▲" : "▼"\n'
+     '            color ezTrendColor = ccUnknown ? color.yellow : ezBarUp ? color.green : color.red\n'
+     '            string ezTrendTip = ccUnknown ? "Preview Mode: the next " + tfLabelStr + " bar has not started trading, so it has no direction yet." : "The current " + tfLabelStr + " bar is trading " + (ezBarUp ? "above" : "below") + " its open (" + str.tostring(raw.ccO, format.mintick) + "), so " + tfLabelStr + " is " + (ezBarUp ? "up" : "down") + " for now. When every arrow in this column points the same way, the timeframes agree. That is Full Timeframe Continuity."\n'
+     '            string ezShape = data.c1IsHammer ? "Hammer" : data.c1IsShooter ? "Shooter" : data.c1IsInside ? "Inside" : ""\n'
+     '            string ezSetup = ezShape\n'
+     '            color ezSetupColor = color.white\n'
+     '            string ezSetupTip = "Nothing is in force or setting up on " + tfLabelStr + " right now. This cell shows In force when a signal triggers, or Hammer, Shooter or Inside when the bar before the current one is a setup to watch."\n'
+     '            if data.c1IsHammer\n'
+     '                ezSetupTip := "Setup: the " + tfLabelStr + " bar before the current one is a hammer, a long lower wick and a close near its high. Sellers pushed down and lost. The trigger is a break above its high (" + str.tostring(raw.c1H, format.mintick) + ")."\n'
+     '            else if data.c1IsShooter\n'
+     '                ezSetupTip := "Setup: the " + tfLabelStr + " bar before the current one is a shooter, a long upper wick and a close near its low. Buyers pushed up and lost. The trigger is a break below its low (" + str.tostring(raw.c1L, format.mintick) + ")."\n'
+     '            else if data.c1IsInside\n'
+     '                ezSetupTip := "Setup: the " + tfLabelStr + " bar before the current one is an inside bar. Price paused. The triggers are a break above its high (" + str.tostring(raw.c1H, format.mintick) + ") or below its low (" + str.tostring(raw.c1L, format.mintick) + ")."\n'
+     '            if isBullInForce\n'
+     '                ezSetup := "In force ▲"\n'
+     '                ezSetupColor := color.green\n'
+     '                ezSetupTip := tfLabelStr + " has a signal in force to the upside: price broke above the trigger (" + str.tostring(pResult.high, format.mintick) + ") and is holding above it." + (ezShape != "" ? " The bar it broke was " + (ezShape == "Inside" ? "an inside bar." : "a " + str.lower(ezShape) + ".") : "") + " It stays in force while price holds above the trigger and the " + tfLabelStr + " bar is open."\n'
+     '            else if isBearInForce\n'
+     '                ezSetup := "In force ▼"\n'
+     '                ezSetupColor := color.red\n'
+     '                ezSetupTip := tfLabelStr + " has a signal in force to the downside: price broke below the trigger (" + str.tostring(pResult.low, format.mintick) + ") and is holding below it." + (ezShape != "" ? " The bar it broke was " + (ezShape == "Inside" ? "an inside bar." : "a " + str.lower(ezShape) + ".") : "") + " It stays in force while price holds below the trigger and the " + tfLabelStr + " bar is open."\n'
+     '            table.clear(tbl, 1, row, 4, row)\n'
+     '            table.cell(tbl, 1, row, ezTrend, text_color = ezTrendColor, bgcolor = COLOR_BG_BLACK, text_size = sz, tooltip = ezTrendTip)\n'
+     '            table.cell(tbl, 2, row, ezBefore + "-", text_color = #b2b5be, bgcolor = COLOR_BG_BLACK, text_size = sz, text_halign = text.align_right, tooltip = ezBeforeTip)\n'
+     '            table.cell(tbl, 3, row, ezNow, text_color = ccTextColor, bgcolor = ccBgColor, text_size = sz, text_halign = text.align_left, tooltip = ezNowTip)\n'
+     '            table.cell(tbl, 4, row, ezSetup, text_color = ezSetupColor, bgcolor = COLOR_BG_BLACK, text_size = sz, tooltip = ezSetupTip)\n'),
 
     # Data table: header glossary.
     ('        table.cell(barTypeTable, 0, 0, "TF", text_color = #888888, bgcolor = #1a1a1a, text_size = textSize)\n'
@@ -317,12 +335,20 @@ PATCHES: list[tuple[str, str]] = [
      '        table.cell(barTypeTable, 4, 0, "CC", text_color = #888888, bgcolor = #1a1a1a, text_size = textSize, tooltip = "CC = the current candle on each timeframe, still forming. Read C2, C1, CC left to right to get the combo, for example 2d-2u.")\n'
      '        if ezSimpleTable\n'
      '            table.clear(barTypeTable, 1, 0, 4, 0)\n'
-     '            table.merge_cells(barTypeTable, 1, 0, 2, 0)\n'
-     '            table.cell(barTypeTable, 1, 0, "Combo", text_color = #888888, bgcolor = #1a1a1a, text_size = textSize, tooltip = "Combo = the last few bars on each timeframe, oldest first. The highlighted bar at the end is the current one, still forming. Every bar is a 1 (took neither side of the bar before it), a 2 (2u took the high, 2d took the low) or a 3 (took both). So 3-1-2u is an outside bar, an inside bar, then the current bar breaking up. Hover a row for its read.")\n'
-     '            table.cell(barTypeTable, 3, 0, "Prior", text_color = #888888, bgcolor = #1a1a1a, text_size = textSize, tooltip = "Prior = the shape of the bar before the current one, when it matters: Hammer (long lower wick, closed near its high) or Shooter (long upper wick, closed near its low). Blank otherwise.")\n'
+     '            table.cell(barTypeTable, 1, 0, "Trend", text_color = #888888, bgcolor = #1a1a1a, text_size = textSize, tooltip = "Trend = is each timeframe trading above its open (▲ up) or below it (▼ down). Read down the column: when every arrow points the same way, the timeframes agree. That is Full Timeframe Continuity. The rows at the top are the higher timeframes, and they set the trend the lower ones trade into.")\n'
+     '            table.merge_cells(barTypeTable, 2, 0, 3, 0)\n'
+     '            table.cell(barTypeTable, 2, 0, "Combo", text_color = #888888, bgcolor = #1a1a1a, text_size = textSize, tooltip = "Combo = the last few bars on each timeframe, oldest first. The highlighted bar at the end is the current one, still forming. Every bar is a 1 (took neither side of the bar before it), a 2 (2u took the high, 2d took the low) or a 3 (took both). So 3-1-2u is an outside bar, an inside bar, then the current bar breaking up. Hover a row for its read.")\n'
+     '            table.cell(barTypeTable, 4, 0, "Setup", text_color = #888888, bgcolor = #1a1a1a, text_size = textSize, tooltip = "Setup = is this timeframe actionable. In force: a signal has triggered and price is holding beyond its trigger. Hammer, Shooter or Inside: the bar before the current one is a setup, and a break of its high or low is the trigger. Blank: nothing to act on here yet. Hover a row for the trigger price.")\n'
      '        string ezUp = ""\n'
      '        string ezDn = ""\n'
-     '        string ezIn = ""\n'),
+     '        int ezN = 0\n'
+     '        int ezNUp = 0\n'
+     '        int ezHtf = 0\n'
+     '        string ezHtfNames = ""\n'
+     '        float ezTrigUp = na\n'
+     '        float ezTrigDn = na\n'
+     '        string ezTrigUpTf = ""\n'
+     '        string ezTrigDnTf = ""\n'),
 
     # Explain row: collect what each timeframe is doing while the rows are drawn.
     ("                populateBarTypeRow(barTypeTable, row, cfg.tf, data, raw, result, tableTextSize, array.get(reconOKArr, i))\n"
@@ -332,13 +358,25 @@ PATCHES: list[tuple[str, str]] = [
      "                // EZ-MODE: rows run highest to lowest, so prepend to list lowest first.\n"
      "                bool ezReadable = not na(result) and not na(raw) and timeframe.in_seconds(cfg.tf) >= chartTfSeconds and not (raw.isPreview and not array.get(reconOKArr, i))\n"
      "                if ezReadable\n"
-     "                    string ezLbl = getTimeframeLabel(cfg.tf)\n"
-     "                    if result.signalInForceHigh\n"
-     "                        ezUp := ezUp == \"\" ? ezLbl : ezLbl + \", \" + ezUp\n"
-     "                    else if result.signalInForceLow\n"
-     "                        ezDn := ezDn == \"\" ? ezLbl : ezLbl + \", \" + ezDn\n"
-     "                    else if str.startswith(result.ccType, \"1\")\n"
-     "                        ezIn := ezIn == \"\" ? ezLbl : ezLbl + \", \" + ezIn\n"),
+     '                    string ezLbl = getTimeframeLabel(cfg.tf)\n'
+     '                    bool ezRowUp = raw.ccC > raw.ccO\n'
+     '                    ezN += 1\n'
+     '                    if ezRowUp\n'
+     '                        ezNUp += 1\n'
+     '                    if ezN <= 2\n'
+     '                        ezHtf += ezRowUp ? 1 : -1\n'
+     '                        ezHtfNames := ezHtfNames == "" ? ezLbl : ezHtfNames + ", " + ezLbl\n'
+     '                    if result.signalInForceHigh\n'
+     '                        ezUp := ezUp == "" ? ezLbl : ezLbl + ", " + ezUp\n'
+     '                    else if result.signalInForceLow\n'
+     '                        ezDn := ezDn == "" ? ezLbl : ezLbl + ", " + ezDn\n'
+     '                    // The lowest timeframe whose trigger has not been hit wins: the loop runs downward.\n'
+     '                    if result.drawHigh and not na(result.high) and close < result.high\n'
+     '                        ezTrigUp := result.high\n'
+     '                        ezTrigUpTf := ezLbl\n'
+     '                    if result.drawLow and not na(result.low) and close > result.low\n'
+     '                        ezTrigDn := result.low\n'
+     '                        ezTrigDnTf := ezLbl\n'),
 
     # FTFC row hover, then the Explain row.
     ("        table.merge_cells(barTypeTable, 0, row, 4, row)\n"
@@ -348,13 +386,18 @@ PATCHES: list[tuple[str, str]] = [
      "        table.cell(barTypeTable, 0, row, tableFtfcText, text_color = tableFtfcTextColor, bgcolor = tableFtfcBgColor, text_size = textSize, tooltip = \"Full Timeframe Continuity (FTFC) compares the current price with the open of every timeframe in the table. Up: price is above all of them. Down: below all of them. Conflict: the timeframes disagree. Signals in the direction of continuity have the higher timeframes behind them.\")\n"
      "        row += 1\n"
      "        if ezExplain  // EZ-MODE\n"
-     "            string ezLean = str.contains(tableFtfcText, \"Up\") ? \"Price is above every open.\\nThe timeframes agree: up.\" : str.contains(tableFtfcText, \"Down\") ? \"Price is below every open.\\nThe timeframes agree: down.\" : \"The timeframes disagree:\\nsome are up, some are down.\"\n"
-     "            string ezForce = (ezUp != \"\" ? \"\\nIn force up: \" + ezUp : \"\") + (ezDn != \"\" ? \"\\nIn force down: \" + ezDn : \"\")\n"
-     "            if ezForce == \"\"\n"
-     "                ezForce := \"\\nNo signal in force yet.\"\n"
-     "            string ezWait = ezIn != \"\" ? \"\\nInside, waiting to break: \" + ezIn : \"\"\n"
-     "            table.merge_cells(barTypeTable, 0, row, 4, row)\n"
-     "            table.cell(barTypeTable, 0, row, ezLean + ezForce + ezWait, text_color = #cccccc, bgcolor = #111111, text_size = textSize, text_halign = text.align_left, tooltip = \"A plain-English read of the table. In force: a signal has triggered and price is holding beyond its trigger. Inside: the bar has not taken either side of the bar before it yet. Turn this row off in the settings (Explain Row) once you no longer need it. TheStrat was created by Rob Smith.\")\n"
+     '            string ezAlign = ezN == 0 ? "No timeframe to read yet." : ezNUp == ezN ? (ezN == 1 ? "The timeframe is up." : "All " + str.tostring(ezN) + " timeframes are up.") : ezNUp == 0 ? (ezN == 1 ? "The timeframe is down." : "All " + str.tostring(ezN) + " timeframes are down.") : str.tostring(ezNUp) + " of " + str.tostring(ezN) + " timeframes are up, " + str.tostring(ezN - ezNUp) + " down."\n'
+     '            string ezTrendLine = ezN < 2 ? "" : "\\nHigher timeframes (" + ezHtfNames + "): " + (ezHtf == 2 ? "up." : ezHtf == -2 ? "down." : "disagree.")\n'
+     '            string ezForce = (ezUp != "" ? "\\nIn force up: " + ezUp : "") + (ezDn != "" ? "\\nIn force down: " + ezDn : "")\n'
+     '            if ezForce == ""\n'
+     '                ezForce := "\\nNothing in force yet."\n'
+     '            string ezNext = ""\n'
+     '            if ezN >= 2 and ezHtf == 2 and not na(ezTrigUp)\n'
+     '                ezNext := "\\nNext trigger up: " + ezTrigUpTf + " above " + str.tostring(ezTrigUp, format.mintick)\n'
+     '            else if ezN >= 2 and ezHtf == -2 and not na(ezTrigDn)\n'
+     '                ezNext := "\\nNext trigger down: " + ezTrigDnTf + " below " + str.tostring(ezTrigDn, format.mintick)\n'
+     '            table.merge_cells(barTypeTable, 0, row, 4, row)\n'
+     '            table.cell(barTypeTable, 0, row, ezAlign + ezTrendLine + ezForce + ezNext, text_color = #cccccc, bgcolor = #111111, text_size = textSize, text_halign = text.align_left, tooltip = "A plain-English read of the table, in the order to ask the questions. 1: do the timeframes agree. 2: which way are the higher timeframes going. 3: what is in force, meaning a signal has triggered and price is holding beyond its trigger. 4: the next trigger in the direction of the higher timeframes, on the lowest timeframe that has one. That is the level to watch, not a recommendation to trade. Turn this row off in the settings (Explain Row) once you no longer need it. TheStrat was created by Rob Smith.")\n'
      "            row += 1\n"),
 
     # Preview row hover.
@@ -438,7 +481,7 @@ def build(source: Path) -> str:
             raise SystemExit(f"patch anchor matched {n} times (expected 1):\n{anchor[:200]}")
         result = result.replace(anchor, replacement)
 
-    # The Simple table is three columns wide, so full-width rows merge to ezLastCol.
+    # Full-width rows merge to ezLastCol (both table styles are five columns wide).
     wide = "table.merge_cells(barTypeTable, 0, row, 4, row)"
     if result.count(wide) != 5:
         raise SystemExit(f"expected 5 full-width table rows, found {result.count(wide)}")

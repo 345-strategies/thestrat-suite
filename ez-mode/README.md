@@ -1,6 +1,6 @@
 # TheStrat Suite EZ Mode - Learn TheStrat
 
-TheStrat Suite with 16 settings instead of 139, plus hover text that explains what is on
+TheStrat Suite with 17 settings instead of 139, plus hover text that explains what is on
 the chart. It is for people who are new to TheStrat or who want the Suite's read without the
 setup. TheStrat was created by Rob Smith.
 
@@ -10,15 +10,20 @@ Status: v0.1.0, not yet published on TradingView.
 
 - Four timeframes, picked by one **Timeframes** setting. The default, TheStrat Classic, is
   60-minute, Day, Week and Month. Day Trade, Swing Trade, Investing and Custom are the others.
+  **Add Chart Timeframe** (on by default) adds the timeframe you are viewing as a fifth.
 - Reversals and inside bar breaks, always on. 2-2 Continuations, Failing 2s and 3-2
   Expansions are optional and have no filters.
 - Magnitude and exhaustion targets, Take Action Windows, stops (off by default), Preview Mode.
 - Bar numbers on the last 50 chart candles (on by default).
-- The data table in one of two styles. **Simple** (default) has one line per timeframe: the
-  combo, oldest bar first, with the current bar highlighted at the end (3-1-2u), and a Prior
-  column that says Hammer or Shooter when the bar before the current one is one.
-  **Detailed** is the Suite's five-column table.
-- An **Explain Row** under the table that sums it up in plain English.
+- The data table in one of two styles. **Simple** (default) has one line per timeframe,
+  built around what a beginner is asking. **Trend**: an arrow for whether the timeframe is
+  trading above or below its open, so matching arrows down the column mean the timeframes
+  agree. **Combo**: oldest bar first, with the current bar highlighted at the end (3-1-2u).
+  **Setup**: In force with its direction, or Hammer, Shooter or Inside when the bar before
+  the current one is a setup. **Detailed** is the Suite's five-column table.
+- An **Explain Row** under the table that answers four questions in plain English: do the
+  timeframes agree, which way are the higher timeframes going, what is in force, and what is
+  the next trigger in the direction of the higher timeframes.
 - Alerts: Signal In-Force (Any, Bullish, Bearish), New Potential, and the four FTFC alerts.
 
 ## The teaching layer
@@ -33,7 +38,7 @@ Status: v0.1.0, not yet published on TradingView.
 | | Suite default | EZ Mode |
 |---|---|---|
 | Failing 2 | Reclaim: price back inside the prior bar's range | Open: a 2u trading below its own open, a 2d trading above it |
-| Timeframes | Six slots, TheStrat Classic preset is 30m, 60m, D, W, M | Four slots, TheStrat Classic is 60m, D, W, M |
+| Timeframes | Six slots, TheStrat Classic preset is 30m, 60m, D, W, M | Four slots plus the chart timeframe, TheStrat Classic is 60m, D, W, M |
 | Bar numbers | Off | On |
 | Filters (HAM/SHO, F2, FTFC, Lead Signal), Domino, bar coloring, colors, per-timeframe alerts | Available | Not present |
 
