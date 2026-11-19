@@ -313,7 +313,7 @@ twoTwoContOnlyMomo = false
 continuationsRequireFTFC = false
 
 grpSigF2 = "Signals - Reclaims"
-show_p3_toggle = input.bool(false, "Failing 2s", group = grpEZSignals, tooltip = "A Failing 2 is a bar that broke the prior bar's high but is now trading below its own open (red), or broke the prior low but is now trading above its own open (green). One side took the level and the other side took the bar back. If it goes on to break the other side it becomes a 3.")
+show_p3_toggle = input.bool(false, "Failing 2s", group = grpEZSignals, tooltip = "A Failing 2 is a bar that broke the prior bar's high but is now trading below its own open (red), or broke the prior low but is now trading above its own open (green). One side took the level and the other side took the bar back. If it goes on to break the other side it becomes a 3. This one switch covers everything: on, Failing 2s get their own levels and are named F2u and F2d in the table, on labels and in bar numbers. Off, they read as plain 2u and 2d everywhere.")
 p3RequireFTFC = false
 
 grpSigExp = "Signals - Expansions"
@@ -410,12 +410,12 @@ paintFtfcTransitions = true
 // -------------------- DISPLAY - BAR NUMBERS --------------------
 // FEATURE BARNUM-1 (2026-10-23): per-candle Strat numbers. Engine and rationale in SECTION 15.
 grpBarNum = "Display - Bar Numbers"
-showBarNumbers = input.bool(true, "Show Bar Numbers", group = "Bar Numbers", tooltip = "Prints each candle's Strat number on the last 50 bars. 1: inside bar, took neither side of the bar before it. 2u: took the prior high, printed above the candle. 2d: took the prior low, printed below it. 3: outside bar, took both. Set Notation to Full to also mark Failing 2s as F2u and F2d.")
-barNumNotation = input.string("Classic", "Notation", options = ["Full", "Classic", "Numbers"], group = "Bar Numbers", active = showBarNumbers, tooltip = "Full: 1, 2u, 2d, 3u, 3d, F2u, F2d - the same notation as the data table.\n\nClassic: 1, 2u, 2d, 3. Outside bars drop their close direction and Failing 2s show as their plain 2u/2d.\n\nNumbers: 1, 2, 3. Direction is carried by color alone.")
-barNumEmphasis = input.string("Tiered", "Emphasis", options = ["Tiered", "Uniform", "Key Bars Only"], group = "Bar Numbers", active = showBarNumbers, tooltip = "Tiered: 1s, 3s and Failing 2s in full color, plain 2s faded - setups start at 1s, 3s and failing 2s, so those stand out while trending 2s recede.\n\nUniform: every number at full strength.\n\nKey Bars Only: plain 2s are hidden. In Classic and Numbers notation a Failing 2 shows as a plain 2, so it is hidden too.")
+showBarNumbers = input.bool(true, "Show Bar Numbers", group = "Bar Numbers", tooltip = "Prints each candle's Strat number on the last 50 bars. 1: inside bar, took neither side of the bar before it. 2u: took the prior high, printed above the candle. 2d: took the prior low, printed below it. 3: outside bar, took both. Turn on Failing 2s to also mark those as F2u and F2d.")
+barNumNotation = "Full"
+barNumEmphasis = "Tiered"
 barNumPosition = input.string("Broken Side", "Position", options = ["Below", "Above", "Broken Side"], group = "Bar Numbers", active = showBarNumbers, tooltip = "Below / Above: every number on the same side, reading as one steady row.\n\nBroken Side: the number sits on the side the candle took out - 2u and F2u above, 2d and F2d below. Outside bars follow their close (3u above, 3d below); inside bars sit below.")
-barNumColorMode = input.string("Bar Type Palette", "Color", options = ["Bar Type Palette", "Single Color"], inline = "bn_col", group = "Bar Numbers", active = showBarNumbers, tooltip = "Bar Type Palette: each number takes the color of its bar type, the same colors the data table uses. Single Color: one color for every number. Emphasis still applies.")
-barNumColor = input.color(#9598a1, "", inline = "bn_col", group = "Bar Numbers", active = showBarNumbers and barNumColorMode == "Single Color")
+barNumColorMode = "Bar Type Palette"
+barNumColor = #9598a1
 barNumBarsShown = input.string("Last 50", "Bars Shown", options = ["Last 10", "Last 20", "Last 50", "Last 100", "Last 250", "All"], group = "Bar Numbers", active = showBarNumbers, tooltip = "How many of the most recent candles get a number. Last 50 keeps the numbers on the part of the chart you are reading without crowding older history; All numbers every candle on the chart. The forming candle's number is drawn lighter because it can still change (a 2u can become a 3 or fail into an F2u); it takes full strength when the candle closes.")  // FIX BARNUM-SHOWN-1: named choices, no 0 = all
 
 // Auto-preview detection: activate whenever the market is not actively trading
@@ -2192,9 +2192,9 @@ collectTimeframeLabels(TimeframeData data, ProcessingResult r) =>
         bool is32Pattern = r.c1Num == "3"
         bool isDoubleInside = r.c1Num == "1" and r.c2Num == "1"
         // F2-aware display strings for label accuracy
-        string c1TypeF2 = (r.c1WasF2 ? "F" : "") + r.c1Type
-        string c1NumF2 = (r.c1WasF2 ? "F" : "") + r.c1Num
-        string c2NumF2 = (r.c2WasF2 ? "F" : "") + r.c2Num
+        string c1TypeF2 = (r.c1WasF2 and show_p3_toggle ? "F" : "") + r.c1Type
+        string c1NumF2 = (r.c1WasF2 and show_p3_toggle ? "F" : "") + r.c1Num
+        string c2NumF2 = (r.c2WasF2 and show_p3_toggle ? "F" : "") + r.c2Num
         if simpleLabelMode
             // Universal labels: ↑/↓ direction + REV, CONT, INS, OUT, EXP, and the FAILING overlay.
             // Abbreviated 2026-08-03 - consolidated labels stack several timeframes on one line.
@@ -2234,11 +2234,11 @@ collectTimeframeLabels(TimeframeData data, ProcessingResult r) =>
             if data.c1IsShooter
                 simpleLow := simpleLow + "◆"
             // Step 3: F2 overlay - failing side keeps base label + FAILING, opposite side is potential outside
-            if r.isF2u or r.preF2u
+            if show_p3_toggle and (r.isF2u or r.preF2u)
                 // Bullish breakout failing: high label appends FAILING, low is potential outside
                 simpleHigh := simpleHigh + " FAILING"
                 simpleLow := "*OUT"
-            else if r.isF2d or r.preF2d
+            else if show_p3_toggle and (r.isF2d or r.preF2d)
                 // Bearish breakout failing: low label appends FAILING, high is potential outside
                 simpleLow := simpleLow + " FAILING"
                 simpleHigh := "*OUT"
@@ -2294,10 +2294,10 @@ collectTimeframeLabels(TimeframeData data, ProcessingResult r) =>
                     defaultCombo := c2NumF2 + c1NumF2 + baseCCType
                 // F2 labels: failing side = c1Type + F2 tag, opposite side = potential outside
                 // NOTATION-1: canonical uppercase F2 (case no longer marks liveness)
-                if r.isF2u
+                if show_p3_toggle and r.isF2u
                     comboStrHigh := c1TypeF2 + "F2u"
                     comboStrLow := "*" + c1TypeF2 + "3d"
-                else if r.isF2d
+                else if show_p3_toggle and r.isF2d
                     comboStrLow := c1TypeF2 + "F2d"
                     comboStrHigh := "*" + c1TypeF2 + "3u"
                 else
@@ -2796,6 +2796,10 @@ populateBarTypeRow(table tbl, int row, string tf, TimeframeData data, TFRawData 
         [barType_CC, _isFailed_CC] = detectBarTypeAndFailed(raw.c1H, raw.c1L, raw.ccH, raw.ccL, raw.ccO, raw.ccC)
         [barType_C1, _isFailed_C1] = detectBarTypeAndFailed(raw.c2H, raw.c2L, raw.c1H, raw.c1L, raw.c1O, raw.c1C)
         [barType_C2, _isFailed_C2] = detectBarTypeAndFailed(raw.c3H, raw.c3L, raw.c2H, raw.c2L, raw.c2O, raw.c2C)
+        if not show_p3_toggle  // EZ-MODE
+            barType_CC := str.replace(barType_CC, "F", "")
+            barType_C1 := str.replace(barType_C1, "F", "")
+            barType_C2 := str.replace(barType_C2, "F", "")
         // Use centralized signalInForce from processing result (matches compact table behavior)
         bool isBullInForce = not na(pResult) and pResult.signalInForceHigh
         bool isBearInForce = not na(pResult) and pResult.signalInForceLow
@@ -2857,7 +2861,7 @@ populateBarTypeRow(table tbl, int row, string tf, TimeframeData data, TFRawData 
             table.clear(tbl, 1, row, 4, row)
             table.cell(tbl, 1, row, ezTrend, text_color = ezTrendColor, bgcolor = COLOR_BG_BLACK, text_size = sz, tooltip = ezTrendTip)
             table.cell(tbl, 2, row, ezBefore + "-", text_color = #b2b5be, bgcolor = COLOR_BG_BLACK, text_size = sz, text_halign = text.align_right, tooltip = ezBeforeTip)
-            table.cell(tbl, 3, row, ezNow, text_color = ccTextColor, bgcolor = ccBgColor, text_size = sz, text_halign = text.align_left, tooltip = ezNowTip)
+            table.cell(tbl, 3, row, ezNow, text_color = ccTextColor, bgcolor = ccBgColor, text_size = sz, text_halign = text.align_center, text_formatting = text.format_bold, tooltip = ezNowTip)
             table.cell(tbl, 4, row, asText, text_color = color.white, bgcolor = COLOR_BG_BLACK, text_size = sz, tooltip = ezAsTip)
 
 // Domino calculation - CC is inside across consecutive TFs with same direction
@@ -3276,9 +3280,9 @@ buildAlertLabel(ProcessingResult r, bool isBullish, TimeframeData data, Processi
         is32Pattern = r.c1Is3
         ccIs3 = str.startswith(r.ccType, "3")
         ccIsInsideAlert = r.ccType == "1"
-        string c1TypeF2a = (r.c1WasF2 ? "F" : "") + r.c1Type
-        string c1NumF2a = (r.c1WasF2 ? "F" : "") + r.c1Num
-        string c2NumF2a = (r.c2WasF2 ? "F" : "") + r.c2Num
+        string c1TypeF2a = (r.c1WasF2 and show_p3_toggle ? "F" : "") + r.c1Type
+        string c1NumF2a = (r.c1WasF2 and show_p3_toggle ? "F" : "") + r.c1Num
+        string c2NumF2a = (r.c2WasF2 and show_p3_toggle ? "F" : "") + r.c2Num
         string dirArrow = ""
         if simpleLabelMode
             dirArrow := isBullish ? "↑" : "↓"
@@ -3688,6 +3692,7 @@ barcolor(chartCandleColor, title = "Strat / FTFC Candles")
 
 bool bnOn = showBarNumbers and chartBarType != ""
 bool bnFull = barNumNotation == "Full"
+bool bnF2 = bnFull and show_p3_toggle  // EZ-MODE
 bool bnNumbers = barNumNotation == "Numbers"
 bool bnKeyOnly = barNumEmphasis == "Key Bars Only"
 
@@ -3697,8 +3702,8 @@ bool bnIs3d = chartBarType == "3d"
 bool bnIsF2u = chartBarType == "F2u"
 bool bnIsF2d = chartBarType == "F2d"
 // A Failing 2 renders as its plain 2 outside Full notation (as Strat Candles does with F2 paint off).
-bool bnPlain2u = chartBarType == "2u" or (bnIsF2u and not bnFull)
-bool bnPlain2d = chartBarType == "2d" or (bnIsF2d and not bnFull)
+bool bnPlain2u = chartBarType == "2u" or (bnIsF2u and not bnF2)
+bool bnPlain2d = chartBarType == "2d" or (bnIsF2d and not bnF2)
 
 // Text color: family color from the Style inputs (or the single color), then emphasis
 // tiering, then lightened on the forming bar.
@@ -3707,8 +3712,8 @@ color bnPalette = switch chartBarType
     "1d"  => colorBearishPotential
     "2u"  => colorBullishActive
     "2d"  => colorBearishActive
-    "F2u" => bnFull ? COLOR_FAILED_2U : colorBullishActive
-    "F2d" => bnFull ? COLOR_FAILED_2D : colorBearishActive
+    "F2u" => bnF2 ? COLOR_FAILED_2U : colorBullishActive
+    "F2d" => bnF2 ? COLOR_FAILED_2D : colorBearishActive
     "3u"  => COLOR_3_HIGH
     "3d"  => COLOR_3_LOW
     => color(na)
@@ -3733,8 +3738,8 @@ plotshape(bnOn and not bnNumbers and not bnKeyOnly and bnPlain2u, "Bar # 2u", sh
 plotshape(bnOn and not bnNumbers and not bnKeyOnly and bnPlain2d, "Bar # 2d", shape.circle, bnLocDown, bnShapeColor, text = "2d", textcolor = bnTextColor, size = size.tiny, show_last = bnShowLast, display = display.pane, editable = false)
 plotshape(bnOn and bnNumbers and not bnKeyOnly and bnPlain2u, "Bar # 2 (up)", shape.circle, bnLocUp, bnShapeColor, text = "2", textcolor = bnTextColor, size = size.tiny, show_last = bnShowLast, display = display.pane, editable = false)
 plotshape(bnOn and bnNumbers and not bnKeyOnly and bnPlain2d, "Bar # 2 (down)", shape.circle, bnLocDown, bnShapeColor, text = "2", textcolor = bnTextColor, size = size.tiny, show_last = bnShowLast, display = display.pane, editable = false)
-plotshape(bnOn and bnFull and bnIsF2u, "Bar # F2u", shape.circle, bnLocUp, bnShapeColor, text = "F2u", textcolor = bnTextColor, size = size.tiny, show_last = bnShowLast, display = display.pane, editable = false)
-plotshape(bnOn and bnFull and bnIsF2d, "Bar # F2d", shape.circle, bnLocDown, bnShapeColor, text = "F2d", textcolor = bnTextColor, size = size.tiny, show_last = bnShowLast, display = display.pane, editable = false)
+plotshape(bnOn and bnF2 and bnIsF2u, "Bar # F2u", shape.circle, bnLocUp, bnShapeColor, text = "F2u", textcolor = bnTextColor, size = size.tiny, show_last = bnShowLast, display = display.pane, editable = false)
+plotshape(bnOn and bnF2 and bnIsF2d, "Bar # F2d", shape.circle, bnLocDown, bnShapeColor, text = "F2d", textcolor = bnTextColor, size = size.tiny, show_last = bnShowLast, display = display.pane, editable = false)
 plotshape(bnOn and bnFull and bnIs3u, "Bar # 3u", shape.circle, bnLocUp, bnShapeColor, text = "3u", textcolor = bnTextColor, size = size.tiny, show_last = bnShowLast, display = display.pane, editable = false)
 plotshape(bnOn and bnFull and bnIs3d, "Bar # 3d", shape.circle, bnLocDown, bnShapeColor, text = "3d", textcolor = bnTextColor, size = size.tiny, show_last = bnShowLast, display = display.pane, editable = false)
 plotshape(bnOn and not bnFull and bnIs3u, "Bar # 3 (up)", shape.circle, bnLocUp, bnShapeColor, text = "3", textcolor = bnTextColor, size = size.tiny, show_last = bnShowLast, display = display.pane, editable = false)

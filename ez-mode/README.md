@@ -1,6 +1,6 @@
 # TheStrat Suite EZ Mode - Learn TheStrat
 
-TheStrat Suite with 23 settings instead of 139, plus hover text that explains what is on
+TheStrat Suite with 19 settings instead of 139, plus hover text that explains what is on
 the chart. It is for people who are new to TheStrat or who want the Suite's read without the
 setup. TheStrat was created by Rob Smith.
 
@@ -11,11 +11,13 @@ Status: v0.1.0, not yet published on TradingView.
 - Four timeframes, picked by one **Timeframes** setting. The default, TheStrat Classic, is
   60-minute, Day, Week and Month. Day Trade, Swing Trade, Investing and Custom are the others.
   **Add Chart Timeframe** (on by default) adds the timeframe you are viewing as a fifth.
+- Failing 2s are one switch (off by default). Off, a failing 2 reads as a plain 2u or 2d in
+  the table, on labels and in bar numbers. On, it gets its own levels and the F2u / F2d name.
 - Reversals and inside bar breaks, always on. 2-2 Continuations, Failing 2s and 3-2
   Expansions are optional and have no filters.
 - Magnitude and exhaustion targets, Take Action Windows, stops (off by default), Preview Mode.
-- Bar numbers on the last 50 chart candles (on by default), with the Suite's own Bar Numbers
-  settings: Notation, Emphasis, Position, Color and Bars Shown.
+- Bar numbers on the last 50 chart candles (on by default), with Position and Bars
+  Shown settings.
 - The data table in one of two styles. **Combo** (default) has one line per timeframe,
   built around what a beginner is asking. **TFC** (timeframe continuity): an arrow for whether the timeframe is
   trading above or below its open, so matching arrows down the column mean the timeframes

@@ -96,7 +96,7 @@ OVERRIDES: dict[str, str] = {
     "tf4LineWidth": "tf4LineWidth = 4",
     # Optional signals: a plain on/off each, no filters beside them.
     "showContinuations": 'showContinuations = input.bool(false, "2-2 Continuations", group = grpEZSignals, tooltip = "Reversals and inside bar breaks are always shown. This adds the 2-2 continuation: a 2u after a 2u, or a 2d after a 2d. The trend keeps going the same way.")',
-    "show_p3_toggle": 'show_p3_toggle = input.bool(false, "Failing 2s", group = grpEZSignals, tooltip = "A Failing 2 is a bar that broke the prior bar\'s high but is now trading below its own open (red), or broke the prior low but is now trading above its own open (green). One side took the level and the other side took the bar back. If it goes on to break the other side it becomes a 3.")',
+    "show_p3_toggle": 'show_p3_toggle = input.bool(false, "Failing 2s", group = grpEZSignals, tooltip = "A Failing 2 is a bar that broke the prior bar\'s high but is now trading below its own open (red), or broke the prior low but is now trading above its own open (green). One side took the level and the other side took the bar back. If it goes on to break the other side it becomes a 3. This one switch covers everything: on, Failing 2s get their own levels and are named F2u and F2d in the table, on labels and in bar numbers. Off, they read as plain 2u and 2d everywhere.")',
     "showRangeExpansions": 'showRangeExpansions = input.bool(false, "3-2 Expansions", group = grpEZSignals, tooltip = "A 3 is an outside bar: it took both the high and the low of the bar before it. A 3-2 is the next bar breaking one side of that wide bar.")',
     # A Failing 2 is judged against the bar's own open (decided 2026-11-18).
     "failed_2_method": 'failed_2_method = "Open"',
@@ -111,15 +111,15 @@ OVERRIDES: dict[str, str] = {
                      'ezExplain = input.bool(true, "Explain Row", group = grpEZChart, tooltip = "Adds a short plain-English summary under the table: whether the timeframes agree, the higher timeframe trend, what is in force and the next trigger with that trend. Turn it off once you can read the table on your own.")',
     # Bar numbers: split by side and keep tokens to two characters so neighbours collide less.
     # Failing 2s print as F2u / F2d only when the Failing 2s signal is on.
-    # The Suite's own Bar Numbers settings, in their own group. EZ defaults: Classic notation and
-    # Broken Side placement, which keep tokens short and split them above and below the candle.
-    'barNumNotation': 'barNumNotation = input.string("Classic", "Notation", options = ["Full", "Classic", "Numbers"], group = "Bar Numbers", active = showBarNumbers, tooltip = "Full: 1, 2u, 2d, 3u, 3d, F2u, F2d - the same notation as the data table.\\n\\nClassic: 1, 2u, 2d, 3. Outside bars drop their close direction and Failing 2s show as their plain 2u/2d.\\n\\nNumbers: 1, 2, 3. Direction is carried by color alone.")',
-    'barNumEmphasis': 'barNumEmphasis = input.string("Tiered", "Emphasis", options = ["Tiered", "Uniform", "Key Bars Only"], group = "Bar Numbers", active = showBarNumbers, tooltip = "Tiered: 1s, 3s and Failing 2s in full color, plain 2s faded - setups start at 1s, 3s and failing 2s, so those stand out while trending 2s recede.\\n\\nUniform: every number at full strength.\\n\\nKey Bars Only: plain 2s are hidden. In Classic and Numbers notation a Failing 2 shows as a plain 2, so it is hidden too.")',
+    # Bar Numbers group: Show, Position and Bars Shown. Notation, emphasis and color are fixed.
+    # Broken Side placement splits the numbers above and below the candle so they collide less.
+    'barNumNotation': 'barNumNotation = "Full"',
+    'barNumEmphasis': 'barNumEmphasis = "Tiered"',
     'barNumPosition': 'barNumPosition = input.string("Broken Side", "Position", options = ["Below", "Above", "Broken Side"], group = "Bar Numbers", active = showBarNumbers, tooltip = "Below / Above: every number on the same side, reading as one steady row.\\n\\nBroken Side: the number sits on the side the candle took out - 2u and F2u above, 2d and F2d below. Outside bars follow their close (3u above, 3d below); inside bars sit below.")',
-    'barNumColorMode': 'barNumColorMode = input.string("Bar Type Palette", "Color", options = ["Bar Type Palette", "Single Color"], inline = "bn_col", group = "Bar Numbers", active = showBarNumbers, tooltip = "Bar Type Palette: each number takes the color of its bar type, the same colors the data table uses. Single Color: one color for every number. Emphasis still applies.")',
-    'barNumColor': 'barNumColor = input.color(#9598a1, "", inline = "bn_col", group = "Bar Numbers", active = showBarNumbers and barNumColorMode == "Single Color")',
+    'barNumColorMode': 'barNumColorMode = "Bar Type Palette"',
+    'barNumColor': 'barNumColor = #9598a1',
     'barNumBarsShown': 'barNumBarsShown = input.string("Last 50", "Bars Shown", options = ["Last 10", "Last 20", "Last 50", "Last 100", "Last 250", "All"], group = "Bar Numbers", active = showBarNumbers, tooltip = "How many of the most recent candles get a number. Last 50 keeps the numbers on the part of the chart you are reading without crowding older history; All numbers every candle on the chart. The forming candle\'s number is drawn lighter because it can still change (a 2u can become a 3 or fail into an F2u); it takes full strength when the candle closes.")  // FIX BARNUM-SHOWN-1: named choices, no 0 = all',
-    "showBarNumbers": 'showBarNumbers = input.bool(true, "Show Bar Numbers", group = "Bar Numbers", tooltip = "Prints each candle\'s Strat number on the last 50 bars. 1: inside bar, took neither side of the bar before it. 2u: took the prior high, printed above the candle. 2d: took the prior low, printed below it. 3: outside bar, took both. Set Notation to Full to also mark Failing 2s as F2u and F2d.")',
+    "showBarNumbers": 'showBarNumbers = input.bool(true, "Show Bar Numbers", group = "Bar Numbers", tooltip = "Prints each candle\'s Strat number on the last 50 bars. 1: inside bar, took neither side of the bar before it. 2u: took the prior high, printed above the candle. 2d: took the prior low, printed below it. 3: outside bar, took both. Turn on Failing 2s to also mark those as F2u and F2d.")',
 }
 
 # Alert conditions that do not appear in EZ Mode's alert dialog.
@@ -267,6 +267,14 @@ PATCHES: list[tuple[str, str]] = [
     ("        table.cell(tbl, 0, row, tfLabelStr, text_color = #555555, bgcolor = #111111, text_size = sz)\n",
      "        table.cell(tbl, 0, row, tfLabelStr, text_color = #555555, bgcolor = #111111, text_size = sz, tooltip = tfLabelStr + \" is a lower timeframe than this chart, so it cannot be read here. Switch the chart to \" + tfLabelStr + \" or lower to see it.\")\n"),
 
+    # Data table: with Failing 2s off, a failing 2 reads as its plain 2 (text and color).
+    ("        [barType_C2, _isFailed_C2] = detectBarTypeAndFailed(raw.c3H, raw.c3L, raw.c2H, raw.c2L, raw.c2O, raw.c2C)\n",
+     "        [barType_C2, _isFailed_C2] = detectBarTypeAndFailed(raw.c3H, raw.c3L, raw.c2H, raw.c2L, raw.c2O, raw.c2C)\n"
+     "        if not show_p3_toggle  // EZ-MODE\n"
+     "            barType_CC := str.replace(barType_CC, \"F\", \"\")\n"
+     "            barType_C1 := str.replace(barType_C1, \"F\", \"\")\n"
+     "            barType_C2 := str.replace(barType_C2, \"F\", \"\")\n"),
+
     # Data table: every cell in a timeframe row carries a live read.
     ("        table.cell(tbl, 0, row, tfLabelStr, text_color = tfTextColor, bgcolor = tfBgColor, text_size = sz)\n"
      "        table.cell(tbl, 1, row, barType_C2, text_color = getBarTypeTextColor(barType_C2), bgcolor = COLOR_BG_BLACK, text_size = sz)\n"
@@ -311,7 +319,7 @@ PATCHES: list[tuple[str, str]] = [
      '            table.clear(tbl, 1, row, 4, row)\n'
      '            table.cell(tbl, 1, row, ezTrend, text_color = ezTrendColor, bgcolor = COLOR_BG_BLACK, text_size = sz, tooltip = ezTrendTip)\n'
      '            table.cell(tbl, 2, row, ezBefore + "-", text_color = #b2b5be, bgcolor = COLOR_BG_BLACK, text_size = sz, text_halign = text.align_right, tooltip = ezBeforeTip)\n'
-     '            table.cell(tbl, 3, row, ezNow, text_color = ccTextColor, bgcolor = ccBgColor, text_size = sz, text_halign = text.align_left, tooltip = ezNowTip)\n'
+     '            table.cell(tbl, 3, row, ezNow, text_color = ccTextColor, bgcolor = ccBgColor, text_size = sz, text_halign = text.align_center, text_formatting = text.format_bold, tooltip = ezNowTip)\n'
      '            table.cell(tbl, 4, row, asText, text_color = color.white, bgcolor = COLOR_BG_BLACK, text_size = sz, tooltip = ezAsTip)\n'),
 
     # Data table: header glossary.
@@ -484,6 +492,27 @@ def build(source: Path) -> str:
     if result.count(wide) != 5:
         raise SystemExit(f"expected 5 full-width table rows, found {result.count(wide)}")
     result = result.replace(wide, "table.merge_cells(barTypeTable, 0, row, ezLastCol, row)")
+
+    # One switch for Failing 2s: with it off, labels and alerts name a failed prior bar as a plain 2.
+    for old, count in (('(r.c1WasF2 ? "F" : "")', 4), ('(r.c2WasF2 ? "F" : "")', 2)):
+        if result.count(old) != count:
+            raise SystemExit(f"expected {count} of {old}, found {result.count(old)}")
+        result = result.replace(old, old.replace(" ? ", " and show_p3_toggle ? "))
+    # Bar numbers print F2u / F2d only in Full notation with Failing 2s on.
+    for old, new, count in (("            if r.isF2u or r.preF2u\n", "            if show_p3_toggle and (r.isF2u or r.preF2u)\n", 1),
+                            ("            else if r.isF2d or r.preF2d\n", "            else if show_p3_toggle and (r.isF2d or r.preF2d)\n", 1),
+                            ('                if r.isF2u\n                    comboStrHigh := c1TypeF2 + "F2u"', '                if show_p3_toggle and r.isF2u\n                    comboStrHigh := c1TypeF2 + "F2u"', 1),
+                            ('                else if r.isF2d\n                    comboStrLow := c1TypeF2 + "F2d"', '                else if show_p3_toggle and r.isF2d\n                    comboStrLow := c1TypeF2 + "F2d"', 1),
+                            ("(bnIsF2u and not bnFull)", "(bnIsF2u and not bnF2)", 1),
+                            ("(bnIsF2d and not bnFull)", "(bnIsF2d and not bnF2)", 1),
+                            ('"F2u" => bnFull ?', '"F2u" => bnF2 ?', 1),
+                            ('"F2d" => bnFull ?', '"F2d" => bnF2 ?', 1),
+                            ("plotshape(bnOn and bnFull and bnIsF2u,", "plotshape(bnOn and bnF2 and bnIsF2u,", 1),
+                            ("plotshape(bnOn and bnFull and bnIsF2d,", "plotshape(bnOn and bnF2 and bnIsF2d,", 1),
+                            ('bool bnFull = barNumNotation == "Full"\n', 'bool bnFull = barNumNotation == "Full"\nbool bnF2 = bnFull and show_p3_toggle  // EZ-MODE\n', 1)):
+        if result.count(old) != count:
+            raise SystemExit(f"expected {count} of {old}, found {result.count(old)}")
+        result = result.replace(old, new)
 
     inputs = len(re.findall(r"= input\.\w+\(", result))
     print(f"source: {shown}  fixed inputs: {fixed}  EZ inputs: {inputs}", file=sys.stderr)
