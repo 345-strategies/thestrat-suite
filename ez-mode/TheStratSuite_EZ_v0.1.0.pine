@@ -374,8 +374,8 @@ showBarTypeTable = input.bool(true, "Data Table", inline = "ez_tbl", group = grp
 tableMode = "Full"
 compactCellColor = "Bar State"
 tablePosition = input.string("Top Right", "", options = ["Bottom Center", "Bottom Left", "Bottom Right", "Middle Center", "Middle Left", "Middle Right", "Top Center", "Top Left", "Top Right"], inline = "ez_tbl", group = grpEZChart)
-ezTableStyle = input.string("Simple", "Table Style", options = ["Simple", "Detailed"], group = grpEZChart, tooltip = "Simple: one line per timeframe showing the combo, oldest bar first, with the current bar highlighted at the end. TFC shows whether each timeframe is trading above or below its open, and AS shows HAM, SHO or INS when the bar before the current one is a hammer, a shooter or an inside bar. The Explain Row names any hammer or shooter and the bar it is on. Detailed: the full Suite table with a column each for C2, C1, the actionable signal and the current candle.")
-ezSimpleTable = ezTableStyle == "Simple"
+ezTableStyle = input.string("Combo", "Table Style", options = ["Combo", "Bar by Bar"], group = grpEZChart, tooltip = "Combo: one line per timeframe showing the combo, oldest bar first, with the current bar highlighted at the end. TFC shows whether each timeframe is trading above or below its open, and AS shows HAM, SHO or INS when the bar before the current one is a hammer, a shooter or an inside bar. The Explain Row names any hammer or shooter and the bar it is on. Bar by Bar: the full Suite table with a column each for C2, C1, the actionable signal and the current candle.")
+ezSimpleTable = ezTableStyle == "Combo"
 ezLastCol = 4
 ezExplain = input.bool(true, "Explain Row", group = grpEZChart, tooltip = "Adds a short plain-English summary under the table: whether the timeframes agree, the higher timeframe trend, what is in force and the next trigger with that trend. Turn it off once you can read the table on your own.")
 tableTextSize = "Small"
