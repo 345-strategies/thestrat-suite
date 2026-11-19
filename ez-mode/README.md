@@ -1,6 +1,6 @@
 # TheStrat Suite EZ Mode - Learn TheStrat
 
-TheStrat Suite with 19 settings instead of 139, plus hover text that explains what is on
+TheStrat Suite with 20 settings instead of 139, plus hover text that explains what is on
 the chart. It is for people who are new to TheStrat or who want the Suite's read without the
 setup. TheStrat was created by Rob Smith.
 
@@ -16,8 +16,8 @@ Status: v0.1.0, not yet published on TradingView.
 - Reversals and inside bar breaks, always on. 2-2 Continuations, Failing 2s and 3-2
   Expansions are optional and have no filters.
 - Magnitude and exhaustion targets, Take Action Windows, stops (off by default), Preview Mode.
-- Bar numbers on the last 50 chart candles (on by default), with Position and Bars
-  Shown settings.
+- Bar numbers on the last 50 chart candles (on by default), with Fade Plain 2s,
+  Position and Bars Shown settings.
 - The data table in one of two styles. **Combo** (default) has one line per timeframe,
   built around what a beginner is asking. **TFC** (timeframe continuity): an arrow for whether the timeframe is
   trading above or below its open, so matching arrows down the column mean the timeframes

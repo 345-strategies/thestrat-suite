@@ -114,7 +114,7 @@ OVERRIDES: dict[str, str] = {
     # Bar Numbers group: Show, Position and Bars Shown. Notation, emphasis and color are fixed.
     # Broken Side placement splits the numbers above and below the candle so they collide less.
     'barNumNotation': 'barNumNotation = "Full"',
-    'barNumEmphasis': 'barNumEmphasis = "Tiered"',
+    'barNumEmphasis': 'ezFade2s = input.bool(true, "Fade Plain 2s", group = "Bar Numbers", active = showBarNumbers, tooltip = "On: plain 2u and 2d numbers are faded so the 1s and 3s stand out, since setups start there. Off: every number at full strength.")\nbarNumEmphasis = ezFade2s ? "Tiered" : "Uniform"',
     'barNumPosition': 'barNumPosition = input.string("Broken Side", "Position", options = ["Below", "Above", "Broken Side"], group = "Bar Numbers", active = showBarNumbers, tooltip = "Below / Above: every number on the same side, reading as one steady row.\\n\\nBroken Side: the number sits on the side the candle took out - 2u and F2u above, 2d and F2d below. Outside bars follow their close (3u above, 3d below); inside bars sit below.")',
     'barNumColorMode': 'barNumColorMode = "Bar Type Palette"',
     'barNumColor': 'barNumColor = #9598a1',
@@ -437,7 +437,6 @@ HEADER = f'''//@version=6
 //   - Explain row: a one-glance summary of the table
 //   - A Failing 2 is judged against the bar's own open: a 2u trading red, a 2d trading green
 //
-// Want the filters, colors, six timeframes and detailed alerts? Use TheStrat Suite.
 // Documentation: thestratsuite.com
 
 indicator("{TITLE}", shorttitle = "TheStrat Suite EZ", overlay = true, max_labels_count = 200, max_lines_count = 200, max_boxes_count = 200, max_bars_back = 200)
