@@ -19,12 +19,13 @@ Status: v0.1.0, not yet published on TradingView.
   built around what a beginner is asking. **Trend**: an arrow for whether the timeframe is
   trading above or below its open, so matching arrows down the column mean the timeframes
   agree. **Combo**: oldest bar first, with the current bar highlighted at the end (3-1-2u).
-  A small H or S marks a hammer or shooter on the bar it belongs to (2dᴴ-2d). **Setup**: In
+  **Setup**: In
   force with its direction, or Watch with the direction of the break to watch for when the
   bar before the current one is a hammer, a shooter or an inside bar. **Detailed** is the Suite's five-column table.
 - An **Explain Row** under the table that answers four questions in plain English: do the
   timeframes agree, which way are the higher timeframes going, what is in force, and what is
-  the next trigger in the direction of the higher timeframes.
+  the next trigger in the direction of the higher timeframes. It also names any hammer or
+  shooter, the bar it is on and the price to watch.
 - Alerts: Signal In-Force (Any, Bullish, Bearish), New Potential, and the four FTFC alerts.
 
 ## The teaching layer
