@@ -22,6 +22,12 @@ How to read this file:
 
 - **Bar Numbers.** Each chart candle can now show its Strat number beside it: 1, 2u, 2d, 3u, 3d, F2u, F2d. It is off by default; turn it on in the new *Display - Bar Numbers* group. The numbers come from the same classifier as Strat Candles and the data table's CC cell, so the three can never disagree, and they follow the Failing 2 Detection Method. **Notation** offers Full (the table's notation), Classic (1, 2u, 2d, 3) or Numbers (1, 2, 3, with direction carried by color). **Emphasis** defaults to Tiered: 1s, 3s and Failing 2s show in full color and plain 2s are faded, so setups stand out instead of a wall of numbers. Uniform shows everything at full strength, and Key Bars Only hides plain 2s. **Position** is Below, Above, or Broken Side (the side the candle took out). **Color** uses the Style palette or a single color, and **Bars Shown** limits the numbers to the last N candles. The forming candle's number is drawn lighter until it closes, because it can still change. Numbers are drawn with `plotshape`, so they cover the whole chart without using any of the label budget the levels rely on. The tradeoff is that TradingView fixes the text size. Chart timeframe only; the data table already covers the other timeframes. When both features are on, they share one classification per bar with Strat Candles. (`BARNUM-1`)
 
+### Changed
+
+- **Signal tooltips explain the signal, and the filters once.** TradingView shows one tooltip per settings row, the last input's, so each signal row only ever showed its FTFC text, repeated seven times, and the signal's own description and the HAM/SHO and F2 text were never visible. Each row's tooltip now describes that signal. The Inside Reversals row, first in Signals, also explains every filter (HAM/SHO, F2, FTFC) once, and the other rows point to it. The FTFC text now says what the filter does: it hides a setup only when every enabled timeframe is against it, so setups with mixed timeframes still show.
+
+- **Bar Numbers *Bars Shown* is a dropdown, default Last 50.** It was a number where 0 meant every candle, and it defaulted to 0. The choices are Last 10, 20, 50, 100, 250 or All. (`BARNUM-SHOWN-1`)
+
 ## [3.1.1] — 2026-09-13
 
 Requires TheStratGrammar (TV version 1). Source: `pine/TheStratSuite_v3.1.1.pine`. Seven fixes to the preview path, found after a Friday pre-market report on SPY and a follow-up scan; details in each entry.
