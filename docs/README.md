@@ -5,7 +5,7 @@ Docs index for the open-source release. Two audiences, two folders:
 - **`concepts/`** — for traders using the indicator. What the signals mean, how to read the chart, how to configure it.
 - **`engineering/`** — for builders forking or extending the script. How the engine works and the rules that keep it correct.
 
-Engineering docs reference the code by function name and `FIX` tag (grep-able), not line number. Written against `pine/TheStratSuite_v3.1.1.pine`.
+Engineering docs reference the code by function name and `FIX` tag (grep-able), not line number. Written against `pine/TheStratSuite_v3.2.0.pine`.
 
 ## Existing docs
 
@@ -42,6 +42,6 @@ The launch docs backlog is fully written; new docs get a row above when they lan
 
 ## Source material
 
-- `FIX` comments in `pine/TheStratSuite_v3.1.1.pine` — each tag documents a solved bug and its rule
+- `FIX` comments in `pine/TheStratSuite_v3.2.0.pine` — each tag documents a solved bug and its rule
 - `DESIGN_CONSTRAINTS.md` — the invariants list; feeds `engineering/architecture.md`
 - `v2.2.3_holiday_glue_fix.md` — feeds `engineering/htf-correctness.md`

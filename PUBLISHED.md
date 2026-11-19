@@ -15,6 +15,7 @@ never auto-upgrade, so when a library updates, sweep the repo for old
 
 | Script | Version | Published | Listing | Source |
 |---|---|---|---|---|
+| TheStrat Suite (open source) | v3.2.0 | 2026-11-18 | https://www.tradingview.com/script/dnJOzGmk-TheStrat-Suite-Open-Source-Entries-Targets-and-Stop-Loss/ | `pine/TheStratSuite_v3.2.0.pine` |
 | TheStrat: Full Timeframe Continuity (FTFC) vs Signals In Force | v0.3.1 | 2026-11-05 | https://www.tradingview.com/script/1EMdC3R7-TheStrat-Full-Timeframe-Continuity-FTFC-vs-Signals-In-Force/ | `ftfc-in-force-study/FTFC_vs_InForce_v0.3.1.pine`, description `ftfc-in-force-study/TV_DESCRIPTION.txt` |
 
 ## Notes

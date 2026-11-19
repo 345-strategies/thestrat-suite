@@ -8,7 +8,9 @@ How to read this file:
 - **Every fix cites its `FIX` tag.** Grep the current source for the tag to find the exact code and the full inline rationale. Code references are function names and tags, never line numbers.
 - **Dates** come from dated `FIX` comments and file names. Where a snapshot carries no date of its own (2.2.2), the newest dated comment introduced in it is used.
 
-## [Unreleased]
+## [3.2.0] — 2026-11-18
+
+Requires TheStratGrammar (TV version 1). Source: `pine/TheStratSuite_v3.2.0.pine`. Published as an update to the open-source TradingView listing; `pine/TheStratSuite_v3.1.1.pine` is restored to the v3.1.1 snapshot.
 
 ### Fixed
 

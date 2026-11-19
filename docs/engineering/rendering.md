@@ -2,7 +2,7 @@
 
 How the Suite turns resolved signal state into chart objects — anchoring, object lifetimes, the label pool, and the consolidation passes — inside TradingView's drawing-object limits and without breaking the no-repaint contract.
 
-Written against `pine/TheStratSuite_v3.1.1.pine`. Code references are function names and `FIX` tags; grep the source for them. This doc covers *how* drawing executes; *which* levels qualify to draw is decision logic, covered in `drawing-decisions.md`. Repaint fundamentals live in `repaint-prevention.md`; this doc assumes them.
+Written against `pine/TheStratSuite_v3.2.0.pine`. Code references are function names and `FIX` tags; grep the source for them. This doc covers *how* drawing executes; *which* levels qualify to draw is decision logic, covered in `drawing-decisions.md`. Repaint fundamentals live in `repaint-prevention.md`; this doc assumes them.
 
 ---
 
