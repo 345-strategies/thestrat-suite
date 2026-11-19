@@ -359,9 +359,9 @@ PATCHES: list[tuple[str, str]] = [
      '                        ezDn := ezDn == "" ? ezLbl : ezLbl + ", " + ezDn\n'
      '                    // Name a hammer or shooter in words, with the bar it is on, while its break is still ahead.\n'
      '                    if data.c1IsHammer and not result.signalInForceHigh and close < raw.c1H\n'
-     '                        ezWatch := "\\nThe last closed " + ezLbl + " bar is a hammer: watch above " + str.tostring(raw.c1H, format.mintick) + ezWatch\n'
+     '                        ezWatch := "\\n" + ezLbl + " hammer: above " + str.tostring(raw.c1H, format.mintick) + ezWatch\n'
      '                    else if data.c1IsShooter and not result.signalInForceLow and close > raw.c1L\n'
-     '                        ezWatch := "\\nThe last closed " + ezLbl + " bar is a shooter: watch below " + str.tostring(raw.c1L, format.mintick) + ezWatch\n'
+     '                        ezWatch := "\\n" + ezLbl + " shooter: below " + str.tostring(raw.c1L, format.mintick) + ezWatch\n'
      '                    // The lowest timeframe whose trigger has not been hit wins: the loop runs downward.\n'
      '                    if result.drawHigh and not na(result.high) and close < result.high\n'
      '                        ezTrigUp := result.high\n'
@@ -378,18 +378,18 @@ PATCHES: list[tuple[str, str]] = [
      "        table.cell(barTypeTable, 0, row, tableFtfcText, text_color = tableFtfcTextColor, bgcolor = tableFtfcBgColor, text_size = textSize, tooltip = \"Full Timeframe Continuity (FTFC) compares the current price with the open of every timeframe in the table. Up: price is above all of them. Down: below all of them. Conflict: the timeframes disagree. Signals in the direction of continuity have the higher timeframes behind them.\")\n"
      "        row += 1\n"
      "        if ezExplain  // EZ-MODE\n"
-     '            string ezAlign = ezN == 0 ? "No timeframe to read yet." : ezNUp == ezN ? (ezN == 1 ? "The timeframe is up." : "All " + str.tostring(ezN) + " timeframes are up.") : ezNUp == 0 ? (ezN == 1 ? "The timeframe is down." : "All " + str.tostring(ezN) + " timeframes are down.") : str.tostring(ezNUp) + " of " + str.tostring(ezN) + " timeframes are up, " + str.tostring(ezN - ezNUp) + " down."\n'
-     '            string ezTrendLine = ezN < 2 ? "" : "\\nHigher timeframes (" + ezHtfNames + "): " + (ezHtf == 2 ? "up." : ezHtf == -2 ? "down." : "disagree.")\n'
+     '            string ezAlign = ezN == 0 ? "No timeframe to read yet." : ezNUp == ezN ? (ezN == 1 ? "The timeframe is up." : "All " + str.tostring(ezN) + " timeframes are up.") : ezNUp == 0 ? (ezN == 1 ? "The timeframe is down." : "All " + str.tostring(ezN) + " timeframes are down.") : str.tostring(ezNUp) + " of " + str.tostring(ezN) + " up, " + str.tostring(ezN - ezNUp) + " down."\n'
+     '            string ezTrendLine = ezN < 2 ? "" : "\\nHigher TFs (" + ezHtfNames + "): " + (ezHtf == 2 ? "up." : ezHtf == -2 ? "down." : "disagree.")\n'
      '            string ezForce = (ezUp != "" ? "\\nIn force up: " + ezUp : "") + (ezDn != "" ? "\\nIn force down: " + ezDn : "")\n'
      '            if ezForce == ""\n'
      '                ezForce := "\\nNothing in force yet."\n'
      '            string ezNext = ""\n'
      '            if ezN >= 2 and ezHtf == 2 and not na(ezTrigUp)\n'
-     '                ezNext := "\\nNext trigger up: " + ezTrigUpTf + " above " + str.tostring(ezTrigUp, format.mintick)\n'
+     '                ezNext := "\\nNext up: " + ezTrigUpTf + " above " + str.tostring(ezTrigUp, format.mintick)\n'
      '            else if ezN >= 2 and ezHtf == -2 and not na(ezTrigDn)\n'
-     '                ezNext := "\\nNext trigger down: " + ezTrigDnTf + " below " + str.tostring(ezTrigDn, format.mintick)\n'
+     '                ezNext := "\\nNext down: " + ezTrigDnTf + " below " + str.tostring(ezTrigDn, format.mintick)\n'
      '            table.merge_cells(barTypeTable, 0, row, 4, row)\n'
-     '            table.cell(barTypeTable, 0, row, ezAlign + ezTrendLine + ezForce + ezWatch + ezNext, text_color = #cccccc, bgcolor = #111111, text_size = textSize, text_halign = text.align_left, tooltip = "A plain-English read of the table, in the order to ask the questions. 1: do the timeframes agree. 2: which way are the higher timeframes going. 3: what is in force, meaning a signal has triggered and price is holding beyond its trigger. 4: the next trigger in the direction of the higher timeframes, on the lowest timeframe that has one. That is the level to watch, not a recommendation to trade. Turn this row off in the settings (Explain Row) once you no longer need it. TheStrat was created by Rob Smith.")\n'
+     '            table.cell(barTypeTable, 0, row, ezAlign + ezTrendLine + ezForce + ezWatch + ezNext, text_color = #cccccc, bgcolor = #111111, text_size = textSize, text_halign = text.align_left, tooltip = "A plain-English read of the table, in the order to ask the questions. 1: do the timeframes agree. 2: which way are the higher timeframes going. 3: what is in force, meaning a signal has triggered and price is holding beyond its trigger. A line such as 1H hammer: above 204.10 means the last closed 1H bar is a hammer and a break above that price is its trigger. 4: Next up or Next down is the next trigger in the direction of the higher timeframes, on the lowest timeframe that has one. That is the level to watch, not a recommendation to trade. Turn this row off in the settings (Explain Row) once you no longer need it. TheStrat was created by Rob Smith.")\n'
      "            row += 1\n"),
 
     # Preview row hover.
