@@ -8,15 +8,16 @@ Status: v0.1.0, not yet published on TradingView.
 
 ## What it shows
 
-- Four timeframes, picked by one **Style** setting. The default, TheStrat Classic, is
+- Four timeframes, picked by one **Timeframes** setting. The default, TheStrat Classic, is
   60-minute, Day, Week and Month. Day Trade, Swing Trade, Investing and Custom are the others.
 - Reversals and inside bar breaks, always on. 2-2 Continuations, Failing 2s and 3-2
   Expansions are optional and have no filters.
 - Magnitude and exhaustion targets, Take Action Windows, stops (on by default), Preview Mode.
 - Bar numbers on the last 50 chart candles (on by default).
-- The data table in one of two styles. **Simple** (default) has one line per timeframe:
-  Before (the bar or bars leading in, with HAM or SHO), then Now (the current bar,
-  highlighted). Read together they are the combo. **Detailed** is the Suite's five-column table.
+- The data table in one of two styles. **Simple** (default) has one line per timeframe: the
+  combo, oldest bar first, with the current bar highlighted at the end (3-1-2u), and a Prior
+  column that says Hammer or Shooter when the bar before the current one is one.
+  **Detailed** is the Suite's five-column table.
 - An **Explain Row** under the table that sums it up in plain English.
 - Alerts: Signal In-Force (Any, Bullish, Bearish), New Potential, and the four FTFC alerts.
 
