@@ -6,7 +6,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
 // GENERATED FILE. Do not edit by hand. Built by ez-mode/build_ez.py from TheStrat Suite
-// (pine/TheStratSuite_v3.1.1.pine), so the engine is the Suite's engine. Fix the Suite, then rebuild.
+// (pine/TheStratSuite_v3.2.0.pine), so the engine is the Suite's engine. Fix the Suite, then rebuild.
 //
 // TheStrat was created by Rob Smith. This script is a learning tool for his method:
 // every candle is a 1 (took neither side of the bar before it), a 2 (took one side) or a
