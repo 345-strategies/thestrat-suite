@@ -1,4 +1,4 @@
-# TheStrat Suite EZ Mode - Learn TheStrat
+# TheStrat Suite EZ Mode - Learn TheStrat Combos, Setups & FTFC
 
 TheStrat Suite with 19 settings instead of 139, plus hover text that explains what is on
 the chart. It is for people who are new to TheStrat or who want the Suite's read without the

@@ -1,5 +1,5 @@
 //@version=6
-// TheStrat Suite EZ Mode - Learn TheStrat - v0.1.0
+// TheStrat Suite EZ Mode - Learn TheStrat Combos, Setups & FTFC - v0.1.0
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -24,7 +24,7 @@
 //
 // Documentation: thestratsuite.com
 
-indicator("TheStrat Suite EZ Mode - Learn TheStrat", shorttitle = "TheStrat Suite EZ", overlay = true, max_labels_count = 200, max_lines_count = 200, max_boxes_count = 200, max_bars_back = 200)
+indicator("TheStrat Suite EZ Mode - Learn TheStrat Combos, Setups & FTFC", shorttitle = "TheStrat Suite EZ", overlay = true, max_labels_count = 200, max_lines_count = 200, max_boxes_count = 200, max_bars_back = 200)
 
 // GRAMMAR-LIB-1 (2026-08-18): bar classification, hammers/shooters, and FTFC now come
 // from the TheStratGrammar library - one classifier, spec-tested against the Python

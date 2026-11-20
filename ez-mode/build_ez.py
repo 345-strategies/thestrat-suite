@@ -26,7 +26,7 @@ ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_SOURCE = ROOT / "pine" / "TheStratSuite_v3.1.1.pine"
 EZ_VERSION = "0.1.0"
 OUTPUT = Path(__file__).resolve().parent / f"TheStratSuite_EZ_v{EZ_VERSION}.pine"
-TITLE = "TheStrat Suite EZ Mode - Learn TheStrat"
+TITLE = "TheStrat Suite EZ Mode - Learn TheStrat Combos, Setups & FTFC"
 
 INPUT_RE = re.compile(r"^(\w+) = input\.(\w+)\((.*)$")
 
