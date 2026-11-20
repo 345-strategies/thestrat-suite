@@ -14,7 +14,7 @@ Setup guides and background: [thestratsuite.com](https://thestratsuite.com)
 
 ### Quick start
 
-1. Add [the indicator](https://www.tradingview.com/script/dnJOzGmk-TheStrat-Suite-Open-Source-Entries-Targets-and-Stop-Loss/) to your chart on TradingView — or copy `pine/TheStratSuite_v3.1.1.pine` into the Pine editor (it imports TheStratGrammar, published on TradingView).
+1. Add [the indicator](https://www.tradingview.com/script/dnJOzGmk-TheStrat-Suite-Open-Source-Entries-Targets-and-Stop-Loss/) to your chart on TradingView — or copy `pine/TheStratSuite_v3.2.0.pine` into the Pine editor (it imports TheStratGrammar, published on TradingView).
 2. Pick a Timeframe Preset (TheStrat Classic, Scalp, Day Trade, Futures/Crypto, Swing Trade, Investing) — or set Custom and configure the six slots yourself.
 3. Read `docs/concepts/bar-types.md` and `docs/concepts/signals.md` to learn what you're looking at.
 
@@ -36,7 +36,10 @@ tool in this repo, on a Heiken-Ashi chart. Use candles, bars (OHLC) or hollow ca
 
 ### `pine/` — indicator source (newest first)
 
-- **`TheStratSuite_v3.1.1.pine`** — current build. Preview-path bundle: PREVIEW-WEEKCLOSE-1 and
+- **`TheStratSuite_v3.2.0.pine`** — current build, published 2026-11-18. BARNUM-1 / BARNUM-SHOWN-1
+  (Bar Numbers), CHART-TF-1 (Include Chart Timeframe), OUTSIDE-IF-1 (outside bars in force by one
+  rule), REVSTRAT-122-1 (1-2-2 RevStrat label), SIG-TOOLTIP-1, NO-HA-1 (Heikin Ashi refused).
+- `TheStratSuite_v3.1.1.pine` — published 2026-09-13. Preview-path bundle: PREVIEW-WEEKCLOSE-1 and
   PREVIEW-CALCLOSE-1 (calendar slots preview by scheduled close, so Friday pre-market keeps the
   forming week), AUTO-SESSION-1 (Auto never arms while the chart's bar is open; holidays and
   early closes arm it), LEAD-PREVIEW-1, DOMINO-PREVIEW-1, OPENLINE-PREVIEW-1 (preview slots
@@ -109,6 +112,13 @@ completed 30m/60m/day structure that should hold if the current move is real. A 
 it to the other side; a session reset re-seeds it at the open, at the gap-fill level after a
 gap. Forked from the Classic path of my invalidation stop work. Not published on
 TradingView. See `invalidation-stop/README.md`.
+
+### `ftfc-in-force-study/` — FTFC vs Signals In Force (Pine v6)
+
+A companion study that compares Full Timeframe Continuity with strict signals in force across
+the Hour, Day, Week and Month, and colors candles by whether they agree, with a per-timeframe
+heatmap pane. Published open source on TradingView as "TheStrat: Full Timeframe Continuity
+(FTFC) vs Signals In Force". See `ftfc-in-force-study/README.md`.
 
 ### `docs/`
 

@@ -11,6 +11,13 @@ never auto-upgrade, so when a library updates, sweep the repo for old
 | PineDraw | 2 | `SpinTrades/PineDraw/2` | 2026-08-13 | https://www.tradingview.com/script/L1Yo5Rir-PineDraw/ | `tv-PineDraw-v2` |
 | TheStratGrammar | 1 | `SpinTrades/TheStratGrammar/1` | 2026-08-24 | https://www.tradingview.com/script/fyVsfy8l-TheStrat-Grammar-Objective-Bar-State-Definitions-and-Notation/ | `tv-TheStratGrammar-v1` |
 
+## Indicators and studies
+
+| Script | Version | Published | Listing | Source |
+|---|---|---|---|---|
+| TheStrat Suite (open source) | v3.2.0 | 2026-11-18 | https://www.tradingview.com/script/dnJOzGmk-TheStrat-Suite-Open-Source-Entries-Targets-and-Stop-Loss/ | `pine/TheStratSuite_v3.2.0.pine` |
+| TheStrat: Full Timeframe Continuity (FTFC) vs Signals In Force | v0.3.1 | 2026-11-05 | https://www.tradingview.com/script/1EMdC3R7-TheStrat-Full-Timeframe-Continuity-FTFC-vs-Signals-In-Force/ | `ftfc-in-force-study/FTFC_vs_InForce_v0.3.1.pine`, description `ftfc-in-force-study/TV_DESCRIPTION.txt` |
+
 ## Notes
 
 **TheStratGrammar v1.** The publication title is

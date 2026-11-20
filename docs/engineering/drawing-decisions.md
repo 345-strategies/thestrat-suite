@@ -2,7 +2,7 @@
 
 Why a level or label is on your chart — and, more often the interesting question, why it isn't. Every line and label passes through one decision funnel; this doc walks the funnel stage by stage and names the rule (and the `FIX` tag or design constraint) behind each suppression.
 
-Written against `pine/TheStratSuite_v3.1.1.pine`. Code references are function names and `FIX` tags; grep the source for them. Signal semantics are in `../concepts/signals.md`; bar-type notation in `../concepts/bar-types.md`.
+Written against `pine/TheStratSuite_v3.2.0.pine`. Code references are function names and `FIX` tags; grep the source for them. Signal semantics are in `../concepts/signals.md`; bar-type notation in `../concepts/bar-types.md`.
 
 Two design constraints from `../DESIGN_CONSTRAINTS.md` frame everything here:
 

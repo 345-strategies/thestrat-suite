@@ -4,7 +4,7 @@
 
 This reference documents every setting in the TheStrat Suite indicator, grouped in the order the panels appear in the TradingView settings dialog. Each entry lists the default value and available options, what the setting does, and when to use it. New to TheStrat? Start with the **Overview** and **TheStrat Concepts (Primer)** below.
 
-Written against `pine/TheStratSuite_v3.1.1.pine`. Where behavior traces to a specific fix, the `FIX` tag is cited; grep the source for it.
+Written against `pine/TheStratSuite_v3.2.0.pine`. Where behavior traces to a specific fix, the `FIX` tag is cited; grep the source for it.
 
 ---
 

@@ -2,7 +2,7 @@
 
 How the Suite reads six timeframes from one chart without serving stale, misaligned, or fabricated data — and the traps in `request.security` that make this the hardest part of the codebase.
 
-Written against `pine/TheStratSuite_v3.1.1.pine`. Companion postmortem: `../v2.2.3_holiday_glue_fix.md`. Repaint fundamentals live in `repaint-prevention.md`; this doc assumes them.
+Written against `pine/TheStratSuite_v3.2.0.pine`. Companion postmortem: `../v2.2.3_holiday_glue_fix.md`. Repaint fundamentals live in `repaint-prevention.md`; this doc assumes them.
 
 ---
 
