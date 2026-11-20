@@ -4,7 +4,7 @@ TheStrat Suite with 19 settings instead of 139, plus hover text that explains wh
 the chart. It is for people who are new to TheStrat or who want the Suite's read without the
 setup. TheStrat was created by Rob Smith.
 
-Status: v0.1.0, not yet published on TradingView.
+Status: v0.1.0, published on TradingView 2026-11-19: https://www.tradingview.com/script/pbY4Eg5N-TheStrat-Suite-EZ-Mode-Learn-TheStrat-Combos-Setups-FTFC/
 
 ## What it shows
 
