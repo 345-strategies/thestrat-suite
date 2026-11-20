@@ -152,7 +152,7 @@ ezTF2 = input.timeframe("D", "Timeframe 2", group = grpEZSetup, active = ezCusto
 ezTF3 = input.timeframe("W", "Timeframe 3", group = grpEZSetup, active = ezCustom)
 ezTF4 = input.timeframe("M", "Timeframe 4 (highest)", group = grpEZSetup, active = ezCustom)
 tfPreset = "Custom"
-labelStyleMode = input.string("Strat Numbers", "Labels", options = ["Strat Numbers", "Plain Words"], group = grpEZSetup, tooltip = "Strat Numbers: labels use Strat notation, for example 2d-2u, MAG and EXH. Plain Words: words instead. TARGET is magnitude, FINAL is exhaustion, REV is a reversal, CONT a continuation, INS an inside bar break, EXP an expansion, OUT an outside bar.")
+labelStyleMode = "Strat Numbers"
 simpleLabelMode = labelStyleMode == "Plain Words"
 // FEATURE CHART-TF-1 (2026-11-05): the chart's own timeframe as one of the six slots. Lives in the
 // Preset group, not Timeframes, because it works with every preset as well as Custom.

@@ -80,7 +80,8 @@ def style_tf(classic: str, day: str, swing: str, invest: str, custom: str) -> st
 OVERRIDES: dict[str, str] = {
     "tfPreset": SETUP_BLOCK,
     "includeChartTF": 'includeChartTF = input.bool(true, "Add Chart Timeframe", group = grpEZSetup, tooltip = "Adds the timeframe you are viewing as a fifth timeframe, so the candles on your chart get their own levels and a row in the table. It follows the chart when you change timeframes. If the chart timeframe is already one of your four, nothing changes.")',
-    "labelStyleMode": 'labelStyleMode = input.string("Strat Numbers", "Labels", options = ["Strat Numbers", "Plain Words"], group = grpEZSetup, tooltip = "Strat Numbers: labels use Strat notation, for example 2d-2u, MAG and EXH. Plain Words: words instead. TARGET is magnitude, FINAL is exhaustion, REV is a reversal, CONT a continuation, INS an inside bar break, EXP an expansion, OUT an outside bar.")',
+    # Labels always use Strat notation (2d-2u, MAG, EXH); the Plain Words option was removed.
+    "labelStyleMode": 'labelStyleMode = "Strat Numbers"',
     # Four slots on, lowest to highest; slots 5 and 6 stay off.
     "tf1Enabled": "tf1Enabled = true",
     "tf2Enabled": "tf2Enabled = true",
